@@ -1,0 +1,21 @@
+/** True things about Mars. One appears each sol, so a full mission teaches thirty of them at most. */
+export const FACTS: string[] = [
+  'A sol is 24 hours and 39 minutes long. Mars spins just a bit slower than Earth.',
+  'Sunsets on Mars are blue. The fine dust scatters blue light forward, toward your eyes.',
+  'Mars gets less than half the sunlight Earth does, so solar panels there make less power.',
+  'The air on Mars is 95% carbon dioxide. You could not breathe it.',
+  'NASA\'s MOXIE machine, on the Perseverance rover, made real oxygen out of Mars air: 122 grams over 16 runs.',
+  'A radio message between Mars and Earth takes from 4 to 24 minutes each way. In an emergency, the crew decides alone.',
+  'Mars has no magnetic shield like Earth\'s, and its air is about 100 times thinner. That is why space radiation reaches the ground.',
+  'The Curiosity rover carries a radiation detector called RAD. It measured about 0.67 millisieverts every day at Gale Crater.',
+  'Gravity on Mars is 38% of Earth\'s. If you weigh 80 pounds on Earth, you would weigh about 30 on Mars.',
+  'The Opportunity rover was built to last 90 sols. It kept going for more than 5,000.',
+  'Astronauts on the International Space Station have grown and eaten lettuce in a plant chamber called Veggie.',
+  'A year on Mars lasts 687 Earth days. That is nearly two Earth years.',
+  'Mars is cold. The average temperature is around minus 80 degrees Fahrenheit.',
+  'Light from the Sun takes about 12 and a half minutes to reach Mars.',
+  'Piling Mars dirt, called regolith, over a habitat is one way engineers plan to block radiation.',
+  'Dust storms on Mars can grow until they cover the whole planet. That happened in 2018.',
+  'NASA limits how much radiation an astronaut may soak up in a whole career: 600 millisieverts.',
+  'Mars has the tallest volcano in the solar system, Olympus Mons. It is about two and a half times as tall as Mount Everest.',
+];

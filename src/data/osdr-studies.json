@@ -1,0 +1,128 @@
+{
+  "source": "NASA Open Science Data Repository (OSDR)",
+  "sourceUrl": "https://osdr.nasa.gov/",
+  "fetchedAt": "2026-11-14T22:14:19.585Z",
+  "studies": [
+    {
+      "id": "OSD-198",
+      "system": "air",
+      "teaches": "In a pretend planetary habitat, 14 volunteers lived with low oxygen for 21 days and scientists found changes inside their muscles. That is why crew get weak when the air runs thin.",
+      "title": "Effects of bedrest and hypoxia on human skeletal muscle miRNA expression",
+      "summary": "The present study concerns the effects of 21 days of sustained recumbence (bedrest) and hypoxia, alone and in combination, on skeletal muscle microRNA expression. 14 male subjects participated in 3 experimental campaigns in a counterbalanced fashion: normoxic bedrest (NBR), hypoxic bedrest (HBR) and hypoxic ambulatory confinement (HAMB), both hypoxic conditions with FO2 equals 0.141 and PIO2 equals 90 ± 0.4 mmHg, ...",
+      "releaseDate": "04-May-2016",
+      "factors": [
+        "Experimental Campaign",
+        "Bed Rest",
+        "Time"
+      ],
+      "publications": [
+        {
+          "title": "PlanHab (Planetary Habitat Simulation): the combined and separate effects of 21 days bed rest and hypoxic confinement on human skeletal muscle miRNA expression",
+          "doi": "10.14814/phy2.12753"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-198"
+    },
+    {
+      "id": "OSD-720",
+      "system": "radiation",
+      "teaches": "In mice, one dose of space-type radiation left changes in the heart that were still there almost two years later. That is why radiation damage in the game never heals.",
+      "title": "Long-lasting sex-specific alteration in left ventricular cardiac transcriptome following gamma and simGCRsim radiation",
+      "summary": "Space irradiation (IR) is an important health risk for deep-space missions. We reported heart failure with preserved ejection fraction like cardiac phenotype 660-days following exposure to a single-dose of a simplified galactic cosmic ray simulation (simGCRsim) only in males with functional and structural impairment in left ventricular (LV) function. This sex-based dichotomy prompted us to investigate sex-specific ...",
+      "releaseDate": "17-Jul-2024",
+      "factors": [
+        "Ionizing Radiation",
+        "Sex",
+        "Time of Sample Collection After Treatment"
+      ],
+      "publications": [
+        {
+          "title": "Long-lasting sex-specific alteration in left ventricular cardiac transcriptome following gamma and simGCRsim radiation",
+          "doi": "10.1038/s41598-025-89815-2"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-720"
+    },
+    {
+      "id": "OSD-360",
+      "system": "radiation",
+      "teaches": "In mice, even low doses of space radiation changed how the body works. That is why the small dose your crew soak up every sol still counts.",
+      "title": "Effects of low dose space radiation exposures on the splenic metabolome",
+      "summary": "Future space missions will include return to the Moon and long duration deep space roundtrip missions to Mars. Leaving the protection that Low Earth Orbit provides will unavoidably expose astronauts to higher cumulative doses of space radiation, in addition to other stressors, e.g. microgravity. Immune regulation is known to be impacted and it remains to be seen whether prolonged effects will be encountered in deep ...",
+      "releaseDate": "07-Apr-2022",
+      "factors": [
+        "Ionizing Radiation",
+        "Absorbed Radiation Dose",
+        "Time of Sample Collection After Treatment"
+      ],
+      "publications": [
+        {
+          "title": "Effects of Low Dose Space Radiation Exposures on the Splenic Metabolome.",
+          "doi": "10.3390/ijms22063070"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-360"
+    },
+    {
+      "id": "OSD-569",
+      "system": "vitals",
+      "teaches": "Doctors tracked the blood of the four Inspiration4 astronauts before, during and after flight. Watching vitals is how real mission doctors spot trouble early.",
+      "title": "Whole Blood Measurements from the SpaceX Inspiration4 Mission (RNA-seq, epitranscriptome, WGS, clonal hematopoiesis, CBC)",
+      "summary": "The SpaceX Inspiration4 mission was a 3-day mission with four private astronauts to low Earth orbit that occurred in September 2021. The crew collected biospecimen samples before, during, and after flight. One of these biospecimen collections included whole blood collected via venipuncture into PaxGene Blood RNA tubes (BD Biosciences, #762165), collected pre-flight (L-92, L-44, L-3) and post-flight (R+1, R+45, R+82, ...",
+      "releaseDate": "14-May-2024",
+      "factors": [
+        "Time",
+        "Spaceflight"
+      ],
+      "publications": [
+        {
+          "title": "The Space Omics and Medical Atlas (SOMA) and international astronaut biobank",
+          "doi": "10.1038/s41586-024-07639-y"
+        },
+        {
+          "title": "Direct RNA sequencing of astronauts reveals spaceflight-associated m6A increases and hematopoietic transcriptional responses",
+          "doi": "10.1038/s41467-024-48929-3"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-569"
+    },
+    {
+      "id": "OSD-268",
+      "system": "food",
+      "teaches": "Astronauts grew and ate red romaine lettuce on the International Space Station. Your greenhouse does the same job.",
+      "title": "Microbiological and nutritional analysis of lettuce crops grown on the International Space Station-VEG01B",
+      "summary": "Lettuce crops grown in the Veggie payload aboard ISS, harvested and returned for chemical, microbiological and molecular analysis",
+      "releaseDate": "21-Feb-2020",
+      "factors": [
+        "Spaceflight",
+        "Organism Part"
+      ],
+      "publications": [
+        {
+          "title": "Microbiological and Nutritional Analysis of Lettuce Crops Grown on the International Space Station.",
+          "doi": "10.3389/fpls.2020.00199"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-268"
+    },
+    {
+      "id": "OSD-134",
+      "system": "food",
+      "teaches": "Plants get stressed in thin, low-pressure air like the air on Mars. That is why the greenhouse needs power to keep plants happy.",
+      "title": "Dissecting Low Atmospheric Pressure Stress: Transcriptome Responses to the Components of Hypobaria in Arabidopsis [Experiment 1]",
+      "summary": "Controlled hypobaria presents biology with an environment that is never encountered in terrestrial ecology, yet the apparent components of hypobaria are stresses typical of terrestrial ecosystems. High altitude, for example, presents terrestrial hypobaria always with hypoxia as a component stress, since the relative partial pressure of O2 is constant in the atmosphere. Laboratory-controlled hypobaria, however, allows ...",
+      "releaseDate": "11-May-2017",
+      "factors": [
+        "Atmospheric Pressure",
+        "Organism Part"
+      ],
+      "publications": [
+        {
+          "title": "Dissecting Low Atmospheric Pressure Stress: Transcriptome Responses to the Components of Hypobaria in Arabidopsis",
+          "doi": "10.3389/fpls.2017.00528"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-134"
+    }
+  ]
+}
