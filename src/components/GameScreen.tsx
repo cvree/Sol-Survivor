@@ -1,18 +1,22 @@
 import { useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { recordById } from '../data/records';
 import { useGame } from '../store/game';
-import { Alerts } from './Alerts';
-import { Crew } from './Crew';
+import { BottomBar } from './BottomBar';
+import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
-import { Hud } from './Hud';
-import { Outpost } from './Outpost';
-import { BriefPanel, BuildPanel, DataPanel } from './Panels';
+import { Header } from './Header';
+import { DataPanel, EventCard, EVENT_TITLE } from './Panels';
+import { Scene } from './Scene';
+import { TOUR } from './tour';
 
 export function GameScreen() {
   const game = useGame((s) => s.game);
   const panel = useGame((s) => s.panel);
   const paused = useGame((s) => s.paused);
-  const notice = useGame((s) => s.notice);
+  const party = useGame((s) => s.party);
   const tick = useGame((s) => s.tick);
+  const open = useGame((s) => s.open);
   const setPaused = useGame((s) => s.setPaused);
 
   useEffect(() => {
@@ -29,32 +33,56 @@ export function GameScreen() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement;
-      if (e.code === 'KeyP' && !el.closest('input, dialog')) setPaused(!useGame.getState().paused);
+      if (e.code === 'KeyP' && !(e.target as HTMLElement).closest('dialog')) setPaused(!useGame.getState().paused);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [setPaused]);
 
+  // Training steps that wait for the player move on by themselves once the thing is done.
+  const tour = useGame((s) => s.tour);
+  const picked = useGame((s) => s.picked);
+  const setTour = useGame((s) => s.setTour);
+  const stepDone = !!game && tour !== null && !!TOUR[tour].done?.(game, picked);
+  useEffect(() => {
+    if (!stepDone || tour === null) return;
+    const t = setTimeout(() => setTour(tour + 1), 900);
+    return () => clearTimeout(t);
+  }, [stepDone, tour, setTour]);
+
   if (!game) return null;
   const over = game.status !== 'playing';
   const critical = game.crew.some((c) => c.spo2 < 86 || c.health < 30);
+  const live = game.events.filter((e) => e.phase === 'warned' || e.phase === 'active');
 
   return (
     <div className={`game ${critical && !over ? 'critical' : ''}`}>
-      <Hud game={game} />
-      <main className="play">
-        <div className="stage">
-          <Outpost game={game} />
-          <Alerts game={game} />
-          {paused && !over && <div className="paused-tag">Paused. You can still switch things on and off. Press P to play.</div>}
-          {notice && <div key={notice.at} className="notice" role="status">{notice.text}</div>}
+      <Header game={game} />
+      <main className="stage">
+        <Scene game={game} />
+        <div className="alerts" role="alert">
+          <AnimatePresence>
+            {live.map((e) => {
+              const warned = e.phase === 'warned';
+              const left = warned ? e.startAt - game.time : e.endAt - game.time;
+              const span = warned ? e.startAt - e.warnAt : e.endAt - e.startAt;
+              return (
+                <motion.button key={e.id} className={`alert ${warned ? 'incoming' : 'active'}`} onClick={() => open({ type: 'data', recordId: e.recordId })}
+                  initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
+                  <strong>{EVENT_TITLE[e.kind]} {warned ? 'incoming' : 'is here'}</strong>
+                  <span className="alert-real">{e.recordId.startsWith('no-snapshot') ? 'See the data' : `Real event: ${recordById(e.recordId)?.date}`}</span>
+                  <span className="alert-bar"><i style={{ width: `${Math.max(0, Math.min(1, left / span)) * 100}%` }} /></span>
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
         </div>
-        <Crew game={game} />
+        {paused && !over && <div className="paused-tag">Paused. You can still flip switches. Press P to play.</div>}
+        <Confetti burst={party} />
       </main>
+      <BottomBar game={game} />
       {over && !panel && <Debrief game={game} />}
-      {panel?.type === 'brief' && <BriefPanel game={game} eventId={panel.eventId} />}
-      {panel?.type === 'build' && <BuildPanel game={game} slot={panel.slot} />}
+      {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'data' && <DataPanel recordId={panel.recordId} />}
     </div>
   );

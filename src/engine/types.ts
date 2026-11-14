@@ -1,13 +1,13 @@
-export type ModuleKind = 'solar' | 'oxygen' | 'greenhouse' | 'heater' | 'shield' | 'medbay';
+export type ModuleKind = 'solar' | 'oxygen' | 'greenhouse' | 'heater' | 'shield' | 'medbay' | 'lab';
+
+/** What the player chose to pack on the lander. Counts per item. */
+export type PayloadId = 'shield' | 'medbay' | 'solar' | 'lab' | 'battery' | 'tank';
+export type Loadout = Record<PayloadId, number>;
 
 export interface ModuleState {
   id: string;
   kind: ModuleKind;
-  /** 0-2 are surface pads (solar only). 3-8 are rooms inside the habitat. */
-  slot: number;
   on: boolean;
-  /** Sols of building work left. 0 means ready. */
-  buildLeft: number;
   /** Game time when it was last switched on. Newest loads trip first in a brownout. */
   onSince: number;
 }
@@ -68,7 +68,7 @@ export interface LogEntry {
 
 export interface Stats {
   brownouts: number;
-  builds: number;
+  stormsBeaten: number;
   airOutSols: number;
   coldSols: number;
   lowestLife: number;
@@ -93,8 +93,10 @@ export interface GameState {
   log: LogEntry[];
   stats: Stats;
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
-  pulse: { brownout: number; denied: number; hit: number };
-  nextId: number;
+  pulse: { brownout: number; denied: number; hit: number; survived: number };
+  loadout: Loadout;
+  /** Science points earned by the lab. The reason the outpost exists. */
+  science: number;
 }
 
 export interface PowerInfo {

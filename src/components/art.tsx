@@ -1,109 +1,114 @@
-import type { ModuleKind, Triage } from '../engine/types';
+import { motion } from 'motion/react';
+import { BedSingle, FlaskConical, Flame, HeartPulse, ShieldHalf, Sprout, Sun, Wind, BatteryCharging, Cylinder, type LucideIcon } from 'lucide-react';
+import type { ModuleKind, PayloadId, Triage } from '../engine/types';
 
-/** Small hand-drawn illustrations. `on` lights them up. */
-export function ModuleArt({ kind, on }: { kind: ModuleKind; on: boolean }) {
-  const glow = on ? 1 : 0.25;
-  switch (kind) {
-    case 'solar':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="57" y="40" width="6" height="26" rx="2" fill="#5b4a57" />
-          <rect x="44" y="62" width="32" height="6" rx="3" fill="#463744" />
-          <g transform="rotate(-14 60 30)">
-            <rect x="12" y="12" width="96" height="34" rx="4" fill="#27407a" stroke="#cfe0ff" strokeWidth="2.5" />
-            {[36, 60, 84].map((x) => <line key={x} x1={x} y1="13" x2={x} y2="45" stroke="#cfe0ff" strokeWidth="1.5" opacity=".7" />)}
-            <line x1="13" y1="29" x2="107" y2="29" stroke="#cfe0ff" strokeWidth="1.5" opacity=".7" />
-            <rect x="14" y="14" width="92" height="30" rx="3" fill="#8fc0ff" opacity={0.12 + 0.3 * glow} />
-          </g>
-        </svg>
-      );
-    case 'oxygen':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="22" y="14" width="30" height="50" rx="14" fill="#2f7f79" stroke="#bff5e4" strokeWidth="2.5" />
-          <rect x="68" y="14" width="30" height="50" rx="14" fill="#2f7f79" stroke="#bff5e4" strokeWidth="2.5" />
-          <path d="M52 30h16M52 48h16" stroke="#bff5e4" strokeWidth="3" />
-          <circle cx="37" cy="34" r="7" fill="#12332f" stroke="#bff5e4" strokeWidth="2" />
-          <path d="M37 34l4-4" stroke="#ffcf40" strokeWidth="2" strokeLinecap="round" />
-          <text x="83" y="45" textAnchor="middle" fontSize="13" fontWeight="800" fill="#bff5e4" fontFamily="inherit">O₂</text>
-          {on && [0, 1, 2].map((i) => <circle key={i} className="bubble" style={{ animationDelay: `${i * 0.7}s` }} cx={56 + i * 4} cy="12" r="2.5" fill="#bff5e4" />)}
-        </svg>
-      );
-    case 'greenhouse':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="14" y="8" width="92" height="6" rx="3" fill={on ? '#ff9ad5' : '#5b4a57'} />
-          {on && <path d="M18 14l-6 40h96l-6-40z" fill="#ff9ad5" opacity=".13" />}
-          <rect x="12" y="54" width="96" height="10" rx="4" fill="#6a4630" stroke="#e7c9a0" strokeWidth="2" />
-          {[26, 48, 70, 92].map((x, i) => (
-            <g key={x} transform={`translate(${x} 54)`} opacity={0.45 + 0.55 * glow}>
-              <path d={`M0 0v-${16 + (i % 2) * 8}`} stroke="#3f9b52" strokeWidth="3" strokeLinecap="round" />
-              <path d={`M0 -${10 + (i % 2) * 6}c-9-1-11-8-10-11c7 0 10 5 10 11zM0 -${14 + (i % 2) * 8}c9-1 11-8 10-11c-7 0-10 5-10 11z`} fill="#62d07a" />
-            </g>
-          ))}
-        </svg>
-      );
-    case 'heater':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="24" y="30" width="72" height="32" rx="6" fill="#6b3a2c" stroke="#ffd9b0" strokeWidth="2.5" />
-          {[36, 48, 60, 72, 84].map((x) => <rect key={x} x={x - 3} y="35" width="6" height="22" rx="3" fill={on ? '#ff8a3d' : '#4a2a22'} />)}
-          {on && [42, 60, 78].map((x, i) => (
-            <path key={x} className="heat" style={{ animationDelay: `${i * 0.4}s` }} d={`M${x} 26c-5-5 5-8 0-14`} stroke="#ffb46b" strokeWidth="3" fill="none" strokeLinecap="round" />
-          ))}
-        </svg>
-      );
-    case 'shield':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="44" y="50" width="32" height="14" rx="4" fill="#3b3f73" stroke="#cdd9ff" strokeWidth="2.5" />
-          <path d="M60 10l18 10v12c0 10-8 16-18 20c-10-4-18-10-18-20V20z" fill="#3b4a9a" stroke="#cdd9ff" strokeWidth="2.5" />
-          <path d="M60 18l10 6v8c0 6-4 10-10 13" fill="#8fb0ff" opacity={0.2 + 0.7 * glow} />
-          {on && <circle className="ring" cx="60" cy="30" r="22" fill="none" stroke="#8fb0ff" strokeWidth="2" />}
-        </svg>
-      );
-    case 'medbay':
-      return (
-        <svg viewBox="0 0 120 70" className="art" aria-hidden="true">
-          <rect x="16" y="42" width="66" height="10" rx="4" fill="#f4f0ff" stroke="#5b4a57" strokeWidth="2" />
-          <rect x="16" y="34" width="16" height="10" rx="4" fill="#ffd1dc" stroke="#5b4a57" strokeWidth="2" />
-          <path d="M20 52v12M78 52v12" stroke="#5b4a57" strokeWidth="3" strokeLinecap="round" />
-          <rect x="88" y="14" width="22" height="18" rx="3" fill="#12332f" stroke="#f4f0ff" strokeWidth="2" />
-          <path d="M91 24h4l2-5l3 9l2-4h5" stroke={on ? '#5fe0ae' : '#3c5a54'} strokeWidth="1.8" fill="none" />
-          <path d="M99 32v32" stroke="#5b4a57" strokeWidth="2.5" />
-          <g opacity={0.4 + 0.6 * glow}><rect x="42" y="10" width="20" height="20" rx="5" fill="#ff5d4f" /><path d="M52 14v12M46 20h12" stroke="#fff" strokeWidth="4" strokeLinecap="round" /></g>
-        </svg>
-      );
-  }
+export const INK = '#1d1033';
+
+export const MODULE_ICON: Record<ModuleKind, LucideIcon> = {
+  solar: Sun, oxygen: Wind, greenhouse: Sprout, heater: Flame, shield: ShieldHalf, medbay: HeartPulse, lab: FlaskConical,
+};
+export const PAYLOAD_ICON: Record<PayloadId, LucideIcon> = {
+  shield: ShieldHalf, medbay: BedSingle, solar: Sun, lab: FlaskConical, battery: BatteryCharging, tank: Cylinder,
+};
+
+const SKIN: Record<string, string> = { ada: '#9a6240', kofi: '#6a432c', mei: '#f3cfa6', luis: '#cf9668' };
+const SUIT: Record<string, string> = { ada: '#ffd23f', kofi: '#5ee6a0', mei: '#ff8fb1', luis: '#4fd8ff' };
+
+export interface Look {
+  triage: Triage;
+  /** Cyanosis: lips turn blue in late hypoxia. */
+  blueLips: boolean;
+  /** Radiation burn and nausea. */
+  flushed: boolean;
+  fainted: boolean;
+  shiver: boolean;
+  dizzy: boolean;
 }
 
-const SKIN: Record<string, string> = { ada: '#8d5a3b', kofi: '#5c3a26', mei: '#f0c9a0', luis: '#c98f62' };
-const SUIT: Record<string, string> = { ada: '#ffb347', kofi: '#62d07a', mei: '#ff8fa3', luis: '#8fb0ff' };
-
-/** Crew portrait. The face shows what an EMT would look for: blue lips, flushed skin, closed eyes. */
-export function Face({ id, triage, blueLips, flushed, fainted, shiver }: { id: string; triage: Triage; blueLips: boolean; flushed: boolean; fainted: boolean; shiver: boolean }) {
-  const lip = blueLips ? '#5b7fd6' : '#7a2e2e';
+/** A crew member. `bust` crops to the helmet for portraits. The face is the health display. */
+export function Astronaut({ id, look, bust, size = 48 }: { id: string; look: Look; bust?: boolean; size?: number }) {
+  const lip = look.blueLips ? '#3f6fe0' : INK;
+  const skin = look.blueLips ? '#b9a7c9' : SKIN[id];
   return (
-    <svg viewBox="0 0 64 64" className={`face ${shiver ? 'shiver' : ''}`} aria-hidden="true">
-      <circle cx="32" cy="32" r="30" fill={SUIT[id]} />
-      <circle cx="32" cy="32" r="24" fill="#1b1320" />
-      <circle cx="32" cy="34" r="19" fill={SKIN[id]} />
-      {flushed && <circle cx="32" cy="34" r="19" fill="#ff3d2e" opacity=".38" />}
-      {fainted ? (
-        <path d="M21 31l6 3m-6 0l6-3M37 31l6 3m-6 0l6-3" stroke="#1b1320" strokeWidth="2.4" strokeLinecap="round" />
-      ) : (
+    <motion.svg
+      viewBox={bust ? '2 0 44 40' : '0 0 48 62'}
+      width={size}
+      height={bust ? size * (40 / 44) : size * (62 / 48)}
+      className={look.shiver ? 'shiver' : ''}
+      animate={look.fainted && !bust ? { rotate: 90, y: 14 } : { rotate: 0, y: 0 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 16 }}
+      aria-hidden="true"
+    >
+      {!bust && (
         <>
-          <circle cx="24.5" cy="32" r="2.8" fill="#1b1320" />
-          <circle cx="39.5" cy="32" r="2.8" fill="#1b1320" />
-          {triage !== 'green' && <path d="M20 26l8 2M44 26l-8 2" stroke="#1b1320" strokeWidth="2" strokeLinecap="round" />}
+          <rect x="12" y="34" width="24" height="22" rx="8" fill="#f7f4ec" stroke={INK} strokeWidth="3" />
+          <rect x="18" y="40" width="12" height="8" rx="2" fill={SUIT[id]} stroke={INK} strokeWidth="2" />
+          <path d="M17 56v4M31 56v4" stroke={INK} strokeWidth="5" strokeLinecap="round" />
         </>
       )}
-      {triage === 'green' && <path d="M25 41c4 5 10 5 14 0" stroke={lip} strokeWidth="2.6" fill="none" strokeLinecap="round" />}
-      {triage === 'yellow' && <path d="M26 43h12" stroke={lip} strokeWidth="2.6" strokeLinecap="round" />}
-      {triage === 'red' && <ellipse cx="32" cy="43" rx="4" ry="3" fill={lip} />}
-      <path d="M14 22a22 22 0 0 1 20-13" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" opacity=".35" />
-    </svg>
+      <circle cx="24" cy="20" r="17" fill={SUIT[id]} stroke={INK} strokeWidth="3" />
+      <circle cx="24" cy="21" r="12" fill={skin} stroke={INK} strokeWidth="2.5" />
+      {look.flushed && <circle cx="24" cy="21" r="10.7" fill="#ff2e4d" opacity=".45" />}
+      {look.fainted ? (
+        <path d="M16.5 18l5 3m-5 0l5-3M26.5 18l5 3m-5 0l5-3" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+      ) : look.dizzy ? (
+        <>
+          <circle cx="19" cy="19.5" r="2.6" fill="none" stroke={INK} strokeWidth="1.8" />
+          <circle cx="29" cy="19.5" r="2.6" fill="none" stroke={INK} strokeWidth="1.8" />
+        </>
+      ) : (
+        <>
+          <circle cx="19" cy="19.5" r="2.2" fill={INK} />
+          <circle cx="29" cy="19.5" r="2.2" fill={INK} />
+          {look.triage !== 'green' && <path d="M15.5 15l6 1.5M32.5 15l-6 1.5" stroke={INK} strokeWidth="1.8" strokeLinecap="round" />}
+        </>
+      )}
+      {look.triage === 'green' && <path d="M19 25.5c3 3.4 7 3.4 10 0" stroke={lip} strokeWidth="2.2" fill="none" strokeLinecap="round" />}
+      {look.triage === 'yellow' && <path d="M19.5 27c3-1.6 6-1.6 9 0" stroke={lip} strokeWidth="2.2" fill="none" strokeLinecap="round" />}
+      {look.triage === 'red' && <ellipse cx="24" cy="27" rx="3.2" ry="2.6" fill={lip} />}
+      {(look.flushed || look.dizzy) && !look.fainted && <path d="M36 11c2 3 2 5 0 5.5c-2-.5-2-2.5 0-5.5z" fill="#4fd8ff" stroke={INK} strokeWidth="1.2" />}
+      <path d="M11 13a15 15 0 0 1 9-8" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity=".7" />
+    </motion.svg>
   );
 }
 
-export const EVENT_ICON = { cme: '☀️', flare: '⚡', dust: '🌪️' } as const;
+export type Mood = 'happy' | 'alert' | 'worried' | 'party';
+
+/** M.A.R.V., the Mars Assistant Robot Voice. A little hovering drone that guides the commander. */
+export function Marv({ mood, size = 84 }: { mood: Mood; size?: number }) {
+  const eye = mood === 'alert' ? '#ff2e4d' : '#4fd8ff';
+  return (
+    <motion.svg
+      viewBox="0 0 80 80" width={size} height={size} aria-hidden="true"
+      animate={mood === 'alert' ? { rotate: [-6, 6, -6] } : mood === 'party' ? { y: [0, -10, 0], rotate: [0, 8, -8, 0] } : { y: [0, -5, 0] }}
+      transition={{ duration: mood === 'alert' ? 0.35 : mood === 'party' ? 0.7 : 2.4, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <path d="M40 12V4" stroke={INK} strokeWidth="3.5" strokeLinecap="round" />
+      <circle cx="40" cy="4" r="4" fill={mood === 'alert' ? '#ff2e4d' : '#ffd23f'} stroke={INK} strokeWidth="2.5" />
+      <rect x="4" y="30" width="10" height="18" rx="5" fill="#c2512a" stroke={INK} strokeWidth="3" />
+      <rect x="66" y="30" width="10" height="18" rx="5" fill="#c2512a" stroke={INK} strokeWidth="3" />
+      <rect x="11" y="12" width="58" height="50" rx="18" fill="#f7f4ec" stroke={INK} strokeWidth="3.5" />
+      <rect x="18" y="20" width="44" height="28" rx="11" fill={INK} />
+      {mood === 'happy' && (<><path d="M26 36c2-5 8-5 10 0M44 36c2-5 8-5 10 0" stroke={eye} strokeWidth="3.5" fill="none" strokeLinecap="round" /></>)}
+      {mood === 'party' && (<><path d="M25 37l5.5-7l5.5 7M44 37l5.5-7l5.5 7" stroke="#ffd23f" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>)}
+      {mood === 'alert' && (<><circle cx="31" cy="34" r="6" fill={eye} /><circle cx="49" cy="34" r="6" fill={eye} /></>)}
+      {mood === 'worried' && (<><circle cx="31" cy="35" r="4.5" fill={eye} /><circle cx="49" cy="35" r="4.5" fill={eye} /><path d="M24 27l10 2M56 27l-10 2" stroke={eye} strokeWidth="2.5" strokeLinecap="round" /></>)}
+      <path d={mood === 'worried' || mood === 'alert' ? 'M34 56c4-3 8-3 12 0' : 'M33 54c4 4 10 4 14 0'} stroke={INK} strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M30 66l-4 9M50 66l4 9M40 66v10" stroke="#4fd8ff" strokeWidth="3.5" strokeLinecap="round" opacity=".9" />
+    </motion.svg>
+  );
+}
+
+export function SolarArt({ lit }: { lit: boolean }) {
+  return (
+    <svg viewBox="0 0 120 84" className="solar-art" aria-hidden="true">
+      <rect x="55" y="46" width="10" height="30" fill="#8a7fa6" stroke={INK} strokeWidth="3.5" />
+      <rect x="40" y="72" width="40" height="10" rx="5" fill="#8a7fa6" stroke={INK} strokeWidth="3.5" />
+      <g transform="rotate(-12 60 32)">
+        <rect x="8" y="10" width="104" height="42" rx="6" fill={lit ? '#2f6bd9' : '#4a4070'} stroke={INK} strokeWidth="4" />
+        <path d="M34 10v42M60 10v42M86 10v42M8 31h104" stroke={INK} strokeWidth="2.5" />
+        {lit && <path d="M14 16h14v9H14z M66 37h14v9H66z" fill="#9cc4ff" />}
+      </g>
+    </svg>
+  );
+}

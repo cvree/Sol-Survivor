@@ -1,4 +1,4 @@
-import type { ModuleKind } from './types';
+import type { ModuleKind, PayloadId } from './types';
 
 /** Every balance number lives here. Real-world anchors are marked REAL with a source. */
 
@@ -6,26 +6,37 @@ export const MISSION_SOLS = 30;
 /** Real seconds per sol at 1x speed. REAL: a sol is 24 h 39 min 35 s (NASA Mars facts). */
 export const SOL_SECONDS = 8;
 
-export const SURFACE_SLOTS = [0, 1, 2];
-export const ROOM_SLOTS = [3, 4, 5, 6, 7, 8];
-
 export const POWER_COST: Record<ModuleKind, number> = {
   solar: 0,
   oxygen: 3,
   greenhouse: 2,
   heater: 1,
-  shield: 5,
+  shield: 6,
   medbay: 2,
+  lab: 1,
 };
 export const SOLAR_OUTPUT = 3;
 
-export const BUILD_SOLS = 1.5;
-/** Building is hard work in a spacesuit, so it eats into the life-support reserve. */
-export const BUILD_LIFE_COST = 12;
-/** Every extra room is more space to keep warm and full of air. */
-export const UPKEEP_PER_ROOM = 0.25;
-/** The first few rooms are covered by the lander's own systems. */
-export const UPKEEP_FREE_ROOMS = 3;
+/** A battery gives steady power that dust cannot block. */
+export const BATTERY_OUTPUT = 1;
+export const SCIENCE_PER_SOL = 3;
+
+/**
+ * The lander can only carry so much. REAL: every kilogram sent to Mars costs
+ * fuel, so mission planners argue over each one. Masses here are game values.
+ */
+export const PAYLOAD_LIMIT = 1000;
+export const PAYLOAD_SECONDS = 60;
+export const PAYLOAD: Record<PayloadId, { mass: number; max: number }> = {
+  shield: { mass: 400, max: 1 },
+  medbay: { mass: 250, max: 1 },
+  solar: { mass: 250, max: 1 },
+  lab: { mass: 200, max: 1 },
+  battery: { mass: 150, max: 2 },
+  tank: { mass: 100, max: 3 },
+};
+export const TANK_LIFE = 14;
+export const START_LIFE = 50;
 
 // Life support, in reserve points per sol.
 export const CREW_USE = 1.5;

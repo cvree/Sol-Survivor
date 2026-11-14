@@ -10,19 +10,24 @@ You command a Mars outpost at Gale Crater and must keep four astronauts alive fo
 
 ## How it plays
 
-- **Three resources:** Power, Life support and Shield.
-- **Click a room** to switch it on or off. The Storm Shield needs more power than
-  anything else, so raising it means switching life support off.
-- **Crew vitals** (blood oxygen, heart rate, body temperature, radiation dose) follow
-  an EMT's field notes. A triage colour shows who needs help first, and the Med Bay
-  has one bed.
-- **Emergencies are real records.** Solar flares and solar storms come from NASA
-  DONKI. Dust storms come from NASA rover and lander reports. Each alert has a
-  button that shows the real record behind it.
-- **Every mission is different.** Storms are picked and ordered at random, and the
-  real Sun's last 30 days of flares (fetched live from DONKI) make storms a little
-  stronger or weaker.
-- **Mission debrief** explains why the mission went the way it did.
+1. **Pack the lander.** You have 60 seconds and 1,000 kg. Storm Shield, Med Bay,
+   extra solar array, batteries, oxygen tanks, science lab: you cannot bring it all.
+2. **Training with M.A.R.V.** The outpost robot walks first-time players through
+   power, switches and crew vitals, hands-on, with the clock stopped.
+3. **Run the outpost.** Three resources: Power, Life support and Shield. Click a
+   room to switch it on or off. The Storm Shield needs 6 power, so raising it means
+   switching life support off.
+4. **Watch the crew.** Astronauts stand in their rooms and their faces show how
+   they feel (blue lips, flushed skin, shivering, fainted). Click one for vitals
+   (blood oxygen, heart rate, body temperature, radiation dose) based on an EMT's
+   field notes. The Med Bay has one bed, so you choose who gets it.
+5. **Emergencies are real records.** Solar flares and solar storms come from NASA
+   DONKI, dust storms from NASA rover and lander reports. Every warning stops the
+   clock and shows the real record behind it.
+6. **Mission debrief** ties the result back to what you packed.
+
+Every mission picks different storms in a different order, and the real Sun's last
+30 days of flares (fetched live from DONKI) make storms a little stronger or weaker.
 
 ## NASA data used
 
@@ -51,7 +56,7 @@ The game says this to players too, in the NASA data panel.
 - Time is squeezed: one sol passes in 8 seconds, and the hypoxia timeline that
   takes minutes in real life is stretched over sols.
 - Storm radiation doses are scaled up so one storm matters in a 30-sol game.
-- The Storm Shield is fictional technology.
+- The Storm Shield is fictional technology, and payload masses are game numbers.
 - The three dust storm records were entered by hand and should be checked against
   the linked NASA pages before judging.
 
@@ -70,7 +75,8 @@ npm run build    # production build in dist/
 src/engine/      Pure game rules, no React. constants.ts holds every balance number.
 src/engine/bots.ts + engine.test.ts
                  Simulated players that prove there is no "safe" strategy:
-                 doing nothing always loses, and not every system can be powered at once.
+                 doing nothing always loses whatever you pack, and no loadout with the
+                 shield can power every room at once.
 src/data/        NASA snapshots, glossary, Mars facts.
 src/components/  The screens: HUD, outpost, crew vitals, alerts, data panel, debrief.
 src/store/       Game state and the real-time clock.
