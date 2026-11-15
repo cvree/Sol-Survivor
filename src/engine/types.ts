@@ -1,13 +1,16 @@
-export type ModuleKind = 'solar' | 'oxygen' | 'greenhouse' | 'heater' | 'shield' | 'medbay' | 'lab';
-
-/** What the player chose to pack on the lander. Counts per item. */
-export type PayloadId = 'shield' | 'medbay' | 'solar' | 'lab' | 'battery' | 'tank';
-export type Loadout = Record<PayloadId, number>;
+export type ModuleKind = 'hab' | 'solar' | 'battery' | 'oxygen' | 'hydro' | 'dome' | 'medbay' | 'lab' | 'comms';
+export type Role = 'Engineer' | 'Botanist' | 'Medic' | 'Scientist';
 
 export interface ModuleState {
   id: string;
   kind: ModuleKind;
+  /** Position on the site map: column + row * GRID_COLS. */
+  cell: number;
+  /** The module this one is cabled to. Power runs from the Hab outward. */
+  parent: string | null;
   on: boolean;
+  /** Sols of building work left. 0 means ready. */
+  buildLeft: number;
   /** Game time when it was last switched on. Newest loads trip first in a brownout. */
   onSince: number;
 }
@@ -18,8 +21,14 @@ export type Cause = 'air' | 'cold' | 'radiation';
 export interface CrewState {
   id: string;
   name: string;
-  role: string;
-  /** Resting heart rate, beats per minute. */
+  role: Role;
+  /** Colours for the portrait, so every astronaut looks different. */
+  skin: string;
+  suit: string;
+  /** Game time when they landed. Longer stays wear the body down. */
+  arrived: number;
+  /** Id of the module they are working or resting in. */
+  at: string;
   restHr: number;
   /** 0.88-1.12. Bodies differ, so the same emergency hits each person a bit differently. */
   tolerance: number;
@@ -29,12 +38,11 @@ export interface CrewState {
   temp: number;
   /** Total absorbed radiation, millisieverts. Never goes down. */
   dose: number;
-  /** 0-1 radiation sickness (nausea, burns). Heals properly only in the Med Bay. */
+  /** 0-1 radiation sickness. Heals properly only in the Med Bay. */
   sick: number;
   health: number;
   /** Sols of breathing empty air. Drives the hypoxia stages. */
   noAir: number;
-  /** Health lost to each cause, for the debrief. */
   hurtBy: Record<Cause, number>;
   out: boolean;
   say: { text: string; until: number; mood: 'bad' | 'good' } | null;
@@ -54,10 +62,16 @@ export interface GameEvent {
   /** 0-1, worked out from the real record (flare class, CME speed, dust thickness). */
   strength: number;
   phase: 'pending' | 'warned' | 'active' | 'done';
-  /** Radiation (mSv, crew average) taken during this event. */
   doseTaken: number;
-  /** What the crew would have taken with no shield at all. */
   doseUnshielded: number;
+}
+
+/** What a cargo lander brought. The game waits until the commander has chosen. */
+export interface CargoOffer {
+  number: number;
+  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr'> | null;
+  options: ModuleKind[];
+  picks: number;
 }
 
 export interface LogEntry {
@@ -72,6 +86,7 @@ export interface Stats {
   airOutSols: number;
   coldSols: number;
   lowestLife: number;
+  built: number;
 }
 
 export interface GameState {
@@ -85,18 +100,21 @@ export interface GameState {
   crew: CrewState[];
   /** Life-support reserve (air, water and food), 0-100. */
   life: number;
-  /** Shield strength, 0-100. */
+  /** Shield charge, 0-100. How much of the crew it covers depends on how many domes are on. */
   shield: number;
   events: GameEvent[];
-  /** Crew id resting in the Med Bay bed, if any. */
-  patient: string | null;
+  /** Blueprints delivered but not built yet. */
+  blueprints: ModuleKind[];
+  /** 0-1 progress toward the next cargo lander. */
+  cargoProgress: number;
+  landers: number;
+  offer: CargoOffer | null;
+  science: number;
   log: LogEntry[];
   stats: Stats;
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
-  pulse: { brownout: number; denied: number; hit: number; survived: number };
-  loadout: Loadout;
-  /** Science points earned by the lab. The reason the outpost exists. */
-  science: number;
+  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number };
+  nextId: number;
 }
 
 export interface PowerInfo {
@@ -105,4 +123,6 @@ export interface PowerInfo {
   free: number;
   /** 0-1 share of sunlight reaching the panels. */
   sunlight: number;
+  /** Supply on a clear day, for drawing the lost blocks. */
+  most: number;
 }

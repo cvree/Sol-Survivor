@@ -1,6 +1,5 @@
 import { HYPOTHERMIA_TEMP } from '../engine/constants';
-import { isOn } from '../engine/engine';
-import type { CrewState, GameState, ModuleKind } from '../engine/types';
+import type { CrewState } from '../engine/types';
 import { hypoxiaStage, isFainted, triage } from '../engine/vitals';
 import type { Look } from './art';
 
@@ -17,7 +16,7 @@ export function lookOf(c: CrewState): Look {
   };
 }
 
-/** One short sentence on what is wrong, in a child's words. */
+/** One short phrase on how they are, in a child's words. */
 export function feeling(c: CrewState): string {
   const stage = hypoxiaStage(c.noAir);
   if (c.out) return 'Evacuated';
@@ -30,19 +29,4 @@ export function feeling(c: CrewState): string {
   return 'Feeling good';
 }
 
-const HOME: Record<string, ModuleKind[]> = {
-  ada: ['oxygen'],
-  kofi: ['greenhouse'],
-  mei: ['medbay', 'heater'],
-  luis: ['lab', 'heater'],
-};
-
-/** Which room each crew member is standing in. The Med Bay patient moves to the Med Bay. */
-export function roomOf(game: GameState, crewId: string): string | undefined {
-  if (game.patient === crewId && isOn(game, 'medbay')) return game.modules.find((m) => m.kind === 'medbay')?.id;
-  for (const kind of HOME[crewId] ?? []) {
-    const m = game.modules.find((x) => x.kind === kind);
-    if (m) return m.id;
-  }
-  return game.modules.find((m) => m.kind === 'heater')?.id;
-}
+export const HAPPY: Look = { triage: 'green', blueLips: false, flushed: false, fainted: false, shiver: false, dizzy: false };

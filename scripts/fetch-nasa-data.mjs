@@ -34,6 +34,10 @@ const OSDR_STUDIES = [
   { id: 'OSD-360', system: 'radiation', teaches: 'In mice, even low doses of space radiation changed how the body works. That is why the small dose your crew soak up every sol still counts.' },
   { id: 'OSD-569', system: 'vitals', teaches: 'Doctors tracked the blood of the four Inspiration4 astronauts before, during and after flight. Watching vitals is how real mission doctors spot trouble early.' },
   { id: 'OSD-268', system: 'food', teaches: 'Astronauts grew and ate red romaine lettuce on the International Space Station. Your greenhouse does the same job.' },
+  { id: 'OSD-581', system: 'food', teaches: 'Scientists grew ryegrass in pretend Mars dirt to see how plants cope. Your Hydroponics Bay is how the crew gets fresh food.' },
+  { id: 'OSD-417', system: 'tenure', teaches: 'Mice that flew in space lost bone, and the microbes in their gut changed too. That is why astronauts who have been on Mars longer need more food and care.' },
+  { id: 'OSD-195', system: 'tenure', teaches: 'After 21 days of bed rest, human muscles changed the way they do in space. Bodies that do less work get weaker, so long-stay crew wear down.' },
+  { id: 'OSD-343', system: 'tenure', teaches: 'Looking across many spaceflight experiments, scientists found that the tiny power plants inside cells get stressed in space. Long missions wear the body down from the inside.' },
   { id: 'OSD-134', system: 'food', teaches: 'Plants get stressed in thin, low-pressure air like the air on Mars. That is why the greenhouse needs power to keep plants happy.' },
 ];
 

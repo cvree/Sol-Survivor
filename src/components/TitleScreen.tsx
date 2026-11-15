@@ -3,14 +3,15 @@ import { GraduationCap, Rocket, Satellite } from 'lucide-react';
 import { hasDonki } from '../data/records';
 import { MISSION_SOLS } from '../engine/constants';
 import { useGame } from '../store/game';
-import { Astronaut, Marv, type Look } from './art';
+import { Astronaut, Marv } from './art';
+import { HAPPY } from './crewLook';
 import { DataPanel } from './Panels';
 import { Term } from './Term';
 
-const OK: Look = { triage: 'green', blueLips: false, flushed: false, fainted: false, shiver: false, dizzy: false };
+const CREW = [{ skin: '#9a6240', suit: '#ffd23f' }, { skin: '#f3cfa6', suit: '#ff8fb1' }, { skin: '#6a432c', suit: '#5ee6a0' }, { skin: '#cf9668', suit: '#4fd8ff' }];
 
 export function TitleScreen() {
-  const { goPack, sun, difficulty, setDifficulty, open, panel } = useGame();
+  const { start, sun, difficulty, setDifficulty, open, panel } = useGame();
   return (
     <div className="title">
       <div className="sky" aria-hidden="true">
@@ -23,15 +24,15 @@ export function TitleScreen() {
 
       <motion.div className="title-card" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
         <div className="title-crew" aria-hidden="true">
-          {['ada', 'kofi', 'mei', 'luis'].map((id, i) => (
-            <motion.span key={id} animate={{ y: [0, -6, 0] }} transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.25 }}><Astronaut id={id} look={OK} size={46} /></motion.span>
+          {CREW.map((who, i) => (
+            <motion.span key={i} animate={{ y: [0, -6, 0] }} transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.25 }}><Astronaut who={who} look={HAPPY} size={46} /></motion.span>
           ))}
           <Marv mood="happy" size={70} />
         </div>
         <h1 className="logo">Sol Survivor</h1>
         <p className="title-lede">
-          Pack a lander, fly to Mars, and keep four astronauts alive for {MISSION_SOLS} <Term k="sol">sols</Term>.
-          You will never have enough power for everything.
+          Land on Mars with two astronauts and build a base. Cargo landers bring more crew and new modules.
+          Keep everyone alive for {MISSION_SOLS} <Term k="sol">sols</Term>.
         </p>
 
         <fieldset className="levels">
@@ -47,8 +48,8 @@ export function TitleScreen() {
         </fieldset>
 
         <div className="title-actions">
-          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={goPack}><Rocket /> Play</motion.button>
-          <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> NASA data</motion.button>
+          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => start()}><Rocket /> Play</motion.button>
+          <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
         </div>
 
         <p className="sun-report" aria-live="polite">

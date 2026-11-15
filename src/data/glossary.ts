@@ -11,5 +11,6 @@ export const GLOSSARY: Record<string, { word: string; means: string }> = {
   regolith: { word: 'Regolith', means: 'The loose dust and broken rock that covers Mars. Burying rooms under it helps block radiation.' },
   lifesupport: { word: 'Life support', means: 'Everything that keeps people alive: air to breathe, water and food.' },
   dust: { word: 'Dust storm', means: 'Wind on Mars can lift so much dust that it hides the Sun. Less sunlight means less solar power.' },
+  wear: { word: 'Long-stay wear', means: 'Living off Earth is hard on a body. NASA studies found bones thin, muscles change and cells get stressed (OSDR studies OSD-417, OSD-195 and OSD-343). So the longer someone stays, the more food and care they need. Fresh food helps.' },
   brownout: { word: 'Brownout', means: 'When there is not enough power for everything, so some machines switch off.' },
 };

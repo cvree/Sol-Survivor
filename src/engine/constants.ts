@@ -1,4 +1,4 @@
-import type { ModuleKind, PayloadId } from './types';
+import type { ModuleKind } from './types';
 
 /** Every balance number lives here. Real-world anchors are marked REAL with a source. */
 
@@ -6,50 +6,63 @@ export const MISSION_SOLS = 30;
 /** Real seconds per sol at 1x speed. REAL: a sol is 24 h 39 min 35 s (NASA Mars facts). */
 export const SOL_SECONDS = 8;
 
+// The site map.
+export const GRID_COLS = 5;
+export const GRID_ROWS = 3;
+export const HAB_CELL = 7;
+
+/** Power each module draws when it is on. Generators draw nothing. */
 export const POWER_COST: Record<ModuleKind, number> = {
-  solar: 0,
-  oxygen: 3,
-  greenhouse: 2,
-  heater: 1,
-  shield: 6,
-  medbay: 2,
-  lab: 1,
+  hab: 1, solar: 0, battery: 0, oxygen: 2, hydro: 2, dome: 4, medbay: 2, lab: 2, comms: 1,
 };
-export const SOLAR_OUTPUT = 3;
-
+export const SOLAR_OUTPUT = 4;
 /** A battery gives steady power that dust cannot block. */
-export const BATTERY_OUTPUT = 1;
-export const SCIENCE_PER_SOL = 3;
-
-/**
- * The lander can only carry so much. REAL: every kilogram sent to Mars costs
- * fuel, so mission planners argue over each one. Masses here are game values.
- */
-export const PAYLOAD_LIMIT = 1000;
-export const PAYLOAD_SECONDS = 60;
-export const PAYLOAD: Record<PayloadId, { mass: number; max: number }> = {
-  shield: { mass: 400, max: 1 },
-  medbay: { mass: 250, max: 1 },
-  solar: { mass: 250, max: 1 },
-  lab: { mass: 200, max: 1 },
-  battery: { mass: 150, max: 2 },
-  tank: { mass: 100, max: 3 },
+export const BATTERY_OUTPUT = 2;
+/** The most of each module a base can have. */
+export const MAX_OF: Record<ModuleKind, number> = {
+  hab: 1, solar: 4, battery: 2, oxygen: 2, hydro: 2, dome: 2, medbay: 1, lab: 1, comms: 1,
 };
-export const TANK_LIFE = 14;
-export const START_LIFE = 50;
+/** Modules that astronauts can work in, and how many fit. */
+export const WORK_SLOTS: Partial<Record<ModuleKind, number>> = { oxygen: 2, hydro: 2, lab: 2, medbay: 2 };
+export const BUILD_SOLS = 1;
+
+// Cargo landers.
+export const CARGO_SOLS = 5;
+export const MAX_CREW = 6;
+export const CARGO_PICKS = 2;
+export const CARGO_SUPPLIES = 10;
+/** A staffed lab finds things out faster, and Earth sends the next lander sooner. */
+export const LAB_CARGO_BOOST = 0.35;
+export const SCIENCE_PER_SOL = 3;
 
 // Life support, in reserve points per sol.
 export const CREW_USE = 1.5;
-export const OXYGEN_MAKES = 4.2;
-export const GREENHOUSE_MAKES = 3.4;
+export const OXYGEN_MAKES = 3.4;
+export const HYDRO_MAKES = 3.0;
+export const START_LIFE = 55;
 /** EMT rule: shivering burns through food and energy twice as fast. */
 export const COLD_USE_MULTIPLIER = 2;
+/** A module with nobody in it only half works. The right specialist makes it work better. */
+export const UNSTAFFED = 0.5;
+export const SPECIALIST_BONUS = 0.3;
+/**
+ * Long stays wear the body down, so long-stay crew need more food and care.
+ * REAL: spaceflight studies in NASA's OSDR show bone loss (OSD-417), muscle
+ * changes (OSD-195) and stressed cells (OSD-343). The rate here is a game value.
+ */
+export const WEAR_PER_SOL = 0.014;
+/** Fresh food from a working Hydroponics Bay halves that wear. */
+export const FRESH_FOOD_RELIEF = 0.5;
 
-// Shield strength, points per sol.
+// Shielding.
 export const SHIELD_CHARGE = 135;
 export const SHIELD_FADE = 55;
 /** Share of storm radiation a full shield stops. Nothing blocks all of it. */
 export const SHIELD_BLOCK = 0.92;
+/** One Shield Dome is big enough to cover this many astronauts. */
+export const DOME_COVERS = 4;
+/** A Comms Array hears NASA's storm forecasts sooner. */
+export const COMMS_EXTRA_WARNING = 0.9;
 
 // Radiation.
 /** REAL: Curiosity's RAD instrument measured about 0.67 mSv per day on the surface

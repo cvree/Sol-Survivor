@@ -1,15 +1,32 @@
 import * as K from './constants';
 import { planEvents, type Catalog } from './events';
 import { makeRng } from './rng';
-import type { Cause, CrewState, GameEvent, GameState, Loadout, ModuleKind, ModuleState, PayloadId, PowerInfo } from './types';
+import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role } from './types';
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
-const CREW_SEED = [
-  { id: 'ada', name: 'Ada', role: 'Engineer', restHr: 62 },
-  { id: 'kofi', name: 'Kofi', role: 'Botanist', restHr: 66 },
-  { id: 'mei', name: 'Mei', role: 'Medic', restHr: 60 },
-  { id: 'luis', name: 'Luis', role: 'Pilot', restHr: 68 },
+export type Difficulty = 'cadet' | 'commander';
+type Recruit = NonNullable<CargoOffer['crew']>;
+
+const FIRST_CREW: Recruit[] = [
+  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62 },
+  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60 },
 ];
+const RECRUITS: Recruit[] = [
+  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66 },
+  { id: 'luis', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68 },
+  { id: 'zara', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64 },
+  { id: 'omar', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67 },
+  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61 },
+  { id: 'tala', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65 },
+];
+
+/** Which specialist makes each module work best. */
+export const SPECIALIST: Partial<Record<ModuleKind, Role>> = { oxygen: 'Engineer', hydro: 'Botanist', lab: 'Scientist', medbay: 'Medic' };
+
+export const MODULE_NAME: Record<ModuleKind, string> = {
+  hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
+  dome: 'Shield Dome', medbay: 'Med Bay', lab: 'Science Lab', comms: 'Comms Array',
+};
 
 const LINES = {
   air1: ['I feel a little dizzy...', 'Is the air getting thin in here?'],
@@ -19,53 +36,49 @@ const LINES = {
   airBack: ['Ah, fresh air!', 'I can breathe again!'],
   warm: ['Warming up now, thanks Commander!'],
   well: ['Back to 100%!', 'Feeling much better!'],
+  hello: ['Reporting for duty!', 'Wow, Mars!'],
 };
 
-export type Difficulty = 'cadet' | 'commander';
+function newCrew(r: Recruit, time: number, at: string, tolerance: number): CrewState {
+  return {
+    ...r, arrived: time, at, tolerance,
+    spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
+    hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
+  };
+}
 
-export const EMPTY_LOADOUT: Loadout = { shield: 0, medbay: 0, solar: 0, lab: 0, battery: 0, tank: 0 };
-export const payloadMass = (l: Loadout) => (Object.keys(l) as PayloadId[]).reduce((n, k) => n + l[k] * K.PAYLOAD[k].mass, 0);
-
-export function createGame(seed: number, catalog: Catalog, loadout: Loadout = EMPTY_LOADOUT, activity = 1, difficulty: Difficulty = 'commander'): GameState {
+export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'commander'): GameState {
   const cadet = difficulty === 'cadet';
   const rng = makeRng(seed);
-  const kinds: ModuleKind[] = ['solar', 'solar', 'oxygen', 'greenhouse', 'heater'];
-  if (loadout.solar) kinds.splice(2, 0, 'solar');
-  if (loadout.shield) kinds.push('shield');
-  if (loadout.medbay) kinds.push('medbay');
-  if (loadout.lab) kinds.push('lab');
-  const modules: ModuleState[] = kinds.map((kind, i) => ({
-    id: `m${i}`, kind, on: kind === 'oxygen' || kind === 'greenhouse' || kind === 'heater', onSince: 0,
-  }));
-  const crew: CrewState[] = CREW_SEED.map((c) => ({
-    ...c,
-    tolerance: rng.range(0.88, 1.12),
-    spo2: 98, hr: c.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
-    hurtBy: { air: 0, cold: 0, radiation: 0 },
-    out: false, say: null, lastSaid: '',
-  }));
-  const life = Math.min(100, K.START_LIFE + (cadet ? 15 : 0) + loadout.tank * K.TANK_LIFE);
+  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, parent: kind === 'hab' ? null : 'hab', on, buildLeft: 0, onSince: 0 });
+  const life = K.START_LIFE + (cadet ? 15 : 0);
   return {
     seed,
     time: 1,
     status: 'playing',
     difficulty,
     lostCause: null,
-    modules,
-    crew,
+    modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.HAB_CELL - K.GRID_COLS, false), mod('m2', 'oxygen', K.HAB_CELL + 1, true)],
+    crew: FIRST_CREW.map((c) => newCrew(c, 1, 'hab', rng.range(0.9, 1.1))),
     life,
     shield: 0,
     events: planEvents(rng, catalog, activity, cadet),
-    patient: null,
-    log: [{ t: 1, tone: 'info', text: 'Touchdown at Gale Crater. Keep your crew alive for 30 sols.' }],
-    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life },
-    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0 },
-    loadout,
+    blueprints: [],
+    cargoProgress: 0.15,
+    landers: 0,
+    offer: null,
     science: 0,
+    log: [{ t: 1, tone: 'info', text: 'Touchdown at Gale Crater. Grow the base and keep everyone alive for 30 sols.' }],
+    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0 },
+    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0 },
+    nextId: 3,
   };
 }
 
 // ---------- reading the state ----------
+
+const GENERATOR = (k: ModuleKind) => k === 'solar' || k === 'battery';
+const ready = (m: ModuleState) => m.buildLeft <= 0;
 
 export const activeEvents = (s: GameState, kind?: GameEvent['kind']) =>
   s.events.filter((e) => e.phase === 'active' && (!kind || e.kind === kind));
@@ -78,16 +91,35 @@ export function sunlight(s: GameState): number {
 
 export function power(s: GameState): PowerInfo {
   const light = sunlight(s);
-  const arrays = s.modules.filter((m) => m.kind === 'solar').length;
-  const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + s.loadout.battery * K.BATTERY_OUTPUT;
+  const arrays = s.modules.filter((m) => m.kind === 'solar' && ready(m)).length;
+  const batteries = s.modules.filter((m) => m.kind === 'battery' && ready(m)).length;
+  const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + batteries * K.BATTERY_OUTPUT;
   const used = s.modules.reduce((n, m) => n + (m.on ? K.POWER_COST[m.kind] : 0), 0);
-  return { supply, used, free: supply - used, sunlight: light };
+  return { supply, used, free: supply - used, sunlight: light, most: arrays * K.SOLAR_OUTPUT + batteries * K.BATTERY_OUTPUT };
 }
 
 export const isOn = (s: GameState, kind: ModuleKind) => s.modules.some((m) => m.kind === kind && m.on);
-const countOn = (s: GameState, kind: ModuleKind) => s.modules.filter((m) => m.kind === kind && m.on).length;
+export const count = (s: GameState, kind: ModuleKind) => s.modules.filter((m) => m.kind === kind).length + s.blueprints.filter((b) => b === kind).length;
+export const alive = (s: GameState) => s.crew.filter((c) => !c.out);
+export const workersIn = (s: GameState, moduleId: string) => s.crew.filter((c) => c.at === moduleId && !c.out);
 
-/** Storm radiation arriving at the outpost right now, mSv per sol, before the shield. */
+/** How well a module is working: half with nobody inside, best with the right specialist. */
+export function staffing(s: GameState, m: ModuleState): number {
+  const able = workersIn(s, m.id).filter((c) => !isFainted(c));
+  if (!able.length) return K.UNSTAFFED;
+  return 1 + (able.some((c) => c.role === SPECIALIST[m.kind]) ? K.SPECIALIST_BONUS : 0);
+}
+
+/** Share of the crew the powered Shield Domes are big enough to cover. */
+export function shieldCover(s: GameState): number {
+  const domes = s.modules.filter((m) => m.kind === 'dome' && m.on).length;
+  const crew = alive(s).length;
+  return crew ? Math.min(1, (domes * K.DOME_COVERS) / crew) : 1;
+}
+/** 0-1: the share of storm radiation being blocked right now. */
+export const shieldBlock = (s: GameState) => K.SHIELD_BLOCK * (s.shield / 100) * shieldCover(s);
+
+/** Storm radiation arriving right now, mSv per sol, before the shield. */
 export function stormDose(s: GameState): number {
   let rate = 0;
   for (const e of activeEvents(s)) {
@@ -97,13 +129,39 @@ export function stormDose(s: GameState): number {
   return rate;
 }
 
+/** How much extra food and care a crew member needs after this long on Mars. 1 = just landed. */
+export function wear(s: GameState, c: CrewState): number {
+  const fresh = s.modules.some((m) => m.kind === 'hydro' && m.on);
+  return 1 + Math.max(0, s.time - c.arrived) * K.WEAR_PER_SOL * (fresh ? K.FRESH_FOOD_RELIEF : 1);
+}
+
 /** Life-support change per sol, split up so the UI can explain it. */
 export function lifeFlow(s: GameState) {
-  const alive = s.crew.filter((c) => !c.out);
-  const crewUse = alive.reduce((n, c) => n + K.CREW_USE * (c.temp < K.HYPOTHERMIA_TEMP ? K.COLD_USE_MULTIPLIER : 1), 0);
-  const upkeep = 0;
-  const made = countOn(s, 'oxygen') * K.OXYGEN_MAKES + countOn(s, 'greenhouse') * K.GREENHOUSE_MAKES;
-  return { made, used: crewUse + upkeep, net: made - crewUse - upkeep };
+  const used = alive(s).reduce((n, c) => n + K.CREW_USE * wear(s, c) * (c.temp < K.HYPOTHERMIA_TEMP ? K.COLD_USE_MULTIPLIER : 1), 0);
+  let made = 0;
+  for (const m of s.modules) {
+    if (!m.on) continue;
+    if (m.kind === 'oxygen') made += K.OXYGEN_MAKES * staffing(s, m);
+    if (m.kind === 'hydro') made += K.HYDRO_MAKES * staffing(s, m);
+  }
+  return { made, used, net: made - used };
+}
+
+const neighbours = (cell: number) => {
+  const col = cell % K.GRID_COLS;
+  const out: number[] = [];
+  if (col > 0) out.push(cell - 1);
+  if (col < K.GRID_COLS - 1) out.push(cell + 1);
+  if (cell - K.GRID_COLS >= 0) out.push(cell - K.GRID_COLS);
+  if (cell + K.GRID_COLS < K.GRID_COLS * K.GRID_ROWS) out.push(cell + K.GRID_COLS);
+  return out;
+};
+/** Empty spots next to the base where something could be built. */
+export function buildableCells(s: GameState): number[] {
+  const taken = new Set(s.modules.map((m) => m.cell));
+  const out = new Set<number>();
+  for (const m of s.modules) for (const n of neighbours(m.cell)) if (!taken.has(n)) out.add(n);
+  return [...out].sort((a, b) => a - b);
 }
 
 // ---------- player actions (each returns a new state) ----------
@@ -114,21 +172,12 @@ const log = (s: GameState, tone: GameState['log'][number]['tone'], text: string)
   if (s.log.length > 60) s.log.shift();
 };
 
-export const MODULE_NAME: Record<ModuleKind, string> = {
-  solar: 'Solar Array',
-  oxygen: 'Oxygen Maker',
-  greenhouse: 'Greenhouse',
-  heater: 'Heater',
-  shield: 'Storm Shield',
-  medbay: 'Med Bay',
-  lab: 'Science Lab',
-};
-
 export type ToggleResult = { state: GameState; ok: boolean; reason?: string };
 
 export function toggleModule(prev: GameState, id: string): ToggleResult {
   const target = prev.modules.find((m) => m.id === id);
-  if (!target || target.kind === 'solar' || prev.status !== 'playing') return { state: prev, ok: false };
+  if (!target || GENERATOR(target.kind) || prev.status !== 'playing') return { state: prev, ok: false };
+  if (!ready(target)) return { state: prev, ok: false, reason: 'Still being built.' };
   const s = clone(prev);
   const m = s.modules.find((x) => x.id === id)!;
   if (!m.on) {
@@ -136,29 +185,94 @@ export function toggleModule(prev: GameState, id: string): ToggleResult {
     const need = K.POWER_COST[m.kind];
     if (need > p.free) {
       s.pulse.denied++;
-      const short = need - p.free;
-      return { state: s, ok: false, reason: `Not enough power! Free up ${short} more first.` };
+      return { state: s, ok: false, reason: `Not enough power! Free up ${need - p.free} more first.` };
     }
     m.on = true;
     m.onSince = s.time;
   } else {
     m.on = false;
-    if (m.kind === 'medbay') s.patient = null;
   }
   return { state: s, ok: true };
 }
 
-/** Put one crew member in the Med Bay bed (or pass null to empty it). One bed: that is triage. */
-export function setPatient(prev: GameState, crewId: string | null): GameState {
-  if (prev.status !== 'playing') return prev;
+export function canBuild(s: GameState, kind: ModuleKind, cell: number): string | null {
+  if (!s.blueprints.includes(kind)) return 'You do not have that blueprint.';
+  if (!buildableCells(s).includes(cell)) return 'Build next to a module you already have.';
+  return null;
+}
+
+export function build(prev: GameState, kind: ModuleKind, cell: number): GameState {
+  if (prev.status !== 'playing' || canBuild(prev, kind, cell)) return prev;
   const s = clone(prev);
-  s.patient = crewId && s.crew.some((c) => c.id === crewId && !c.out) ? crewId : null;
+  s.blueprints.splice(s.blueprints.indexOf(kind), 1);
+  const next = s.modules.filter((m) => neighbours(cell).includes(m.cell));
+  const parent = next.find((m) => m.kind === 'hab') ?? next.find((m) => !GENERATOR(m.kind)) ?? next[0];
+  s.modules.push({ id: `m${s.nextId++}`, kind, cell, parent: parent.id, on: false, buildLeft: K.BUILD_SOLS, onSince: 0 });
+  s.stats.built++;
+  log(s, 'info', `Building a ${MODULE_NAME[kind]}.`);
+  return s;
+}
+
+/** Send a crew member to work in a module, or back to the Hab to rest. */
+export function assign(prev: GameState, crewId: string, moduleId: string): GameState {
+  const m = prev.modules.find((x) => x.id === moduleId);
+  const c = prev.crew.find((x) => x.id === crewId);
+  if (!m || !c || c.out || prev.status !== 'playing' || !ready(m)) return prev;
+  if (m.kind !== 'hab') {
+    const slots = K.WORK_SLOTS[m.kind];
+    if (!slots || (c.at !== m.id && workersIn(prev, m.id).length >= slots)) return prev;
+  }
+  const s = clone(prev);
+  s.crew.find((x) => x.id === crewId)!.at = moduleId;
+  return s;
+}
+
+/** Works out what the next lander carries. The first one always offers the essentials. */
+function makeOffer(s: GameState): CargoOffer {
+  const n = s.landers + 1;
+  const rng = makeRng(s.seed + n * 9973);
+  const room = (k: ModuleKind) => count(s, k) < K.MAX_OF[k];
+  const all: ModuleKind[] = ['solar', 'battery', 'oxygen', 'hydro', 'dome', 'medbay', 'lab', 'comms'];
+  let options: ModuleKind[];
+  if (n === 1) options = ['dome', 'hydro', 'solar', rng.pick<ModuleKind>(['battery', 'medbay', 'lab'])];
+  else {
+    const pool = rng.shuffle(all.filter(room));
+    const power = pool.find((k) => k === 'solar' || k === 'battery');
+    options = [...(power ? [power] : []), ...pool.filter((k) => k !== power)].slice(0, 4);
+    // Earth always offers a Shield Dome when the crew has outgrown the ones you have.
+    const crewSoon = Math.min(K.MAX_CREW, s.crew.length + 1);
+    if (!options.includes('dome') && room('dome') && count(s, 'dome') * K.DOME_COVERS < crewSoon) options[options.length - 1] = 'dome';
+  }
+  const taken = new Set(s.crew.map((c) => c.id));
+  const free = rng.shuffle(RECRUITS.filter((r) => !taken.has(r.id)));
+  // The first new arrival is always a Botanist, so the first Hydroponics Bay has its specialist.
+  const recruit = s.crew.length >= K.MAX_CREW ? null : (n === 1 ? free.find((r) => r.role === 'Botanist') : free[0]) ?? null;
+  return { number: n, crew: recruit, options, picks: Math.min(K.CARGO_PICKS, options.length) };
+}
+
+/** Unpack the lander: the new astronaut walks to the Hab and the chosen blueprints are yours. */
+export function acceptCargo(prev: GameState, picks: ModuleKind[]): GameState {
+  const offer = prev.offer;
+  if (!offer) return prev;
+  const s = clone(prev);
+  const chosen = picks.filter((k) => offer.options.includes(k)).slice(0, offer.picks);
+  s.blueprints.push(...chosen);
+  if (offer.crew) {
+    const c = newCrew(offer.crew, s.time, 'hab', makeRng(s.seed + offer.number).range(0.88, 1.12));
+    c.say = { text: LINES.hello[offer.number % 2], until: s.time + 0.8, mood: 'good' };
+    s.crew.push(c);
+    log(s, 'good', `${c.name} the ${c.role} has landed.`);
+  }
+  s.life = Math.min(100, s.life + K.CARGO_SUPPLIES);
+  s.landers = offer.number;
+  s.offer = null;
+  s.cargoProgress = 0;
   return s;
 }
 
 // ---------- the simulation ----------
 
-/** When power drops, the newest loads trip off until the outpost fits its budget. */
+/** When power drops, the newest loads trip off until the base fits its budget. */
 function shedLoad(s: GameState) {
   let p = power(s);
   let tripped = false;
@@ -166,7 +280,6 @@ function shedLoad(s: GameState) {
     const victim = s.modules.filter((m) => m.on && K.POWER_COST[m.kind] > 0).sort((a, b) => b.onSince - a.onSince)[0];
     if (!victim) break;
     victim.on = false;
-    if (victim.kind === 'medbay') s.patient = null;
     log(s, 'bad', `Brownout! The ${MODULE_NAME[victim.kind]} lost power.`);
     tripped = true;
     p = power(s);
@@ -187,8 +300,9 @@ function speak(s: GameState, c: CrewState, key: keyof typeof LINES, mood: 'bad' 
 const EVENT_NAME = { flare: 'Solar flare', cme: 'Solar storm', dust: 'Dust storm' };
 
 function stepEvents(s: GameState) {
+  const early = isOn(s, 'comms') ? K.COMMS_EXTRA_WARNING : 0;
   for (const e of s.events) {
-    if (e.phase === 'pending' && s.time >= e.warnAt) {
+    if (e.phase === 'pending' && s.time >= e.warnAt - early) {
       e.phase = 'warned';
       log(s, 'warn', `${EVENT_NAME[e.kind]} warning!`);
     }
@@ -215,10 +329,12 @@ function hurt(c: CrewState, cause: Cause, amount: number) {
 }
 
 function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: number) {
-  const medOn = isOn(s, 'medbay');
+  const med = s.modules.find((m) => m.kind === 'medbay' && m.on);
+  const medicIn = !!med && workersIn(s, med.id).some((c) => c.role === 'Medic' && !isFainted(c));
   for (const c of s.crew) {
     if (c.out) continue;
-    const inBed = medOn && s.patient === c.id;
+    const inBed = !!med && c.at === med.id;
+    const care = inBed ? (medicIn ? 1.4 : 1) : 0;
 
     // Air
     const wasStage = hypoxiaStage(c.noAir);
@@ -242,12 +358,11 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     if (!cold && wasCold) speak(s, c, 'warm', 'good');
 
     // Radiation: the dose is permanent, the sickness can be treated.
-    const got = (rate / c.tolerance) * dt;
-    c.dose += got;
+    c.dose += (rate / c.tolerance) * dt;
     const acute = Math.max(0, rate - K.BACKGROUND_DOSE);
     const wasSick = c.sick > 0.25;
     if (acute > 8) c.sick = Math.min(1, c.sick + (acute / 70 / c.tolerance) * dt);
-    else c.sick = Math.max(0, c.sick - (inBed ? 0.55 : 0.04) * dt);
+    else c.sick = Math.max(0, c.sick - (care ? 0.55 * care : c.at === 'hab' ? 0.13 : 0.05) * dt);
     if (c.sick > 0.05) hurt(c, 'radiation', 9 * c.sick * dt);
     if (c.sick > 0.25 && !wasSick) speak(s, c, 'rad', 'bad');
 
@@ -255,12 +370,12 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     const cap = maxHealth(c.dose, K.CAREER_LIMIT);
     const stable = stage === 0 && !cold && c.sick < 0.15;
     const before = c.health;
-    if (stable) c.health += (inBed ? 12 : 3.5) * dt;
+    if (stable) c.health += (care ? 12 * care : c.at === 'hab' ? 4.5 : 3) * dt;
     if (c.health > cap) {
       if (before > cap) c.hurtBy.radiation += before - cap;
       c.health = cap;
     }
-    if (stable && before < cap - 0.5 && c.health >= cap - 0.5 && c.lastSaid !== 'well' && c.lastSaid !== '') speak(s, c, 'well', 'good');
+    if (stable && before < cap - 0.5 && c.health >= cap - 0.5 && c.lastSaid !== 'well' && c.lastSaid !== '' && c.lastSaid !== 'hello') speak(s, c, 'well', 'good');
 
     c.hr += (heartRateFor(c) - c.hr) * Math.min(1, 3 * dt);
     if (c.say && c.say.until <= s.time) c.say = null;
@@ -269,13 +384,12 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
       c.health = 0;
       c.out = true;
       c.say = null;
-      if (s.patient === c.id) s.patient = null;
     }
   }
 }
 
 /**
- * Move the outpost forward by `dt` sols. Pure: the same state and dt always
+ * Move the base forward by `dt` sols. Pure: the same state and dt always
  * give the same result, which is what makes the balance testable.
  */
 export function step(prev: GameState, dt: number): GameState {
@@ -285,7 +399,30 @@ export function step(prev: GameState, dt: number): GameState {
 
   stepEvents(s);
 
+  for (const m of s.modules) {
+    if (m.buildLeft > 0) {
+      m.buildLeft = Math.max(0, m.buildLeft - dt);
+      if (m.buildLeft === 0) {
+        s.pulse.built++;
+        log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : '. Switch it on when you have power'}.`);
+      }
+    }
+  }
   shedLoad(s);
+
+  // Cargo: Earth sends a lander every few sols, sooner when the lab is doing science.
+  const lab = s.modules.find((m) => m.kind === 'lab' && m.on);
+  const research = lab && workersIn(s, lab.id).some((c) => !isFainted(c)) ? staffing(s, lab) : 0;
+  s.science += K.SCIENCE_PER_SOL * research * dt;
+  if (!s.offer && s.time < K.MISSION_SOLS - 1) {
+    s.cargoProgress += (dt / K.CARGO_SOLS) * (1 + K.LAB_CARGO_BOOST * research);
+    if (s.cargoProgress >= 1) {
+      s.cargoProgress = 1;
+      s.offer = makeOffer(s);
+      s.pulse.landed++;
+      log(s, 'good', 'A cargo lander has touched down.');
+    }
+  }
 
   // Life support
   const flow = lifeFlow(s);
@@ -293,17 +430,15 @@ export function step(prev: GameState, dt: number): GameState {
   s.stats.lowestLife = Math.min(s.stats.lowestLife, s.life);
   const air = s.life > 0;
   if (!air) s.stats.airOutSols += dt;
-  const heat = isOn(s, 'heater');
+  const heat = isOn(s, 'hab');
   if (!heat) s.stats.coldSols += dt;
 
-  if (isOn(s, 'lab')) s.science += K.SCIENCE_PER_SOL * dt;
-
   // Shield
-  s.shield = Math.max(0, Math.min(100, s.shield + (isOn(s, 'shield') ? K.SHIELD_CHARGE : -K.SHIELD_FADE) * dt));
+  s.shield = Math.max(0, Math.min(100, s.shield + (isOn(s, 'dome') ? K.SHIELD_CHARGE : -K.SHIELD_FADE) * dt));
 
   // Radiation
   const storm = stormDose(s);
-  const stormIn = storm * (1 - K.SHIELD_BLOCK * (s.shield / 100));
+  const stormIn = storm * (1 - shieldBlock(s));
   const rate = K.BACKGROUND_DOSE + stormIn;
   for (const e of activeEvents(s)) {
     if (e.kind === 'dust') continue;
@@ -322,7 +457,7 @@ export function step(prev: GameState, dt: number): GameState {
   } else if (s.time >= K.MISSION_SOLS + 1) {
     s.status = 'won';
     s.time = K.MISSION_SOLS + 1;
-    log(s, 'good', 'Sol 30 complete. The relief crew has landed. You did it, Commander!');
+    log(s, 'good', 'Sol 30 complete. You built a home on Mars!');
   }
   return s;
 }

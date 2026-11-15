@@ -54,7 +54,7 @@ export function planEvents(rng: Rng, catalog: Catalog, activity = 1, cadet = fal
     return chosen;
   };
 
-  const first = 4.6;
+  const first = 7.8;
   const last = MISSION_SOLS - 3.4;
   const gap = (last - first) / (order.length - 1);
   const events: GameEvent[] = [];

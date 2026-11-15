@@ -1,7 +1,7 @@
 {
   "source": "NASA Open Science Data Repository (OSDR)",
   "sourceUrl": "https://osdr.nasa.gov/",
-  "fetchedAt": "2026-11-14T22:14:19.585Z",
+  "fetchedAt": "2026-11-15T04:08:34.797Z",
   "studies": [
     {
       "id": "OSD-198",
@@ -104,6 +104,83 @@
         }
       ],
       "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-268"
+    },
+    {
+      "id": "OSD-581",
+      "system": "food",
+      "teaches": "Scientists grew ryegrass in pretend Mars dirt to see how plants cope. Your Hydroponics Bay is how the crew gets fresh food.",
+      "title": "A molecular study of Italian ryegrass grown on Martian regolith simulant",
+      "summary": "In the last decade, the exploration of deep space has become the objective of the national space programs of many countries. The International Space Exploration Coordination Group has set a roadmap whose long-range strategy envisions the expansion of human presence in the solar system to progress with exploration and knowledge and to accelerate innovation. Crewed missions to Mars could be envisaged by 2040. In this ...",
+      "releaseDate": "07-Nov-2022",
+      "factors": [
+        "soil environment exposure",
+        "Organism Part"
+      ],
+      "publications": [
+        {
+          "title": "A molecular study of Italian ryegrass grown on Martian regolith simulant",
+          "doi": "10.1016/j.scitotenv.2022.158774"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-581"
+    },
+    {
+      "id": "OSD-417",
+      "system": "tenure",
+      "teaches": "Mice that flew in space lost bone, and the microbes in their gut changed too. That is why astronauts who have been on Mars longer need more food and care.",
+      "title": "Specific Host Metabolite and Gut Microbiome Alterations Are Associated with Bone-loss During Spaceflight",
+      "summary": "Understanding the axis of the human microbiome and physiological homeostasis is an essential task in managing deep-space travel associated health risks. The NASA led Rodent Research 5 mission enabled an ancillary investigation of the gut microbiome varying exposure to microgravity (flight) relative to ground controls in the context of previously shown bone mineral density (BMD) loss that was observed in these flight ...",
+      "releaseDate": "19-Apr-2023",
+      "factors": [
+        "Spaceflight",
+        "Time",
+        "Euthanasia Location"
+      ],
+      "publications": [
+        {
+          "title": "Specific host metabolite and gut microbiome alterations are associated with bone loss during spaceflight",
+          "doi": "10.1016/j.celrep.2023.112299"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-417"
+    },
+    {
+      "id": "OSD-195",
+      "system": "tenure",
+      "teaches": "After 21 days of bed rest, human muscles changed the way they do in space. Bodies that do less work get weaker, so long-stay crew wear down.",
+      "title": "Effects of 21 days of bedrest on human skeletal muscle gene expression",
+      "summary": "The present study concerns the effects of 21 days of sustained recumbence (bedrest) on skeletal muscle gene expression. 14 male subjects participated in normoxic bedrest (NBR) with muscle unloading, for 21 days, this is a substudy of tha PlanHab-study which apart from normoxic bedrest also involved hypoxic bedrest and hypoxic ambulation. Throughout both bedrest interventions, each subject remained in a horizontal ...",
+      "releaseDate": "17-Oct-2018",
+      "factors": [
+        "Bed Rest",
+        "Time"
+      ],
+      "publications": [
+        {
+          "title": "PlanHab (Planetary Habitat Simulation): the combined and separate effects of 21 days bed rest and hypoxic confinement on human skeletal muscle miRNA expression",
+          "doi": "10.14814/phy2.12753"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-195"
+    },
+    {
+      "id": "OSD-343",
+      "system": "tenure",
+      "teaches": "Looking across many spaceflight experiments, scientists found that the tiny power plants inside cells get stressed in space. Long missions wear the body down from the inside.",
+      "title": "Comprehensive multi-omics analysis reveals mitochondrial stress as a central biological hub for spaceflight impact",
+      "summary": "Given the limited knowledge of the biological impact of spaceflight, a multi-omics, systems biology approach was used to investigate NASA’s GeneLab data and astronaut biomedical profiles. These data consist of hundreds of samples flown in space, human metrics from 59 astronauts, and confirmatory data from NASA’s Twin Study, analyzed together for consistent transcriptomic, proteomic, metabolomic, and epigenetic ...",
+      "releaseDate": "02-Dec-2020",
+      "factors": [
+        "Spaceflight",
+        "Tissue"
+      ],
+      "publications": [
+        {
+          "title": "Comprehensive Multi-omics Analysis Reveals Mitochondrial Stress as a Central Biological Hub for Spaceflight Impact",
+          "doi": "10.1016/j.cell.2020.11.002"
+        }
+      ],
+      "link": "https://osdr.nasa.gov/bio/repo/data/studies/OSD-343"
     },
     {
       "id": "OSD-134",

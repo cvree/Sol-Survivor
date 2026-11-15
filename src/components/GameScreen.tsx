@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { recordById } from '../data/records';
+import { MODULE_NAME } from '../engine/engine';
 import { useGame } from '../store/game';
 import { BottomBar } from './BottomBar';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
 import { Header } from './Header';
-import { DataPanel, EventCard, EVENT_TITLE } from './Panels';
-import { Scene } from './Scene';
+import { BuildPanel, CargoPanel, DataPanel, EventCard, EVENT_TITLE } from './Panels';
+import { SiteMap } from './SiteMap';
 import { TOUR } from './tour';
 
 export function GameScreen() {
@@ -59,7 +60,10 @@ export function GameScreen() {
     <div className={`game ${critical && !over ? 'critical' : ''}`}>
       <Header game={game} />
       <main className="stage">
-        <Scene game={game} />
+        <SiteMap game={game} />
+        {game.blueprints.length > 0 && (
+          <div className="blueprints">Blueprints ready: {game.blueprints.map((k, i) => <b key={i}>{MODULE_NAME[k]}</b>)}</div>
+        )}
         <div className="alerts" role="alert">
           <AnimatePresence>
             {live.map((e) => {
@@ -83,6 +87,8 @@ export function GameScreen() {
       <BottomBar game={game} />
       {over && !panel && <Debrief game={game} />}
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
+      {panel?.type === 'cargo' && <CargoPanel game={game} />}
+      {panel?.type === 'build' && <BuildPanel game={game} cell={panel.cell} />}
       {panel?.type === 'data' && <DataPanel recordId={panel.recordId} />}
     </div>
   );

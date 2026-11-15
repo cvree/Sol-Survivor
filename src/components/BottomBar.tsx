@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { FastForward, Heart, Pause, Play, Radiation, Satellite, Thermometer, Volume2, VolumeX, Wind, X } from 'lucide-react';
+import { FastForward, Heart, Hourglass, Pause, Play, Radiation, Satellite, Star, Thermometer, Volume2, VolumeX, Wind, X } from 'lucide-react';
 import { FACTS } from '../data/facts';
-import { CAREER_LIMIT } from '../engine/constants';
-import { isOn, power, stormDose } from '../engine/engine';
+import { CAREER_LIMIT, WORK_SLOTS } from '../engine/constants';
+import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workersIn } from '../engine/engine';
 import type { CrewState, GameState } from '../engine/types';
 import { TRIAGE_LABEL, maxHealth, triage } from '../engine/vitals';
 import { useGame } from '../store/game';
@@ -14,24 +14,30 @@ import { TOUR } from './tour';
 /** What M.A.R.V. says when nothing else is going on: the single most useful thing to know right now. */
 function advice(game: GameState, party: boolean): { text: string; mood: Mood } {
   if (party) return { text: 'Storm beaten! Systems stabilized. Great work, Commander!', mood: 'party' };
-  const hasShield = game.modules.some((m) => m.kind === 'shield');
-  if (stormDose(game) > 0 && game.shield < 50) {
-    return { text: hasShield ? 'Radiation is getting in! Switch on the Storm Shield!' : 'Radiation is hitting us and we have no shield. Hang on, crew!', mood: 'alert' };
-  }
-  if (stormDose(game) > 0 && hasShield) return { text: 'The shield is holding! Hang on until the storm passes.', mood: 'worried' };
+  const domes = game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0);
+  const storm = stormDose(game) > 0;
+  if (storm && !domes.length) return { text: 'Radiation is hitting us and we have no Shield Dome. Hang on, crew!', mood: 'alert' };
+  if (storm && game.shield < 50) return { text: 'Radiation is getting in! Switch on a Shield Dome!', mood: 'alert' };
+  if (storm && shieldCover(game) < 1) return { text: `The domes only cover part of the crew. ${domes.some((m) => !m.on) ? 'Switch on the other dome!' : 'We need a second Shield Dome.'}`, mood: 'alert' };
+  if (storm) return { text: 'The shield is holding! Hang on until the storm passes.', mood: 'worried' };
+  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Click a glowing spot on the map to build it.`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
-  if (coming && coming.kind !== 'dust' && hasShield && !isOn(game, 'shield')) return { text: 'Storm on the way! Switch rooms off until the Storm Shield has 6 power, then switch it on.', mood: 'alert' };
+  if (coming && coming.kind !== 'dust' && domes.length && !isOn(game, 'dome')) return { text: 'Storm on the way! Free up 4 power, then switch on the Shield Dome.', mood: 'alert' };
   if (coming && coming.kind === 'dust') return { text: 'Dust storm on the way. Solar power is about to drop.', mood: 'worried' };
   if (game.life <= 0) return { text: 'The air tank is empty! Switch on the Oxygen Maker right now!', mood: 'alert' };
-  if (game.life < 20) return { text: 'Life support is nearly empty. Switch on the Oxygen Maker and Greenhouse.', mood: 'alert' };
+  if (game.life < 20) return { text: 'Life support is nearly empty. Get the Oxygen Maker and Hydroponics on, with crew inside.', mood: 'alert' };
   const red = game.crew.find((c) => triage(c) === 'red');
   if (red) return { text: `${red.name} is in trouble: ${feeling(red).toLowerCase()}. Click ${red.name} to check.`, mood: 'worried' };
-  if (!isOn(game, 'heater')) return { text: 'The Heater is off. The crew are getting colder every sol.', mood: 'worried' };
-  const sick = game.crew.find((c) => c.sick > 0.25);
-  if (sick && game.loadout.medbay && game.patient !== sick.id) return { text: `${sick.name} has radiation sickness. Click ${sick.name}, then send them to the Med Bay.`, mood: 'worried' };
+  if (!isOn(game, 'hab')) return { text: 'The Hab is off, so there is no heat. The crew are getting colder.', mood: 'worried' };
+  const med = game.modules.find((m) => m.kind === 'medbay' && m.buildLeft <= 0);
+  const sick = game.crew.find((c) => c.sick > 0.25 && c.at !== med?.id);
+  if (sick && med) return { text: `${sick.name} has radiation sickness. Click ${sick.name} and send them to the Med Bay.`, mood: 'worried' };
+  const idle = game.modules.find((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(game, m.id).length === 0);
+  const resting = alive(game).find((c) => c.at === 'hab' && triage(c) !== 'red');
+  if (idle && resting) return { text: `Nobody is working in the ${MODULE_NAME[idle.kind]}. Click ${resting.name} and send them there.`, mood: 'happy' };
   const p = power(game);
-  const off = game.modules.find((m) => !m.on && m.kind !== 'solar' && m.kind !== 'shield');
-  if (p.free > 0 && off) return { text: `You have ${p.free} spare power. Is there a room you could switch on?`, mood: 'happy' };
+  const off = game.modules.find((m) => !m.on && m.buildLeft <= 0 && m.kind !== 'dome' && m.kind !== 'solar' && m.kind !== 'battery');
+  if (p.free > 0 && off && p.free >= 1) return { text: `You have ${p.free} spare power. Is there a module you could switch on?`, mood: 'happy' };
   const sol = Math.floor(game.time);
   return { text: `Sol ${sol} log. Did you know? ${FACTS[(sol + game.seed) % FACTS.length]}`, mood: 'happy' };
 }
@@ -48,11 +54,12 @@ function Ecg({ hr }: { hr: number }) {
 }
 
 function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
-  const { pick, treat } = useGame();
+  const { pick, assign } = useGame();
   const t = triage(c);
   const cap = maxHealth(c.dose, CAREER_LIMIT);
-  const medOn = isOn(game, 'medbay');
-  const inBed = medOn && game.patient === c.id;
+  const sols = Math.max(0, Math.floor(game.time - c.arrived));
+  const extra = Math.round((wear(game, c) - 1) * 100);
+  const places = game.modules.filter((m) => m.buildLeft <= 0 && (m.kind === 'hab' || WORK_SLOTS[m.kind]));
   return (
     <motion.section
       className={`vitals-card t-${t}`}
@@ -61,7 +68,7 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
       aria-label={`${c.name}'s vitals`}
     >
       <header>
-        <Astronaut id={c.id} look={lookOf(c)} bust size={54} />
+        <Astronaut who={c} look={lookOf(c)} bust size={54} />
         <div>
           <h3>{c.name} <small>{c.role}</small></h3>
           <p className={`chip t-${t}`}><Term k="triage">{TRIAGE_LABEL[t]}</Term>: {feeling(c)}</p>
@@ -69,13 +76,13 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
         <button className="icon-btn" onClick={() => pick(null)} aria-label="Close"><X /></button>
       </header>
       <div className="tiles">
-        <div className={`tile ${c.spo2 < 94 ? (c.spo2 < 86 ? 'bad' : 'warn') : ''}`}>
+        <div className={`vt ${c.spo2 < 94 ? (c.spo2 < 86 ? 'bad' : 'warn') : ''}`}>
           <Wind /><span><Term k="spo2">Oxygen</Term></span><b>{Math.round(c.spo2)}%</b>
         </div>
-        <div className={`tile ${c.hr > 105 || c.hr < 52 ? 'warn' : ''}`}>
+        <div className={`vt ${c.hr > 105 || c.hr < 52 ? 'warn' : ''}`}>
           <Heart /><span><Term k="bpm">Heart</Term></span><b>{Math.round(c.hr)}</b><Ecg hr={c.hr} />
         </div>
-        <div className={`tile ${c.temp < 95 ? (c.temp < 93 ? 'bad' : 'warn') : ''}`}>
+        <div className={`vt ${c.temp < 95 ? (c.temp < 93 ? 'bad' : 'warn') : ''}`}>
           <Thermometer /><span>Body temp</span><b>{c.temp.toFixed(1)}°F</b>
         </div>
       </div>
@@ -88,11 +95,27 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
         <motion.i className="health-fill" animate={{ width: `${c.health}%` }} />
         <i className="health-lost" style={{ width: `${100 - cap}%` }} />
       </div>
-      {game.loadout.medbay > 0 && (
-        <motion.button className="btn btn-go" whileTap={{ scale: 0.95 }} disabled={!medOn} onClick={() => treat(inBed ? null : c.id)}>
-          {!medOn ? 'Med Bay is switched off' : inBed ? 'Leave the Med Bay' : 'Send to the Med Bay'}
-        </motion.button>
-      )}
+      <div className="dose-row">
+        <Hourglass />
+        <span><Term k="wear">{sols} sols on Mars</Term></span>
+        <b>{extra > 0 ? `needs ${extra}% more food` : 'just landed'}</b>
+      </div>
+      <div className="assign">
+        <span className="assign-label">Send {c.name} to</span>
+        <div className="assign-list">
+          {places.map((m) => {
+            const here = c.at === m.id;
+            const full = !here && m.kind !== 'hab' && workersIn(game, m.id).length >= (WORK_SLOTS[m.kind] ?? 0);
+            const best = SPECIALIST[m.kind] === c.role;
+            return (
+              <motion.button key={m.id} className={`btn assign-btn ${here ? 'here' : ''}`} whileTap={{ scale: 0.94 }} disabled={full || here} onClick={() => assign(c.id, m.id)}
+                aria-label={`Send ${c.name} to the ${MODULE_NAME[m.kind]}${best ? `. Best job for a ${c.role}` : ''}${here ? '. Already here' : full ? '. Full' : ''}`}>
+                {best && <Star />}{m.kind === 'hab' ? 'Hab (rest)' : MODULE_NAME[m.kind]}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
     </motion.section>
   );
 }
@@ -132,10 +155,10 @@ export function BottomBar({ game }: { game: GameState }) {
         {game.crew.map((c) => {
           const look = lookOf(c);
           return (
-            <motion.button key={c.id} className={`portrait t-${look.triage} ${picked === c.id ? 'picked' : ''}`} whileTap={{ scale: 0.94 }} whileHover={{ y: -3 }}
+            <motion.button key={c.id} className={`portrait t-${look.triage} ${picked === c.id ? 'picked' : ''} ${game.crew.length > 4 ? 'small' : ''}`} whileTap={{ scale: 0.94 }} whileHover={{ y: -3 }}
               onClick={() => pick(picked === c.id ? null : c.id)} aria-pressed={picked === c.id}
               aria-label={`${c.name}. ${TRIAGE_LABEL[look.triage]}. ${feeling(c)}. Open vitals.`}>
-              <Astronaut id={c.id} look={look} bust size={46} />
+              <Astronaut who={c} look={look} bust size={game.crew.length > 4 ? 38 : 46} />
               <span className="portrait-name">{c.name}</span>
               <span className="portrait-feel">{feeling(c)}</span>
               <span className="health mini"><motion.i className="health-fill" animate={{ width: `${c.health}%` }} /></span>
@@ -149,7 +172,7 @@ export function BottomBar({ game }: { game: GameState }) {
         <motion.button className="icon-btn big" whileTap={{ scale: 0.9 }} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? 'Play' : 'Pause'} title={paused ? 'Play (P)' : 'Pause (P)'}>{paused ? <Play /> : <Pause />}</motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={() => setSpeed(speed === 1 ? 2 : 1)} aria-pressed={speed === 2} aria-label="Double speed" title="Double speed"><FastForward /></motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={toggleMute} aria-pressed={muted} aria-label={muted ? 'Sound is off' : 'Sound is on'} title="Sound">{muted ? <VolumeX /> : <Volume2 />}</motion.button>
-        <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> NASA data</motion.button>
+        <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
       </div>
     </footer>
   );

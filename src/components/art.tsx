@@ -1,18 +1,12 @@
 import { motion } from 'motion/react';
-import { BedSingle, FlaskConical, Flame, HeartPulse, ShieldHalf, Sprout, Sun, Wind, BatteryCharging, Cylinder, type LucideIcon } from 'lucide-react';
-import type { ModuleKind, PayloadId, Triage } from '../engine/types';
+import { BatteryCharging, FlaskConical, HeartPulse, Home, SatelliteDish, ShieldHalf, Sprout, Sun, Wind, type LucideIcon } from 'lucide-react';
+import type { ModuleKind, Triage } from '../engine/types';
 
 export const INK = '#1d1033';
 
 export const MODULE_ICON: Record<ModuleKind, LucideIcon> = {
-  solar: Sun, oxygen: Wind, greenhouse: Sprout, heater: Flame, shield: ShieldHalf, medbay: HeartPulse, lab: FlaskConical,
+  hab: Home, solar: Sun, battery: BatteryCharging, oxygen: Wind, hydro: Sprout, dome: ShieldHalf, medbay: HeartPulse, lab: FlaskConical, comms: SatelliteDish,
 };
-export const PAYLOAD_ICON: Record<PayloadId, LucideIcon> = {
-  shield: ShieldHalf, medbay: BedSingle, solar: Sun, lab: FlaskConical, battery: BatteryCharging, tank: Cylinder,
-};
-
-const SKIN: Record<string, string> = { ada: '#9a6240', kofi: '#6a432c', mei: '#f3cfa6', luis: '#cf9668' };
-const SUIT: Record<string, string> = { ada: '#ffd23f', kofi: '#5ee6a0', mei: '#ff8fb1', luis: '#4fd8ff' };
 
 export interface Look {
   triage: Triage;
@@ -26,9 +20,9 @@ export interface Look {
 }
 
 /** A crew member. `bust` crops to the helmet for portraits. The face is the health display. */
-export function Astronaut({ id, look, bust, size = 48 }: { id: string; look: Look; bust?: boolean; size?: number }) {
+export function Astronaut({ who, look, bust, size = 48 }: { who: { skin: string; suit: string }; look: Look; bust?: boolean; size?: number }) {
   const lip = look.blueLips ? '#3f6fe0' : INK;
-  const skin = look.blueLips ? '#b9a7c9' : SKIN[id];
+  const skin = look.blueLips ? '#b9a7c9' : who.skin;
   return (
     <motion.svg
       viewBox={bust ? '2 0 44 40' : '0 0 48 62'}
@@ -42,11 +36,11 @@ export function Astronaut({ id, look, bust, size = 48 }: { id: string; look: Loo
       {!bust && (
         <>
           <rect x="12" y="34" width="24" height="22" rx="8" fill="#f7f4ec" stroke={INK} strokeWidth="3" />
-          <rect x="18" y="40" width="12" height="8" rx="2" fill={SUIT[id]} stroke={INK} strokeWidth="2" />
+          <rect x="18" y="40" width="12" height="8" rx="2" fill={who.suit} stroke={INK} strokeWidth="2" />
           <path d="M17 56v4M31 56v4" stroke={INK} strokeWidth="5" strokeLinecap="round" />
         </>
       )}
-      <circle cx="24" cy="20" r="17" fill={SUIT[id]} stroke={INK} strokeWidth="3" />
+      <circle cx="24" cy="20" r="17" fill={who.suit} stroke={INK} strokeWidth="3" />
       <circle cx="24" cy="21" r="12" fill={skin} stroke={INK} strokeWidth="2.5" />
       {look.flushed && <circle cx="24" cy="21" r="10.7" fill="#ff2e4d" opacity=".45" />}
       {look.fainted ? (
@@ -99,16 +93,16 @@ export function Marv({ mood, size = 84 }: { mood: Mood; size?: number }) {
   );
 }
 
-export function SolarArt({ lit }: { lit: boolean }) {
+/** The cargo lander that brings new crew and blueprints from Earth. */
+export function Lander({ size = 120 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 120 84" className="solar-art" aria-hidden="true">
-      <rect x="55" y="46" width="10" height="30" fill="#8a7fa6" stroke={INK} strokeWidth="3.5" />
-      <rect x="40" y="72" width="40" height="10" rx="5" fill="#8a7fa6" stroke={INK} strokeWidth="3.5" />
-      <g transform="rotate(-12 60 32)">
-        <rect x="8" y="10" width="104" height="42" rx="6" fill={lit ? '#2f6bd9' : '#4a4070'} stroke={INK} strokeWidth="4" />
-        <path d="M34 10v42M60 10v42M86 10v42M8 31h104" stroke={INK} strokeWidth="2.5" />
-        {lit && <path d="M14 16h14v9H14z M66 37h14v9H66z" fill="#9cc4ff" />}
-      </g>
+    <svg viewBox="0 0 120 130" width={size} height={size * (130 / 120)} aria-hidden="true">
+      <path d="M38 96l-16 28M82 96l16 28M60 98v26" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+      <path d="M14 124h16M90 124h16M52 124h16" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+      <path d="M60 8c22 14 32 40 32 62v28H28V70C28 48 38 22 60 8z" fill="#f7f4ec" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M28 76h64v22H28z" fill="#c2512a" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+      <circle cx="60" cy="48" r="13" fill="#4fd8ff" stroke={INK} strokeWidth="5" />
+      <path d="M53 44a8 8 0 0 1 8-5" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" />
     </svg>
   );
 }
