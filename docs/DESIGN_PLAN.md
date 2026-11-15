@@ -12,7 +12,7 @@ images in `docs/drafts/`.
 
 Images: `docs/drafts/current-1-intro.png`, `current-2-base.png`, `current-3-storm-warning.png`.
 
-Working and tested (13 engine tests):
+Working and tested (16 engine tests):
 
 - Side-view cutaway base: glass domes on the surface, dug-in rooms below, gear in the yard.
 - Play-first intro: lander, one BUILD button, the Hab thumps in, crew walk in.
@@ -24,6 +24,19 @@ Working and tested (13 engine tests):
 - NASA Science Log, mission log, debrief, Easy / Normal / Hard.
 - M.A.R.V. the robot gives one piece of advice at a time.
 
+Built since this plan was written (all of P0, see section 5):
+
+- Number pops that fly from each working module to the bar they fill (`Pops.tsx`).
+- The storm as a fuse: a spark burns along a rope toward the base, the Sun swells, the tick climbs, 300 ms of slow motion before the hit (`StormFuse.tsx`, `store/game.ts`).
+- Sound pass: rising pitches, a 3-second combo, calm / tension / storm / dust beds, all synthesised (`lib/sound.ts`).
+- Crew that act: typing, watering, wrench, check-ups, coffee, sleeping, waving, a jump after a storm, arms crossed when cold (`art.tsx`, `Diorama.tsx`).
+- Mini-missions, always one on screen, paying a spare part or a supply crate (`engine/goals.ts`, `GoalCard.tsx`).
+- Held moments: a 2.6 s "Storm survived" card with stars, and a lander descent with a growing shadow (`Moments.tsx`).
+- Fail softly: "Try again" restarts at once with no intro, and the first mini-mission practises what went wrong.
+- Spare parts and a Patch button: a life-support module with no power runs for 1 sol on a spare part (`engine.ts` `patch()`).
+- Mission log ticker with M.A.R.V. and crew one-liners (`data/chatter.ts`, `Ticker.tsx`), crew quirks, and a mission-control debrief.
+- Screens: `docs/drafts/p0-*.png`.
+
 Known gaps:
 
 | Gap | Detail |
@@ -33,8 +46,8 @@ Known gaps:
 | Too easy for a good player | The simulated careful player wins 40 of 40 on every level. Not yet tested with real children. |
 | Nothing to come back for | No progress survives a mission. No goals inside a mission beyond "survive". |
 | Quiet moments are flat | Between storms and landers, nothing rewards the player for a well-run base. |
-| Sound is thin | Synth beeps only. No music, no rising pitch, no storm rumble bed. |
-| Crew are decoration | They pace, but do not act out their jobs or react to each other. |
+| Art rule relaxed | Section 6 says no blur. The perfect-power cyan glow uses a soft drop-shadow, at Connor's request. |
+| New numbers untested with children | Spare parts (start 2, +1 per lander, patch lasts 1 sol) and mini-mission rewards are first guesses in `constants.ts`. |
 
 ## 2. North star
 

@@ -539,7 +539,7 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .letterbox::after { bottom: 0; }
 .slowmo .letterbox::before, .slowmo .letterbox::after { height: 11%; }
 .hit-flash { position: absolute; inset: 0; z-index: 9; pointer-events: none; background: #fff; animation: hit-flash 0.6s ease-out both; }
-@keyframes hit-flash { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+@keyframes hit-flash { 0% { opacity: 0.6; } 100% { opacity: 0; } }
 
 /* Perfect power: every block in use. The base hums cyan. */
 .scene.tuned .mod.on .mod-art { animation: hum 1.4s ease-in-out infinite; }

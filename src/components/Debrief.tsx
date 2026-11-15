@@ -110,7 +110,7 @@ export function Debrief({ game }: { game: GameState }) {
 
         <div className="lesson">
           <small>Flight Director's note</small>
-          {won && worst.n < 20 ? `${game.crew.length} astronauts, ${game.modules.length} modules, ${MISSION_SOLS} sols. Every trade-off you made kept them alive.` : lesson(game, won ? worst.k : cause, won)}
+          {won && (worst.n < 20 || stars === 3 || (worst.k === 'radiation' && (blocked ?? 0) >= 85)) ? `${game.crew.length} astronauts, ${game.modules.length} modules, ${MISSION_SOLS} sols. Every trade-off you made kept them alive. Outstanding work.` : lesson(game, won ? worst.k : cause, won)}
           {!won && ' Everyone is safe on the return ship, and every commander learns this way.'}
         </div>
 
