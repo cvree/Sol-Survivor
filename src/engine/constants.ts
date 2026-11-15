@@ -13,28 +13,29 @@ export const HAB_CELL = 2;
 export const YARD_CELL = 100;
 export type Layer = 'surface' | 'under' | 'yard';
 export const LAYER: Record<ModuleKind, Layer> = {
-  hab: 'surface', hydro: 'surface', dome: 'surface',
+  pod: 'yard', hab: 'surface', hydro: 'surface', dome: 'surface',
   oxygen: 'under', medbay: 'under', lab: 'under',
   solar: 'yard', battery: 'yard', comms: 'yard',
 };
 
 /** Power each module draws when it is on. Generators draw nothing. */
 export const POWER_COST: Record<ModuleKind, number> = {
-  hab: 1, solar: 0, battery: 0, oxygen: 2, hydro: 2, dome: 4, medbay: 2, lab: 2, comms: 1,
+  pod: 0, hab: 1, solar: 0, battery: 0, oxygen: 2, hydro: 2, dome: 4, medbay: 2, lab: 2, comms: 1,
 };
 export const SOLAR_OUTPUT = 4;
 /** A battery gives steady power that dust cannot block. */
 export const BATTERY_OUTPUT = 2;
 /** The most of each module a base can have. */
 export const MAX_OF: Record<ModuleKind, number> = {
-  hab: 1, solar: 4, battery: 2, oxygen: 2, hydro: 2, dome: 2, medbay: 1, lab: 1, comms: 1,
+  pod: 1, hab: 1, solar: 4, battery: 2, oxygen: 2, hydro: 2, dome: 2, medbay: 1, lab: 1, comms: 1,
 };
 /** Modules that astronauts can work in, and how many fit. */
 export const WORK_SLOTS: Partial<Record<ModuleKind, number>> = { oxygen: 2, hydro: 2, lab: 2, medbay: 2 };
 export const BUILD_SOLS = 1;
 
 // Cargo landers.
-export const CARGO_SOLS = 5;
+/** A lander comes on its own every this many sols. Missions, discoveries and storms bring it sooner. */
+export const CARGO_SOLS = 8;
 export const MAX_CREW = 6;
 export const CARGO_PICKS = 2;
 export const CARGO_SUPPLIES = 10;
@@ -46,7 +47,8 @@ export const SCIENCE_PER_SOL = 3;
 export const CREW_USE = 1.5;
 export const OXYGEN_MAKES = 3.4;
 export const HYDRO_MAKES = 3.0;
-export const START_LIFE = 55;
+/** The capsule's air tank. It only lasts so long: earn an Oxygen Maker before it runs dry. */
+export const START_LIFE = 40;
 /** EMT rule: shivering burns through food and energy twice as fast. */
 export const COLD_USE_MULTIPLIER = 2;
 /** A module with nobody in it only half works. The right specialist makes it work better. */
@@ -119,7 +121,7 @@ export const SCIENTIST_CARGO_BOOST = 1.25;
 // Discoveries around the base. GAME VALUES; the facts on each card are real.
 export const FIND_FIRST = 4;
 export const FIND_EVERY_SOLS = 2;
-export const FIND_CARGO_BOOST = 0.08;
+export const FIND_CARGO_BOOST = 0.12;
 export const FIND_SCIENCE = 4;
 export const FIND_SUPPLIES = 5;
 
@@ -150,3 +152,21 @@ export const GRUMPY_MIN = 0.7;
 export const STRIKE_AT = 15;
 /** Building goes this fast when nobody is fit to build. */
 export const BUILD_MIN = 0.35;
+
+// Earning everything. GAME VALUES.
+/** The landing capsule: warm, cramped, and its battery makes a little power. */
+export const POD_POWER = 3;
+/** Mood lost per sol while living in the cramped capsule. */
+export const POD_GLOOM = 3;
+/** Where the next lander starts. The first discovery brings it in. */
+export const START_CARGO = 0.4;
+/** Lander progress for finishing a mini-mission, making a discovery, or beating a storm. */
+export const GOAL_CARGO_BOOST = 0.3;
+export const FIRST_GOAL_CARGO_BOOST = 0.6;
+export const STORM_CARGO_BOOST = 0.15;
+/** How many astronauts can work on one building site. */
+export const BUILD_SLOTS = 2;
+/** Supplies a lander brings instead of a new crewmate, if the commander says no thanks. */
+export const SKIP_CREW_SUPPLIES = 12;
+/** Extra discoveries an Explorer spots. */
+export const EXPLORER_FINDS = 2;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { catalog } from '../data/records';
-import { SOL_SECONDS } from '../engine/constants';
+import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
 import { acceptCargo, activeEvents, assign, build, collectFind, createGame, grantReward, patch, power, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { LESSONS, lessonOf, stepOf, type CoachRun } from '../components/coach';
@@ -99,7 +99,7 @@ interface Store {
   toggle: (id: string) => void;
   build: (kind: ModuleKind, cell?: number) => void;
   assign: (crewId: string, moduleId: string) => void;
-  unpack: (picks: ModuleKind[]) => void;
+  unpack: (picks: ModuleKind[], crewId?: string | null) => void;
   pick: (crewId: string | null) => void;
   setTour: (n: number | null) => void;
   setPaused: (p: boolean) => void;
@@ -250,7 +250,7 @@ export const useGame = create<Store>((set, get) => ({
       if (current && def) {
         const r = def.progress(s, current.mark);
         if (r.value >= 1) {
-          s = grantReward(s, def.reward);
+          s = grantReward(s, def.reward, def.boost);
           patch.game = s;
           sfx.reward();
           patch.goalsDone = [...goalsDone, def.id];
@@ -262,7 +262,7 @@ export const useGame = create<Store>((set, get) => ({
     }
 
     // New things to discover turn up as the sols go by.
-    const nowActive = activeFinds(get().findsOrder, s.time);
+    const nowActive = activeFinds(get().findsOrder, s.time + (s.crew.some((c) => c.trait === 'explorer' && !c.out) ? EXPLORER_FINDS * FIND_EVERY_SOLS : 0));
     if (nowActive.length !== get().findsActive.length) patch.findsActive = nowActive;
 
     // A crewmate died: stop and let it land. If it was the commander, the debrief takes over.
@@ -344,11 +344,11 @@ export const useGame = create<Store>((set, get) => ({
     sfx.assign();
     set({ game: next });
   } },
-  unpack: (picks) => {
+  unpack: (picks, crewId) => {
     const { game } = get();
     if (!game) return;
     sfx.reward();
-    set({ game: acceptCargo(game, picks), panel: null });
+    set({ game: acceptCargo(game, picks, crewId), panel: null });
   },
   pick: (picked) => set({ picked }),
   setTour: (tour) => {

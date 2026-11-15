@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { ArrowLeft, Star } from 'lucide-react';
-import { COMMANDERS, SPECIALIST } from '../engine/engine';
+import { COMMANDERS, SPECIALIST, TRAITS } from '../engine/engine';
 import { MODULE_NAME } from '../engine/engine';
 import type { ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
@@ -25,7 +25,7 @@ export function CommanderPick() {
           <button className="btn btn-ghost" onClick={quit}><ArrowLeft /> Back</button>
           <div>
             <h1>Choose your commander</h1>
-            <p>This astronaut is you. Each one is great at a different job. Keep them alive: if your commander dies, the mission is over.</p>
+            <p>This astronaut is you, and the only thing you get for free. You land alone with a capsule. Everything else, you earn. If your commander dies, the mission is over.</p>
           </div>
         </motion.header>
         <div className="pick-grid">
@@ -37,7 +37,8 @@ export function CommanderPick() {
               <strong>{c.name}</strong>
               <span className="pick-role">{c.role}</span>
               <span className="pick-best">Best in the {BEST(c.role)}</span>
-              <span className="pick-perk"><Star /> {c.perk}</span>
+              <span className="trait-chip">{TRAITS[c.trait].name}: {TRAITS[c.trait].text}</span>
+              <span className="pick-perk"><Star /> As commander: {c.perk}</span>
               <span className="pick-quirk">"{c.quirk}"</span>
               <span className="pick-go">Be {c.name}</span>
             </motion.button>

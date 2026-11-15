@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BatteryMedium, Compass, FastForward, Smile, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
 import { FACTS } from '../data/facts';
 import { CAREER_LIMIT, POWER_COST, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workRate, workersIn } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, TRAITS, alive, bedName, habReady, isOn, power, shieldCover, stormDose, wear, workRate, workersIn } from '../engine/engine';
 import type { CrewState, GameState } from '../engine/types';
 import { TRIAGE_LABEL, maxHealth, triage } from '../engine/vitals';
 import { useGame } from '../store/game';
@@ -28,7 +28,12 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   if (storm && game.shield < 50) return { text: 'Radiation is getting in! Switch on a Shield Dome, quick!', mood: 'alert' };
   if (storm && shieldCover(game) < 1) return { text: `The domes only cover part of the crew. ${domes.some((m) => !m.on) ? 'Switch on the other dome!' : 'We need a second Shield Dome.'}`, mood: 'alert' };
   if (storm) return { text: 'The shield is holding! Nice and steady until the storm passes.', mood: 'worried' };
-  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Press Build and let's put it up!`, mood: 'happy' };
+  const site = game.modules.find((m) => m.buildLeft > 0 && !game.crew.some((c) => c.at === m.id));
+  const hand = alive(game).find((c) => !c.exhausted && c.energy > 35 && !game.modules.some((m) => m.id === c.at && m.buildLeft > 0));
+  if (site && hand) return { text: `The ${MODULE_NAME[site.kind]} will not build itself! Drag ${hand.name} onto the building site.`, mood: 'happy' };
+  if (game.blueprints.length) return { text: `You earned plans for a ${MODULE_NAME[game.blueprints[0]]}. Press a green spot (or Build) to mark out the site.`, mood: 'happy' };
+  if (!game.modules.some((m) => m.kind === 'oxygen') && game.life < 30) return { text: 'The capsule air is running low! Explore and finish missions to bring the next lander sooner, then build an Oxygen Maker.', mood: 'alert' };
+  if (game.modules.length === 1) return { text: `Everything here must be earned. Explore the crater and finish missions to fill the Next lander bar (${Math.round(game.cargoProgress * 100)}%).`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
   if (coming && coming.kind !== 'dust' && domes.length && !isOn(game, 'dome')) return { text: `${coming.kind === 'cme' ? 'Solar storm' : 'Solar flare'} incoming! Time to science our way out: free up 4 power, then switch on the Shield Dome.`, mood: 'alert' };
   if (coming && coming.kind === 'dust') return { text: 'Dust storm on the way. Solar power is about to drop, so pick what can go dark.', mood: 'worried' };
@@ -38,14 +43,14 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   if (game.life < 20) return { text: 'Life support is nearly empty. Oxygen Maker and Hydroponics on, with crew inside. We can fix this!', mood: 'alert' };
   const red = game.crew.find((c) => !c.out && triage(c) === 'red');
   if (red) return { text: `${red.name} is in trouble: ${feeling(red).toLowerCase()}. Click ${red.name} to check.`, mood: 'worried' };
-  if (!isOn(game, 'hab')) return { text: 'The Hab is off, so there is no heat. The crew are getting colder.', mood: 'worried' };
+  if (habReady(game) && !isOn(game, 'hab')) return { text: 'The Hab is off, so there is no heat. The crew are getting colder.', mood: 'worried' };
   const med = game.modules.find((m) => m.kind === 'medbay' && m.buildLeft <= 0);
   const sick = game.crew.find((c) => c.sick > 0.25 && c.at !== med?.id);
   if (sick && med) return { text: `${sick.name} has radiation sickness. Click ${sick.name} and send them to the Med Bay.`, mood: 'worried' };
   const fell = alive(game).find((c) => c.exhausted);
-  if (fell) return { text: `${fell.name} collapsed from overwork and fell asleep on the spot! Drag ${fell.name} to the Hab to sleep properly.`, mood: 'worried' };
+  if (fell) return { text: `${fell.name} collapsed from overwork and fell asleep on the spot! Drag ${fell.name} to ${bedName(game)} to sleep properly.`, mood: 'worried' };
   const tired = alive(game).find((c) => c.at !== 'hab' && c.energy < 35);
-  if (tired) return { text: `${tired.name} is tired and working slower. Drag ${tired.name} to the Hab for some sleep.`, mood: 'worried' };
+  if (tired) return { text: `${tired.name} is tired and working slower. Drag ${tired.name} to ${bedName(game)} for some sleep.`, mood: 'worried' };
   const sad = alive(game).find((c) => c.mood < 30);
   if (sad) return { text: `${sad.name} is unhappy. Rest, warmth, fresh food and company help. Very unhappy crew stop working!`, mood: 'worried' };
   const idle = game.modules.find((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(game, m.id).length === 0);
@@ -82,7 +87,12 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
   const cap = maxHealth(c.dose, CAREER_LIMIT);
   const sols = Math.max(0, Math.floor(game.time - c.arrived));
   const extra = Math.round((wear(game, c) - 1) * 100);
-  const places = game.modules.filter((m) => m.buildLeft <= 0 && (m.kind === 'hab' || WORK_SLOTS[m.kind]));
+  // Home first (the Hab, or the capsule before it exists), then building sites, then workplaces.
+  const places = [
+    { id: 'hab', label: habReady(game) ? 'Hab (sleep)' : 'Capsule (rest)', best: false, full: false },
+    ...game.modules.filter((m) => m.buildLeft > 0).map((m) => ({ id: m.id, label: `Build: ${MODULE_NAME[m.kind]}`, best: false, full: c.at !== m.id && workersIn(game, m.id).length >= 2 })),
+    ...game.modules.filter((m) => m.buildLeft <= 0 && WORK_SLOTS[m.kind]).map((m) => ({ id: m.id, label: MODULE_NAME[m.kind], best: SPECIALIST[m.kind] === c.role, full: c.at !== m.id && workersIn(game, m.id).length >= (WORK_SLOTS[m.kind] ?? 0) })),
+  ];
   return (
     <motion.section
       className={`vitals-card t-${t}`}
@@ -95,6 +105,7 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
         <div>
           <h3>{c.name} <small>{c.commander ? `Commander · ${c.role}` : c.role}</small> <span className="mood" aria-hidden="true">{MOOD(c)}</span></h3>
           <p className={`chip t-${t}`}><Term k="triage">{TRIAGE_LABEL[t]}</Term>: {feeling(c)}</p>
+          <p className="trait-chip small">{TRAITS[c.trait].name}: {TRAITS[c.trait].text}</p>
           <p className="quirk">{c.quirk}</p>
         </div>
         <button className="icon-btn" onClick={() => pick(null)} aria-label="Close"><X /></button>
@@ -122,9 +133,9 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
           <b>{c.mood >= 70 ? 'Happy' : c.mood >= 40 ? 'OK' : c.mood >= 15 ? 'Grumpy' : 'Upset'}</b>
         </div>
         <p className="need-tip">{
-          c.exhausted ? `${c.name} collapsed from overwork and is asleep where they fell. Drag them to the Hab to sleep properly.`
-            : c.at === 'hab' ? `Sleeping in the Hab. Energy is filling up${game.time - Math.floor(game.time) >= 0.72 ? ' fast, because it is night' : ''}.`
-            : c.energy < 50 ? `Tired, so working ${Math.round((1 - workRate(c)) * 100)}% slower. Send them to the Hab to sleep.`
+          c.exhausted ? `${c.name} collapsed from overwork and is asleep where they fell. Drag them to ${bedName(game)} to sleep properly.`
+            : c.at === 'hab' ? `Sleeping in ${bedName(game)}. Energy is filling up${game.time - Math.floor(game.time) >= 0.72 ? ' fast, because it is night' : ''}.`
+            : c.energy < 50 ? `Tired, so working ${Math.round((1 - workRate(c)) * 100)}% slower. Send them to ${bedName(game)} to sleep.`
             : c.mood < 40 ? 'Unhappy, so working slower. If mood gets too low they will stop working.'
             : 'Working hard. Working uses energy, so plan a sleep soon.'
         }</p>
@@ -146,14 +157,12 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
       <div className="assign">
         <span className="assign-label">Send {c.name} to</span>
         <div className="assign-list">
-          {places.map((m) => {
-            const here = c.at === m.id;
-            const full = !here && m.kind !== 'hab' && workersIn(game, m.id).length >= (WORK_SLOTS[m.kind] ?? 0);
-            const best = SPECIALIST[m.kind] === c.role;
+          {places.map((pl) => {
+            const here = c.at === pl.id;
             return (
-              <motion.button key={m.id} className={`btn assign-btn ${here ? 'here' : ''} ${coachAssign && m.kind === 'oxygen' && !here ? 'coach-target' : ''}`} whileTap={{ scale: 0.94 }} disabled={full || here} onClick={() => assign(c.id, m.id)}
-                aria-label={`Send ${c.name} to the ${MODULE_NAME[m.kind]}${best ? `. Best job for a ${c.role}` : ''}${here ? '. Already here' : full ? '. Full' : ''}`}>
-                {best && <Star />}{m.kind === 'hab' ? 'Hab (sleep)' : MODULE_NAME[m.kind]}
+              <motion.button key={pl.id} className={`btn assign-btn ${here ? 'here' : ''} ${coachAssign && pl.label === 'Oxygen Maker' && !here ? 'coach-target' : ''}`} whileTap={{ scale: 0.94 }} disabled={pl.full || here} onClick={() => assign(c.id, pl.id)}
+                aria-label={`Send ${c.name} to ${pl.label}${pl.best ? `. Best job for a ${c.role}` : ''}${here ? '. Already here' : pl.full ? '. Full' : ''}`}>
+                {pl.best && <Star />}{pl.label}
               </motion.button>
             );
           })}

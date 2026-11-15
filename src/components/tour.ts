@@ -1,5 +1,5 @@
-/** The intro is played, not read: land, build the first dome, watch the crew move in. */
+/** The intro is played, not read: the capsule lands, you step outside, and the job begins. */
 export const TOUR = [
-  { say: 'Build a Dome, Commander!' },
-  { say: 'Base online! You are ready for Mars.' },
+  { say: 'Touchdown! Your capsule made it to Mars. Press Step outside.' },
+  { say: 'This capsule is all you have, Commander. Everything else, you will have to earn.' },
 ];

@@ -26,9 +26,10 @@ const moduleAt = (x: number, y: number) => {
 export const canDrop = (crewId: string, moduleId: string) => {
   const game = useGame.getState().game;
   if (!game) return false;
+  const id = moduleId === 'pod' ? 'hab' : moduleId;
   const c = game.crew.find((x) => x.id === crewId);
-  if (c?.at === moduleId) return true;
-  return assign(game, crewId, moduleId) !== game;
+  if (c?.at === id) return true;
+  return assign(game, crewId, id) !== game;
 };
 
 export function startCrewDrag(e: React.PointerEvent, crewId: string) {
@@ -70,7 +71,8 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
     setTimeout(() => { justDragged = false; }, 0);
     if (over) {
       const game = useGame.getState().game;
-      if (ok && game?.crew.find((c) => c.id === crewId)?.at !== over) useGame.getState().assign(crewId, over);
+      const target = over === 'pod' ? 'hab' : over;
+      if (ok && game?.crew.find((c) => c.id === crewId)?.at !== target) useGame.getState().assign(crewId, target);
       else if (!ok) useGame.getState().assign(crewId, over); // explains why not
     }
   };

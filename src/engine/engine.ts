@@ -1,7 +1,7 @@
 import * as K from './constants';
 import { planEvents, type Catalog } from './events';
 import { makeRng } from './rng';
-import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role } from './types';
+import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role, TraitId } from './types';
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -13,26 +13,39 @@ export const LEVEL: Record<Difficulty, { ease: number; warning: number; life: nu
 };
 type Recruit = NonNullable<CargoOffer['crew']>;
 
+/** Every astronaut has one trait that changes how they play. */
+export const TRAITS: Record<TraitId, { name: string; text: string }> = {
+  nightowl: { name: 'Night owl', text: 'Works at night without getting extra tired.' },
+  steady: { name: 'Steady', text: 'Stays calm. Loses mood half as fast.' },
+  sunny: { name: 'Sunny', text: 'Cheers up everyone in the same room.' },
+  explorer: { name: 'Explorer', text: 'Spots extra discoveries out in the crater.' },
+  tireless: { name: 'Coffee powered', text: 'Gets tired 25% slower.' },
+  builder: { name: 'Speed builder', text: 'Builds twice as fast.' },
+  sleepyhead: { name: 'Big sleeper', text: 'Tires a bit faster, but sleeps it off quickly.' },
+  brave: { name: 'Brave', text: 'Bad news and cold barely dent their mood.' },
+};
+const has = (c: CrewState, t: TraitId) => c.trait === t && !c.out;
+
 /** The four astronauts a player can pick as their commander, one of each specialist. */
 export const COMMANDERS: (Recruit & { perk: string })[] = [
-  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald.", perk: `Starts with ${K.ENGINEER_EXTRA_PARTS} extra spare parts for Patches.` },
-  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats.", perk: 'The whole crew heals faster while Mei is alive.' },
-  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens.", perk: 'Lands with a Hydroponics blueprint, ready to build.' },
-  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks.", perk: 'Cargo landers arrive faster, because Earth loves the data.' },
+  { id: 'ada', trait: 'nightowl', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald.", perk: `Starts with ${K.ENGINEER_EXTRA_PARTS} extra spare parts for Patches.` },
+  { id: 'mei', trait: 'steady', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats.", perk: 'The whole crew heals faster while Mei is alive.' },
+  { id: 'kofi', trait: 'sunny', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens.", perk: 'Green fingers: Hydroponics makes 25% more food while Kofi is alive.' },
+  { id: 'yuki', trait: 'explorer', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks.", perk: 'Cargo landers arrive faster, because Earth loves the data.' },
 ];
 const RECRUITS: Recruit[] = [
   ...COMMANDERS.map(({ perk: _perk, ...r }) => r),
-  { id: 'luis', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
-  { id: 'zara', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
-  { id: 'omar', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
-  { id: 'tala', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
+  { id: 'luis', trait: 'tireless', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
+  { id: 'zara', trait: 'builder', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
+  { id: 'omar', trait: 'sleepyhead', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
+  { id: 'tala', trait: 'brave', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
 ];
 
 /** Which specialist makes each module work best. */
 export const SPECIALIST: Partial<Record<ModuleKind, Role>> = { oxygen: 'Engineer', hydro: 'Botanist', lab: 'Scientist', medbay: 'Medic' };
 
 export const MODULE_NAME: Record<ModuleKind, string> = {
-  hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
+  pod: 'Capsule', hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
   dome: 'Shield Dome', medbay: 'Med Bay', lab: 'Science Lab', comms: 'Comms Array',
 };
 
@@ -50,6 +63,18 @@ const LINES = {
   collapse: ['Zzz...'],
   rested: ['Ah, that nap was great!', 'Fully charged!'],
   strike: ['I need a break!', 'I have been working forever!'],
+};
+
+/** Each astronaut says things their own way. Falls back to the shared lines. */
+const VOICE: Record<string, Partial<Record<keyof typeof LINES, string[]>>> = {
+  ada: { hello: ['Gerald and I are ready to work!'], tired: ['Even Gerald needs a break...'], rested: ['Recharged! Where is my wrench?'] },
+  mei: { hello: ['Everybody breathe in... and out. Hello, Mars.'], tired: ['Doctor\'s orders: I need a nap.'], rested: ['Heart rate normal. Ready!'] },
+  kofi: { hello: ['Hello, little plants of the future!'], tired: ['Even sunflowers sleep at night...'], rested: ['Rise and shine, like a tomato!'] },
+  yuki: { hello: ['Look at all these rocks!'], tired: ['Too tired to even look at rocks...'], rested: ['Rock hunting time!'] },
+  luis: { hello: ['Is there coffee on Mars? There is now.'], tired: ['My coffee needs a coffee.'], rested: ['Fully caffeinated!'] },
+  zara: { hello: ['I brought tape. Lots of tape.'], tired: ['Too tired to tape anything...'], rested: ['Let\'s build something!'] },
+  omar: { hello: ['I packed 40 seeds and one sock. Hi!'], tired: ['Is it bedtime? It feels like bedtime.'], rested: ['That was the best nap of my life.'] },
+  tala: { hello: ['Why did the astronaut bring a ladder? To reach space!'], tired: ['Too tired for jokes. That is serious.'], rested: ['I am back, and so are my jokes!'] },
 };
 
 function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
@@ -73,20 +98,21 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     status: 'playing',
     difficulty,
     lostCause: null,
-    modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.YARD_CELL, false), mod('m2', 'oxygen', K.HAB_CELL + K.GRID_COLS, true)],
+    // Only the capsule is free. Everything else is earned and built by hand.
+    modules: [mod('pod', 'pod', K.YARD_CELL, true)],
     // You land alone. Cargo landers bring the rest of the crew, one at a time.
     crew: [newCrew(lead, 1, 'hab', rng.range(0.9, 1.1), true)],
     life,
     shield: 0,
     events: planEvents(rng, catalog, activity, level.ease, level.warning),
-    blueprints: lead.role === 'Botanist' ? ['hydro'] : [],
-    cargoProgress: 0.15,
+    blueprints: [],
+    cargoProgress: K.START_CARGO,
     landers: 0,
     offer: null,
     science: 0,
     spareParts: K.START_SPARE_PARTS + (lead.role === 'Engineer' ? K.ENGINEER_EXTRA_PARTS : 0),
     griefUntil: 0,
-    log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} has landed alone. More crew will come by cargo lander.` }],
+    log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} has landed alone, with nothing but a capsule.` }],
     stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0, collapses: 0, strikes: 0 },
     pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0, died: 0 },
     nextId: 3,
@@ -95,8 +121,14 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
 
 // ---------- reading the state ----------
 
-const GENERATOR = (k: ModuleKind) => k === 'solar' || k === 'battery';
+const GENERATOR = (k: ModuleKind) => k === 'solar' || k === 'battery' || k === 'pod';
 const ready = (m: ModuleState) => m.buildLeft <= 0;
+/** Is the Hab built and finished? Until then the crew's home is the capsule. */
+export const habReady = (s: GameState) => s.modules.some((m) => m.kind === 'hab' && m.id === 'hab' && ready(m));
+/** Where the crew sleep right now: the Hab once it is built, the capsule before that. */
+export const bedName = (s: GameState) => (habReady(s) ? 'the Hab' : 'the capsule');
+/** Is this astronaut working on a building site? */
+export const atSite = (s: GameState, c: CrewState) => s.modules.some((m) => m.id === c.at && !ready(m));
 /** A jury-rigged module runs on spare parts for a while, so it draws no power. */
 export const isPatched = (s: GameState, m: ModuleState) => m.patchedUntil > s.time;
 /** Power this module is drawing right now. */
@@ -115,11 +147,14 @@ export function power(s: GameState): PowerInfo {
   const light = sunlight(s);
   const arrays = s.modules.filter((m) => m.kind === 'solar' && ready(m)).length;
   const batteries = s.modules.filter((m) => m.kind === 'battery' && ready(m)).length;
-  const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + batteries * K.BATTERY_OUTPUT;
+  const pods = s.modules.filter((m) => m.kind === 'pod').length;
+  const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + batteries * K.BATTERY_OUTPUT + pods * K.POD_POWER;
   const used = s.modules.reduce((n, m) => n + draw(s, m), 0);
-  return { supply, used, free: supply - used, sunlight: light, most: arrays * K.SOLAR_OUTPUT + batteries * K.BATTERY_OUTPUT };
+  return { supply, used, free: supply - used, sunlight: light, most: arrays * K.SOLAR_OUTPUT + batteries * K.BATTERY_OUTPUT + pods * K.POD_POWER };
 }
 
+/** Power a kind of module needs when it is on. */
+export const POWER_COST_OF = (k: ModuleKind) => K.POWER_COST[k];
 export const isOn = (s: GameState, kind: ModuleKind) => s.modules.some((m) => m.kind === kind && m.on);
 export const count = (s: GameState, kind: ModuleKind) => s.modules.filter((m) => m.kind === kind).length + s.blueprints.filter((b) => b === kind).length;
 export const alive = (s: GameState) => s.crew.filter((c) => !c.out);
@@ -180,7 +215,7 @@ export function lifeFlow(s: GameState) {
   for (const m of s.modules) {
     if (!m.on) continue;
     if (m.kind === 'oxygen') made += K.OXYGEN_MAKES * staffing(s, m);
-    if (m.kind === 'hydro') made += K.HYDRO_MAKES * staffing(s, m);
+    if (m.kind === 'hydro') made += K.HYDRO_MAKES * staffing(s, m) * (leadIs(s, 'Botanist') ? 1.25 : 1);
   }
   return { made, used, net: made - used };
 }
@@ -198,8 +233,9 @@ export function buildableCells(s: GameState, kind: ModuleKind): number[] {
   for (let c = from; c < from + K.GRID_COLS; c++) {
     if (taken.has(c)) continue;
     const beside = (c > from && taken.has(c - 1)) || (c < from + K.GRID_COLS - 1 && taken.has(c + 1));
-    const underHab = layer === 'under' && c === K.HAB_CELL + K.GRID_COLS;
-    if (beside || underHab) out.push(c);
+    // The first dome goes in the middle, and the first room is dug right below it.
+    const anchor = c === (layer === 'surface' ? K.HAB_CELL : K.HAB_CELL + K.GRID_COLS);
+    if (beside || anchor) out.push(c);
   }
   // Fill outward from the Hab so the base grows from its heart.
   const mid = from + K.HAB_CELL;
@@ -263,20 +299,22 @@ export function collectFind(prev: GameState, reward: 'science' | 'part' | 'suppl
   if (prev.status !== 'playing') return prev;
   const s = clone(prev);
   s.stats.finds++;
+  // Every discovery is news for Earth, so the next lander comes sooner. Data finds even more so.
+  if (!s.offer) s.cargoProgress = Math.min(0.999, s.cargoProgress + K.FIND_CARGO_BOOST * (reward === 'science' ? 1.5 : 1));
   if (reward === 'part' && s.spareParts < K.MAX_SPARE_PARTS) s.spareParts++;
-  else if (reward === 'science') {
-    s.science += K.FIND_SCIENCE;
-    if (!s.offer) s.cargoProgress = Math.min(0.99, s.cargoProgress + K.FIND_CARGO_BOOST);
-  } else s.life = Math.min(100, s.life + K.FIND_SUPPLIES);
+  else if (reward === 'science') s.science += K.FIND_SCIENCE;
+  else s.life = Math.min(100, s.life + K.FIND_SUPPLIES);
   log(s, 'good', `Discovery: ${title}!`);
   return s;
 }
 
 /** Earth says thanks for a finished mini-mission: a spare part, or a small crate of supplies. */
-export function grantReward(prev: GameState, reward: 'part' | 'supplies'): GameState {
+export function grantReward(prev: GameState, reward: 'part' | 'supplies', boost: number = K.GOAL_CARGO_BOOST): GameState {
   if (prev.status !== 'playing') return prev;
   const s = clone(prev);
   s.stats.goals++;
+  // Earth rewards a job well done: the next lander comes sooner.
+  if (!s.offer) s.cargoProgress = Math.min(0.999, s.cargoProgress + boost);
   if (reward === 'part' && s.spareParts < K.MAX_SPARE_PARTS) s.spareParts++;
   else s.life = Math.min(100, s.life + K.GOAL_SUPPLIES);
   return s;
@@ -294,61 +332,84 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
   if (prev.status !== 'playing' || cell === undefined || canBuild(prev, kind, cell)) return prev;
   const s = clone(prev);
   s.blueprints.splice(s.blueprints.indexOf(kind), 1);
-  s.modules.push({ id: `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0 });
+  // The Hab is built at a site of its own, then becomes the crew's home.
+  s.modules.push({ id: kind === 'hab' ? 'hab-site' : `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0 });
   s.stats.built++;
-  log(s, 'info', `Building a ${MODULE_NAME[kind]}.`);
+  log(s, 'info', `Building site ready for a ${MODULE_NAME[kind]}. Send an astronaut to build it!`);
   return s;
 }
 
-/** Send a crew member to work in a module, or back to the Hab to rest. */
+/**
+ * Send a crew member somewhere: to work in a module, to build at a building site,
+ * or home to rest ('hab' means home: the Hab once built, the capsule before that).
+ */
 export function assign(prev: GameState, crewId: string, moduleId: string): GameState {
-  const m = prev.modules.find((x) => x.id === moduleId);
+  const id = moduleId === 'pod' ? 'hab' : moduleId;
+  const m = prev.modules.find((x) => x.id === id);
   const c = prev.crew.find((x) => x.id === crewId);
-  if (!m || !c || c.out || prev.status !== 'playing' || !ready(m)) return prev;
-  if (m.kind !== 'hab') {
-    const slots = K.WORK_SLOTS[m.kind];
+  if (!c || c.out || prev.status !== 'playing') return prev;
+  if (id !== 'hab') {
+    if (!m) return prev;
+    const slots = ready(m) ? K.WORK_SLOTS[m.kind] : K.BUILD_SLOTS;
     if (!slots || (c.at !== m.id && workersIn(prev, m.id).length >= slots)) return prev;
   }
+  if (c.at === id) return prev;
+  moduleId = id;
   const s = clone(prev);
   s.crew.find((x) => x.id === crewId)!.at = moduleId;
   return s;
 }
 
-/** Works out what the next lander carries. The first one always offers the essentials. */
+/**
+ * Works out what the next lander carries. The first one brings only building plans:
+ * a Hab, an Oxygen Maker, power. You can only unpack two, so the very first choice matters.
+ * Later landers bring a choice of crewmate too.
+ */
 function makeOffer(s: GameState): CargoOffer {
   const n = s.landers + 1;
   const rng = makeRng(s.seed + n * 9973);
   const room = (k: ModuleKind) => count(s, k) < K.MAX_OF[k];
-  const all: ModuleKind[] = ['solar', 'battery', 'oxygen', 'hydro', 'dome', 'medbay', 'lab', 'comms'];
+  const all: ModuleKind[] = ['hab', 'solar', 'battery', 'oxygen', 'hydro', 'dome', 'medbay', 'lab', 'comms'];
   let options: ModuleKind[];
-  if (n === 1) options = ['dome', 'hydro', 'solar', rng.pick<ModuleKind>(['battery', 'medbay', 'lab'])];
+  if (n === 1) options = ['hab', 'oxygen', 'solar', 'battery'];
   else {
     const pool = rng.shuffle(all.filter(room));
+    // Essentials you still lack come first.
+    const must = (['hab', 'oxygen'] as ModuleKind[]).filter((k) => room(k));
     const power = pool.find((k) => k === 'solar' || k === 'battery');
-    options = [...(power ? [power] : []), ...pool.filter((k) => k !== power)].slice(0, 4);
+    options = [...new Set([...must, ...(power ? [power] : []), ...pool])].slice(0, 4);
     // Earth always offers a Shield Dome when the crew has outgrown the ones you have.
     const crewSoon = Math.min(K.MAX_CREW, s.crew.length + 1);
     if (!options.includes('dome') && room('dome') && count(s, 'dome') * K.DOME_COVERS < crewSoon) options[options.length - 1] = 'dome';
   }
   const taken = new Set(s.crew.map((c) => c.id));
   const free = rng.shuffle(RECRUITS.filter((r) => !taken.has(r.id)));
-  // The first new arrival is always a Botanist, so the first Hydroponics Bay has its specialist.
-  const recruit = s.crew.length >= K.MAX_CREW ? null : (n === 1 ? free.find((r) => r.role === 'Botanist') : free[0]) ?? null;
-  return { number: n, crew: recruit, options, picks: Math.min(K.CARGO_PICKS, options.length) };
+  // The first crewmate offer always includes a Botanist, for the first Hydroponics.
+  const botanist = free.find((r) => r.role === 'Botanist');
+  const pair = n === 2 && botanist ? [botanist, ...free.filter((r) => r !== botanist)] : free;
+  const crewOptions = n === 1 || s.crew.length >= K.MAX_CREW ? [] : pair.slice(0, 2);
+  return { number: n, crew: crewOptions[0] ?? null, crewOptions, options, picks: Math.min(K.CARGO_PICKS, options.length) };
 }
 
-/** Unpack the lander: the new astronaut walks to the Hab and the chosen blueprints are yours. */
-export function acceptCargo(prev: GameState, picks: ModuleKind[]): GameState {
+/**
+ * Unpack the lander: the chosen blueprints are yours, and the chosen astronaut walks home.
+ * `crewId` picks who comes (default: the first offered); null means nobody, for extra supplies.
+ */
+export function acceptCargo(prev: GameState, picks: ModuleKind[], crewId?: string | null): GameState {
   const offer = prev.offer;
   if (!offer) return prev;
   const s = clone(prev);
   const chosen = picks.filter((k) => offer.options.includes(k)).slice(0, offer.picks);
   s.blueprints.push(...chosen);
-  if (offer.crew) {
-    const c = newCrew(offer.crew, s.time, 'hab', makeRng(s.seed + offer.number).range(0.88, 1.12));
-    c.say = { text: LINES.hello[offer.number % 2], until: s.time + 0.8, mood: 'good' };
+  const who = crewId === null ? null : offer.crewOptions.find((r) => r.id === crewId) ?? offer.crewOptions[0] ?? null;
+  if (who) {
+    const c = newCrew(who, s.time, 'hab', makeRng(s.seed + offer.number).range(0.88, 1.12));
+    c.say = { text: (VOICE[c.id]?.hello ?? LINES.hello)[0], until: s.time + 0.9, mood: 'good' };
     s.crew.push(c);
     log(s, 'good', `${c.name} the ${c.role} has landed.`);
+  } else if (offer.crewOptions.length) {
+    s.life = Math.min(100, s.life + K.SKIP_CREW_SUPPLIES);
+    log(s, 'info', 'No new crew this time. The lander was packed with extra supplies instead.');
   }
   s.life = Math.min(100, s.life + K.CARGO_SUPPLIES);
   s.spareParts = Math.min(K.MAX_SPARE_PARTS, s.spareParts + K.CARGO_SPARE_PARTS);
@@ -380,7 +441,7 @@ function shedLoad(s: GameState) {
 
 function speak(s: GameState, c: CrewState, key: keyof typeof LINES, mood: 'bad' | 'good') {
   if (c.lastSaid === key || (c.say && c.say.until > s.time)) return;
-  const options = LINES[key];
+  const options = VOICE[c.id]?.[key] ?? LINES[key];
   c.say = { text: options[Math.floor(s.time * 7 + c.name.length) % options.length], until: s.time + 0.55, mood };
   c.lastSaid = key;
 }
@@ -404,7 +465,7 @@ function stepEvents(s: GameState) {
       if (e.kind === 'dust') log(s, 'good', 'The dust is clearing. Sunlight is back.');
       else {
         const blocked = e.doseUnshielded > 0 ? Math.round(100 * (1 - e.doseTaken / e.doseUnshielded)) : 0;
-        if (blocked >= 60) { s.stats.stormsBeaten++; s.pulse.survived++; }
+        if (blocked >= 60) { s.stats.stormsBeaten++; s.pulse.survived++; if (!s.offer) s.cargoProgress = Math.min(0.999, s.cargoProgress + K.STORM_CARGO_BOOST); }
         log(s, blocked >= 60 ? 'good' : 'warn', blocked < 5 ? `${EVENT_NAME[e.kind]} is over. Nothing blocked it.` : `${EVENT_NAME[e.kind]} is over. Your shield blocked ${blocked}% of it.`);
       }
     }
@@ -424,7 +485,8 @@ function hurt(c: CrewState, cause: Cause, amount: number) {
   c.hurtBy[cause] += amount;
 }
 
-function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: number) {
+function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate: number) {
+  const inPod = !habReady(s);
   const med = s.modules.find((m) => m.kind === 'medbay' && m.on);
   const medicIn = !!med && workersIn(s, med.id).some((c) => c.role === 'Medic' && !isFainted(c));
   for (const c of s.crew) {
@@ -444,7 +506,8 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     if (stage > wasStage && stage === 2) speak(s, c, 'air2', 'bad');
     if (wasStage > 0 && stage === 0) speak(s, c, 'airBack', 'good');
 
-    // Warmth
+    // Warmth: the Hab heats the whole base. Before it exists, only the capsule is warm.
+    const heat = habHeat || (inPod && c.at === 'hab');
     const wasCold = c.temp < K.HYPOTHERMIA_TEMP;
     if (heat) c.temp = Math.min(K.NORMAL_TEMP, c.temp + (inBed ? K.TEMP_RISE_MEDBAY : K.TEMP_RISE) * dt);
     else c.temp = Math.max(88, c.temp - (K.TEMP_FALL / c.tolerance) * dt);
@@ -468,11 +531,15 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     const resting = c.exhausted || c.at === 'hab' || (inBed && c.role !== 'Medic');
     const wasTired = c.energy < 30;
     if (resting) {
-      const gain = c.exhausted && c.at !== 'hab' ? K.COLLAPSE_GAIN : c.at === 'hab' && heat ? K.SLEEP_GAIN : K.REST_GAIN;
-      c.energy = Math.min(100, c.energy + gain * (night ? K.NIGHT_SLEEP : 1) * dt);
+      // A real bed in a warm Hab beats a cramped capsule seat.
+      const gain = c.exhausted && c.at !== 'hab' ? K.COLLAPSE_GAIN : c.at === 'hab' && habHeat && !inPod ? K.SLEEP_GAIN : K.REST_GAIN;
+      c.energy = Math.min(100, c.energy + gain * (night ? K.NIGHT_SLEEP : 1) * (has(c, 'sleepyhead') ? 1.4 : 1) * dt);
     } else {
-      const drain = room?.on ? K.WORK_DRAIN : K.IDLE_DRAIN;
-      c.energy = Math.max(0, c.energy - drain * (night ? K.NIGHT_WORK : 1) * dt);
+      const building = !!room && !ready(room);
+      const drain = room?.on || building ? K.WORK_DRAIN : K.IDLE_DRAIN;
+      const nightCost = night && !has(c, 'nightowl') ? K.NIGHT_WORK : 1;
+      const style = has(c, 'tireless') ? 0.75 : has(c, 'sleepyhead') ? 1.2 : 1;
+      c.energy = Math.max(0, c.energy - drain * nightCost * style * dt);
     }
     if (!resting && !wasTired && c.energy < 30) speak(s, c, 'tired', 'bad');
     if (!c.exhausted && c.energy <= 0) {
@@ -488,14 +555,19 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     }
 
     // Mood: tired, cold, overworked or sad crew get unhappy. Rest, warmth, fresh food and company help.
-    let dm = resting ? 8 : 1.5;
-    if (c.exhausted) dm -= 20;
-    else if (!resting && c.energy < K.TIRED_AT) dm -= 14 * (1 - c.energy / K.TIRED_AT);
-    if (c.temp < K.HYPOTHERMIA_TEMP) dm -= 15;
-    if (s.griefUntil > s.time) dm -= 8;
-    if (s.modules.some((m) => m.kind === 'hydro' && m.on)) dm += 2;
-    if (s.crew.some((o) => o !== c && !o.out && o.at === c.at)) dm += 3;
-    c.mood = Math.max(0, Math.min(100, c.mood + dm * dt));
+    let up = resting ? 8 : 1.5;
+    let down = 0;
+    if (c.exhausted) down += 20;
+    else if (!resting && c.energy < K.TIRED_AT) down += 14 * (1 - c.energy / K.TIRED_AT);
+    if (c.temp < K.HYPOTHERMIA_TEMP) down += has(c, 'brave') ? 4 : 15;
+    if (s.griefUntil > s.time && !has(c, 'brave')) down += 8;
+    if (inPod && c.at === 'hab') down += K.POD_GLOOM;
+    if (s.modules.some((m) => m.kind === 'hydro' && m.on)) up += 2;
+    const mates = s.crew.filter((o) => o !== c && !o.out && o.at === c.at);
+    if (mates.length) up += 3;
+    if (mates.some((o) => has(o, 'sunny'))) up += 6;
+    if (has(c, 'steady')) down /= 2;
+    c.mood = Math.max(0, Math.min(100, c.mood + (up - down) * dt));
     if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && c.at !== 'hab') {
       c.at = 'hab';
       s.stats.strikes++;
@@ -544,13 +616,16 @@ export function step(prev: GameState, dt: number): GameState {
 
   stepEvents(s);
 
-  // Building goes as fast as the fittest astronaut can work. Tired crew build slowly.
-  const builders = alive(s).filter((c) => !c.exhausted).map(workRate);
-  const buildRate = Math.max(K.BUILD_MIN, ...builders);
+  // Nothing builds itself: an astronaut has to be at the site. Rested crew build faster.
   for (const m of s.modules) {
     if (m.buildLeft > 0) {
-      m.buildLeft = Math.max(0, m.buildLeft - dt * buildRate);
+      const hands = workersIn(s, m.id).filter((c) => !c.exhausted);
+      const rate = hands.length ? Math.max(...hands.map((c) => workRate(c) * (has(c, 'builder') ? 2 : 1))) * (1 + 0.25 * (hands.length - 1)) : 0;
+      m.buildLeft = Math.max(0, m.buildLeft - dt * rate);
       if (m.buildLeft === 0) {
+        // Builders stay on to work in a workplace; otherwise they head home.
+        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) c.at = 'hab';
+        if (m.id === 'hab-site') { m.id = 'hab'; m.on = true; m.onSince = s.time; }
         s.pulse.built++;
         log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : '. Switch it on when you have power'}.`);
       }
@@ -585,8 +660,8 @@ export function step(prev: GameState, dt: number): GameState {
   s.stats.lowestLife = Math.min(s.stats.lowestLife, s.life);
   const air = s.life > 0;
   if (!air) s.stats.airOutSols += dt;
-  const heat = isOn(s, 'hab');
-  if (!heat) s.stats.coldSols += dt;
+  const heat = habReady(s) && isOn(s, 'hab');
+  if (!heat && alive(s).some((c) => c.at !== 'hab' || habReady(s))) s.stats.coldSols += dt;
 
   // Shield
   s.shield = Math.max(0, Math.min(100, s.shield + (isOn(s, 'dome') ? K.SHIELD_CHARGE : -K.SHIELD_FADE) * dt));

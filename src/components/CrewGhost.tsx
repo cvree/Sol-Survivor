@@ -11,7 +11,10 @@ export function CrewGhost() {
   const c = game?.crew.find((m) => m.id === id);
   if (!c || !game) return null;
   const mod = game.modules.find((m) => m.id === over);
-  const label = !mod ? `Drop ${c.name} on a module` : ok ? (mod.kind === 'hab' ? `${c.name} will sleep in the Hab` : `${c.name} will work in the ${MODULE_NAME[mod.kind]}`) : `No room for ${c.name} there`;
+  const label = !mod ? `Drop ${c.name} on a module` : !ok ? `No room for ${c.name} there`
+    : mod.kind === 'pod' ? `${c.name} will rest in the capsule`
+    : mod.buildLeft > 0 ? `${c.name} will build the ${MODULE_NAME[mod.kind]}`
+    : mod.kind === 'hab' ? `${c.name} will sleep in the Hab` : `${c.name} will work in the ${MODULE_NAME[mod.kind]}`;
   return (
     <div className={`ghost ${mod ? (ok ? 'ok' : 'no') : ''}`} style={{ left: x, top: y }} aria-hidden="true">
       <Astronaut who={c} look={lookOf(c)} size={44} act="wave" />

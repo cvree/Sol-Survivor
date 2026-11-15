@@ -52,6 +52,15 @@ Third pass (crew as people):
 - Drag astronauts onto modules to give them jobs; tapping and picking from their card still works.
 - Lessons now start the first time they are needed: tired crew, night, grumpy crew, a second crewmate (`coach.ts`).
 
+Fourth pass (earn everything):
+
+- Only the commander is free. You land with a capsule: warm, cramped (mood drops), 3 power, and an air tank that runs out.
+- Cargo landers are earned: exploring, mini-missions and beating storms fill the Next lander bar; it also creeps up by itself every 8 sols.
+- Lander 1 brings plans only: Hab, Oxygen Maker, Solar Field, Battery Bank, and room for two. Later landers offer a choice of two crewmates, or nobody for extra supplies.
+- Nothing builds itself: a plan becomes a building site, and an astronaut has to be dragged onto it to build it (rested crew build faster, two builders faster still).
+- Every astronaut has a trait that changes play (Night owl, Steady, Sunny, Explorer, Coffee powered, Speed builder, Big sleeper, Brave), a helmet accessory, and their own voice lines.
+- Lessons for the new start: the capsule, exploring, your first discovery, placing a site, building it, switching it on.
+
 Known gaps:
 
 | Gap | Detail |
@@ -61,7 +70,7 @@ Known gaps:
 | Nothing to come back for | No progress survives a mission. No goals inside a mission beyond "survive". |
 | Quiet moments are flat | Between storms and landers, nothing rewards the player for a well-run base. |
 | Art rule relaxed | Section 6 says no blur. The perfect-power cyan glow uses a soft drop-shadow, at Connor's request. |
-| Too easy for the careful bot | Even with energy and one starting astronaut, the simulated careful player wins 30 of 30 on every level. |
+| Too easy for the careful bot | The simulated careful player (which explores and finishes a mission every few sols) wins 24/24 on Easy and Normal and 23/24 on Hard. Without exploring it wins only 7/24 on Hard: earning landers is what keeps a base alive. |
 | New numbers untested with children | Spare parts (start 2, +1 per lander, patch lasts 1 sol) and mini-mission rewards are first guesses in `constants.ts`. |
 
 ## 2. North star

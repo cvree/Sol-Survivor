@@ -1,4 +1,4 @@
-export type ModuleKind = 'hab' | 'solar' | 'battery' | 'oxygen' | 'hydro' | 'dome' | 'medbay' | 'lab' | 'comms';
+export type ModuleKind = 'pod' | 'hab' | 'solar' | 'battery' | 'oxygen' | 'hydro' | 'dome' | 'medbay' | 'lab' | 'comms';
 export type Role = 'Engineer' | 'Botanist' | 'Medic' | 'Scientist';
 
 export interface ModuleState {
@@ -15,6 +15,8 @@ export interface ModuleState {
   patchedUntil: number;
 }
 
+export type TraitId = 'nightowl' | 'steady' | 'sunny' | 'explorer' | 'tireless' | 'builder' | 'sleepyhead' | 'brave';
+
 export type Triage = 'green' | 'yellow' | 'red';
 export type Cause = 'air' | 'cold' | 'radiation';
 
@@ -27,6 +29,8 @@ export interface CrewState {
   suit: string;
   /** One small made-up habit, so each astronaut feels like a person. Story only, not science. */
   quirk: string;
+  /** A trait that changes how this astronaut plays. */
+  trait: TraitId;
   /** Game time when they landed. Longer stays wear the body down. */
   arrived: number;
   /** Id of the module they are working or resting in. */
@@ -82,7 +86,9 @@ export interface GameEvent {
 /** What a cargo lander brought. The game waits until the commander has chosen. */
 export interface CargoOffer {
   number: number;
-  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr' | 'quirk'> | null;
+  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr' | 'quirk' | 'trait'> | null;
+  /** Who wants to come. The commander picks one, or nobody for extra supplies. */
+  crewOptions: NonNullable<CargoOffer['crew']>[];
   options: ModuleKind[];
   picks: number;
 }

@@ -166,7 +166,7 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 @keyframes drift { to { background-position: -340px 0; } }
 
 /* The yard: free-standing gear on the ridge behind the domes. */
-.yard { position: absolute; z-index: 1; left: 3%; right: 3%; top: 4px; height: calc(var(--ground) - var(--row) + 6px); display: flex; align-items: flex-end; gap: 14px; }
+.yard { position: absolute; z-index: 1; left: 3%; right: 3%; top: 4px; height: calc(var(--ground) - var(--row) + 6px); display: flex; align-items: flex-end; justify-content: flex-start; gap: 14px; padding-left: 9%; padding-right: 160px; }
 .prop { position: relative; width: 92px; padding: 0; border: 0; background: none; }
 .prop.k-battery { width: 62px; }
 .prop.k-comms { width: 78px; cursor: pointer; }
@@ -174,7 +174,7 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .yard-art { display: block; width: 100%; }
 .prop-switch { position: absolute; left: 50%; bottom: -8px; translate: -50% 0; scale: 0.7; }
 .prop.on .switch { background: var(--color-go); justify-content: flex-end; }
-.pad { position: relative; margin-left: auto; margin-right: 9%; display: flex; align-items: flex-end; gap: 4px; }
+.pad { position: absolute; right: 7%; bottom: 0; display: flex; align-items: flex-end; gap: 4px; }
 .pad::after { content: ''; position: absolute; left: -12px; right: -12px; bottom: -6px; height: 12px; border-radius: 6px; background: #5e1d22; z-index: -1; }
 .pad-crew { display: flex; gap: 2px; align-items: flex-end; }
 
@@ -958,6 +958,53 @@ button.find::before { content: ''; position: absolute; inset: -12px; border-radi
 .energy-mini { --tone: var(--color-volt) !important; }
 .energy-mini .health-fill { background: var(--color-volt); }
 
+/* The landing capsule: home until the Hab is built */
+.pod { position: relative; flex: none; order: -1; display: grid; justify-items: center; width: 150px; margin-right: 6px; border-radius: 26px; }
+.pod.is-home .pod-craft { scale: 1.1; transform-origin: 50% 100%; }
+.pod-craft { position: relative; }
+.pod-window { position: absolute; left: 50%; top: 58px; width: 26px; height: 26px; translate: -50% 0; border-radius: 50%; background: #fff7c9; box-shadow: 0 0 18px 6px rgba(255, 220, 120, 0.7); opacity: 0.55; animation: led 2.2s ease-in-out infinite; pointer-events: none; }
+.pod-floor { position: absolute; left: 50%; bottom: 8px; translate: -50% 0; display: flex; gap: 2px; z-index: 4; }
+.pod-plate { position: absolute; left: 50%; bottom: -24px; translate: -50% 0; display: flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; white-space: nowrap; background: var(--color-clean); color: var(--ink); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink); font-size: 0.85rem; font-weight: 700; }
+.pod-plate small { font: 700 0.7rem/1 var(--font-mono); color: #8a6a00; }
+.pod-plate .plate-icon { width: 22px; height: 22px; background: var(--color-volt); }
+.pod.retired { opacity: 0.85; }
+.pod.retired .pod-plate small { display: none; }
+.pod.drop-can { outline: 5px dashed var(--color-go); outline-offset: 4px; }
+.pod.drop-ok { outline: 7px solid var(--color-go); outline-offset: 4px; background: rgba(94, 230, 160, 0.2); }
+.pod-go { position: absolute; z-index: 6; left: 50%; bottom: -150px; translate: -50% 0; white-space: nowrap; font-size: 1.4rem; padding: 0.5rem 1.1rem; cursor: pointer; }
+
+/* Building sites in the yard */
+.prop-wrap { position: relative; flex: none; display: grid; justify-items: center; border-radius: 20px; }
+.prop-wrap.building .prop { opacity: 0.75; }
+.prop-wrap.drop-can { outline: 5px dashed var(--color-go); outline-offset: 4px; }
+.prop-wrap.drop-ok { outline: 7px solid var(--color-go); outline-offset: 4px; background: rgba(94, 230, 160, 0.2); }
+.prop-floor { position: absolute; left: 50%; bottom: 2px; translate: -50% 0; display: flex; gap: 2px; z-index: 4; }
+.prop-bar { position: absolute; bottom: -14px; width: 64px; }
+.tag.site-tag { display: flex; align-items: center; gap: 4px; top: -16px; background: var(--color-volt); animation: bob 1s ease-in-out infinite; }
+.tag.site-tag.good { background: var(--color-go); animation: none; }
+.tag.site-tag svg.lucide { width: 1em; height: 1em; }
+.prop-wrap .tag.site-tag { top: -26px; font-size: 0.72rem; }
+.mod.building .mod-floor { z-index: 4; }
+
+/* Cargo: choose who comes */
+.cargo-step { font-size: 1.15rem; color: var(--color-sand); margin-top: 0.2rem; }
+.recruits { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 0.7rem; }
+.recruit-card { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.55rem 0.7rem; text-align: left; cursor: pointer; font: inherit; color: var(--color-clean); background: var(--color-dusk); border: var(--line); border-radius: 20px; box-shadow: var(--drop); }
+.recruit-card.picked { background: var(--color-clean); color: var(--ink); }
+.recruit-card.picked .tick { background: var(--color-go); }
+.recruit-face { display: grid; place-items: center; width: 74px; height: 74px; flex: none; border: 3px solid var(--ink); border-radius: 50%; background: #ffe9c9; }
+.recruit-text { flex: 1; display: grid; gap: 3px; font-size: 0.88rem; line-height: 1.2; }
+.recruit-text strong { font-size: 1.25rem; }
+.recruit-text strong small { font-size: 0.85rem; font-weight: 500; opacity: 0.8; }
+.recruit-quirk { font-style: italic; opacity: 0.8; }
+.recruit-card.nobody { background: #3a2a5c; }
+.recruit-card.nobody.picked { background: var(--color-clean); }
+.trait-chip { display: inline-block; justify-self: start; padding: 2px 9px; border: 2.5px solid var(--ink); border-radius: 10px; background: var(--color-volt); color: var(--ink); font-size: 0.82rem; font-weight: 700; line-height: 1.2; }
+.trait-chip.small { margin-top: 3px; font-size: 0.75rem; }
+.pick-card .trait-chip { justify-self: stretch; text-align: center; }
+.pick-card { gap: 0.45rem; }
+.cargo-pct { font-family: var(--font-mono); color: #0f7a4a; }
+
 @media (max-width: 1050px) {
   .header { grid-template-columns: auto 1fr; }
   .drawer { grid-template-columns: 1fr; }
@@ -966,6 +1013,7 @@ button.find::before { content: ''; position: absolute; inset: -12px; border-radi
   .offer-list { grid-template-columns: 1fr; }
   .debrief-grid, .levels, .review { grid-template-columns: 1fr; }
   .pick-grid { grid-template-columns: 1fr 1fr; }
+  .recruits { grid-template-columns: 1fr; }
   .minimap .mm-track { width: 160px; }
   .brief-marv { display: none; }
   .fuse { grid-template-columns: auto 1fr; border-radius: 24px; }
@@ -975,3 +1023,7 @@ button.find::before { content: ''; position: absolute; inset: -12px; border-radi
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
 }
+/* The base grid's empty cells must not swallow clicks meant for the yard behind it. */
+.base { pointer-events: none; }
+.base > * { pointer-events: auto; }
+.base > .dome-glow { pointer-events: none; }

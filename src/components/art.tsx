@@ -1,11 +1,11 @@
 import { motion } from 'motion/react';
-import { BatteryCharging, FlaskConical, HeartPulse, Home, SatelliteDish, ShieldHalf, Sprout, Sun, Wind, type LucideIcon } from 'lucide-react';
+import { Rocket, BatteryCharging, FlaskConical, HeartPulse, Home, SatelliteDish, ShieldHalf, Sprout, Sun, Wind, type LucideIcon } from 'lucide-react';
 import type { ModuleKind, Triage } from '../engine/types';
 
 export const INK = '#1d1033';
 
 export const MODULE_ICON: Record<ModuleKind, LucideIcon> = {
-  hab: Home, solar: Sun, battery: BatteryCharging, oxygen: Wind, hydro: Sprout, dome: ShieldHalf, medbay: HeartPulse, lab: FlaskConical, comms: SatelliteDish,
+  pod: Rocket, hab: Home, solar: Sun, battery: BatteryCharging, oxygen: Wind, hydro: Sprout, dome: ShieldHalf, medbay: HeartPulse, lab: FlaskConical, comms: SatelliteDish,
 };
 
 export interface Look {
@@ -23,7 +23,23 @@ export interface Look {
 export type Act = 'idle' | 'type' | 'water' | 'wrench' | 'check' | 'sleep' | 'collapse' | 'wave' | 'jump' | 'cold' | 'sip';
 
 /** A crew member. `bust` crops to the helmet for portraits. The face is the health display. */
-export function Astronaut({ who, look, bust, size = 48, act = 'idle' }: { who: { skin: string; suit: string }; look: Look; bust?: boolean; size?: number; act?: Act }) {
+/** Each astronaut wears one small thing of their own, so you can tell them apart at a glance. */
+function Accessory({ id }: { id?: string }) {
+  const s = { stroke: INK, strokeWidth: 1.8, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
+  switch (id) {
+    case 'ada': return <g><path d="M10 10c5-6 23-6 28 0" fill="none" stroke="#8a5a3c" strokeWidth="3" /><circle cx="18" cy="7" r="3.8" fill="#4fd8ff" {...s} /><circle cx="30" cy="7" r="3.8" fill="#4fd8ff" {...s} /></g>;
+    case 'mei': return <path d="M36 27c-1.6-2.4 1.2-4.2 2.6-2.2c1.4-2 4.2-.2 2.6 2.2l-2.6 2.6z" fill="#ff2e4d" {...s} />;
+    case 'kofi': return <g><path d="M24 4V-1" stroke="#2f9e57" strokeWidth="2.4" strokeLinecap="round" /><path d="M24 0c-4-1-5-4-4-6c3 0 4 3 4 6zM24 -1c4-1 5-4 4-6c-3 0-4 3-4 6z" fill="#5ee6a0" {...s} /></g>;
+    case 'yuki': return <g><path d="M31 5l4-6" stroke={INK} strokeWidth="2" /><path d="M35.5 -4.5l1.4 2.8l3 .4l-2.2 2.1l.5 3l-2.7-1.4l-2.7 1.4l.5-3l-2.2-2.1l3-.4z" fill="#ffd23f" {...s} /></g>;
+    case 'luis': return <g><rect x="36" y="23" width="5" height="5.5" rx="1" fill="#f7f4ec" {...s} /><path d="M41 24.5h1.4v2.4H41" fill="none" stroke={INK} strokeWidth="1.4" /><path d="M37.5 21.5c.6-1 -.4-1.4.2-2.4M39.8 21.5c.6-1 -.4-1.4.2-2.4" fill="none" stroke="#8a7fa6" strokeWidth="1.2" /></g>;
+    case 'zara': return <g transform="rotate(-25 14 9)"><rect x="6" y="6" width="16" height="5" rx="1" fill="#d9d3c5" {...s} /><path d="M9 8.5h10" stroke={INK} strokeWidth="1" strokeDasharray="1.5 2" /></g>;
+    case 'omar': return <g><path d="M11 9a13 10 0 0 1 26 0z" fill="#b6f04f" {...s} /><path d="M12 9h24" stroke={INK} strokeWidth="1.8" /><circle cx="24" cy="-1" r="3.4" fill="#f7f4ec" {...s} /></g>;
+    case 'tala': return <g>{[0, 72, 144, 216, 288].map((r) => <circle key={r} cx="38" cy="10" r="2.6" fill="#ff8fd8" {...s} transform={`rotate(${r} 38 13)`} />)}<circle cx="38" cy="13" r="2" fill="#ffd23f" {...s} /></g>;
+  }
+  return null;
+}
+
+export function Astronaut({ who, look, bust, size = 48, act = 'idle' }: { who: { skin: string; suit: string; id?: string }; look: Look; bust?: boolean; size?: number; act?: Act }) {
   const lip = look.blueLips ? '#3f6fe0' : INK;
   const skin = look.blueLips ? '#b9a7c9' : who.skin;
   const doing: Act = bust || look.fainted ? 'idle' : look.shiver ? 'cold' : act;
@@ -101,6 +117,7 @@ export function Astronaut({ who, look, bust, size = 48, act = 'idle' }: { who: {
       {look.triage === 'green' && !asleep && <><circle cx="15.5" cy="24" r="2" fill="#ff8fb1" opacity=".55" /><circle cx="32.5" cy="24" r="2" fill="#ff8fb1" opacity=".55" /></>}
       {(look.flushed || look.dizzy) && !look.fainted && <path d="M36 11c2 3 2 5 0 5.5c-2-.5-2-2.5 0-5.5z" fill="#4fd8ff" stroke={INK} strokeWidth="1.2" />}
       <path d="M11 13a15 15 0 0 1 9-8" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity=".7" />
+      <Accessory id={who.id} />
       {asleep && !bust && <text className="zzz" x="36" y="2" fontSize="13" fontWeight="700" fill="#f7f4ec" stroke={INK} strokeWidth="2.6" paintOrder="stroke">z<tspan dy="-6" fontSize="10">z</tspan></text>}
     </motion.svg>
   );
@@ -134,7 +151,25 @@ export function Marv({ mood, size = 84 }: { mood: Mood; size?: number }) {
 }
 
 /** The cargo lander that brings new crew and blueprints from Earth. `burn` lights the descent engine. */
-export function Lander({ size = 120, burn }: { size?: number; burn?: boolean }) {
+export function Lander({ size = 120, burn, capsule }: { size?: number; burn?: boolean; capsule?: boolean }) {
+  if (capsule) {
+    // The crew's own landing capsule: rounder, scorched from the trip down, with a hatch.
+    return (
+      <svg viewBox="0 0 120 130" width={size} height={size * (130 / 120)} aria-hidden="true" style={{ overflow: 'visible' }}>
+        <path d="M30 104l-10 20M90 104l10 20" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+        <path d="M12 124h18M90 124h18" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+        <path d="M60 14C88 14 104 40 104 72v30c0 6-4 8-10 8H26c-6 0-10-2-10-8V72c0-32 16-58 44-58z" fill="#e9dcc4" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+        <path d="M18 92h84v12c0 5-3 6-8 6H26c-5 0-8-1-8-6z" fill="#46306f" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
+        <path d="M24 64c6-22 18-36 36-40M30 84c-4-6-6-12-6-18" stroke="#b8a98c" strokeWidth="5" fill="none" strokeLinecap="round" />
+        <rect x="44" y="50" width="32" height="40" rx="10" fill="#c2512a" stroke={INK} strokeWidth="4" />
+        <circle cx="60" cy="66" r="9" fill="#4fd8ff" stroke={INK} strokeWidth="3.5" />
+        <path d="M55 63a6 6 0 0 1 6-4" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <circle cx="70" cy="82" r="2.5" fill="#ffd23f" />
+        <path d="M60 14V4M52 4h16" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+        <circle cx="34" cy="99" r="2.5" fill="#5ee6a0" /><circle cx="44" cy="99" r="2.5" fill="#ffd23f" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 120 130" width={size} height={size * (130 / 120)} aria-hidden="true" style={{ overflow: 'visible' }}>
       {burn && (

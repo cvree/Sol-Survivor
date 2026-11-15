@@ -33,7 +33,7 @@ export function TitleScreen() {
         </div>
         <h1 className="logo">Sol Survivor</h1>
         <p className="title-lede">
-          Pick your commander and land on Mars alone. Build a base, welcome new crew, make sure everyone sleeps, and survive solar storms
+          Pick your commander and land on Mars with nothing but a capsule. Earn cargo landers, build every module by hand, choose your crew, and survive solar storms
           for {MISSION_SOLS} <Term k="sol">sols</Term>. Astronauts can really die, so look after them!
         </p>
 

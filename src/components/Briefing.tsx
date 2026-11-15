@@ -18,12 +18,12 @@ export function Briefing() {
     {
       kicker: 'Mission briefing 1 of 4', title: `Welcome to Mars, Commander ${lead.name}!`,
       art: <div className="brief-art"><Lander size={90} /><Astronaut who={lead} look={HAPPY} size={56} act="wave" /></div>,
-      lines: ['You just landed in Gale Crater, a real place on Mars. You are on your own, for now.', 'Cargo landers will bring more crew, one at a time. Keep everyone alive for 30 sols. A sol is one day on Mars.', 'Earth is so far away that a message takes up to 24 minutes. You make the calls.'],
+      lines: ['You are landing in Gale Crater, a real place on Mars, with nothing but a small capsule. Its air will not last.', 'Earth sends cargo landers with building plans and new crew, but you have to earn them: explore, finish missions, survive storms.', 'Keep everyone alive for 30 sols. A sol is one day on Mars.'],
     },
     {
       kicker: 'Mission briefing 2 of 4', title: 'Look after your astronauts',
       art: <div className="brief-art icons"><span className="bi volt"><Zap /></span><span className="bi go"><Wind /></span><span className="bi orange"><Home /></span><span className="bi cyan"><BedDouble /></span></div>,
-      lines: ['Power runs everything, and there is never quite enough. Tap a module to switch it on or off.', 'Drag an astronaut into the Oxygen Maker or Hydroponics to make air and food. Heat comes from the Hab.', 'Work makes astronauts tired. Tired ones work slower, get grumpy, and can collapse. Drag them to the Hab to sleep.'],
+      lines: ['Nothing builds itself: drag an astronaut onto a building site to build it. Then tap a module to switch it on.', 'Drag astronauts into the Oxygen Maker or Hydroponics to make air and food. The Hab gives heat and proper beds.', 'Work makes astronauts tired. Tired ones work slower, get grumpy, and can collapse. Drag them to the Hab to sleep.'],
     },
     {
       kicker: 'Mission briefing 3 of 4', title: 'Watch the Sun',

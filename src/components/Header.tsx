@@ -69,7 +69,7 @@ export function Header({ game }: { game: GameState }) {
 
       <div className={`cargo-chip`} data-bar="cargo" aria-label={`Next cargo lander in ${eta.toFixed(1)} sols`}>
         <Rocket />
-        <span>Next lander</span>
+        <span>Next lander <b className="cargo-pct">{Math.round(game.cargoProgress * 100)}%</b></span>
         <span className="sol-track"><motion.i animate={{ width: `${game.cargoProgress * 100}%` }} transition={{ duration: 0.2 }} /></span>
         {game.modules.some((m) => m.kind === 'lab') && <small><FlaskConical /> {Math.floor(game.science)}</small>}
       </div>

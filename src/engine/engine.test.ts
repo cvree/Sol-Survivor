@@ -13,9 +13,17 @@ const catalog: Catalog = {
   dust: [{ id: 'd1', strength: 0.6 }, { id: 'd2', strength: 1 }],
 };
 const seeds = Array.from({ length: 24 }, (_, i) => 1000 + i * 7919);
-const toFirstLander = (seed: number) => {
-  let s = createGame(seed, catalog);
-  while (!s.offer) s = step(s, 0.05);
+/** Play on, accepting landers, until a lander with a crewmate is waiting. */
+const toCrewLander = (seed: number, commander = 'ada') => {
+  let s = createGame(seed, catalog, 1, 'easy', commander);
+  for (let i = 0; i < 4000 && !(s.offer && s.offer.crewOptions.length); i++) s = s.offer ? acceptCargo(s, []) : step(s, 0.05);
+  return s;
+};
+/** A game with a Hab and a working Oxygen Maker already built, for testing the rules. */
+const starter = (seed: number, commander = 'ada', difficulty: 'easy' | 'hard' = 'hard') => {
+  const s = createGame(seed, catalog, 1, difficulty, commander);
+  const mod = (id: string, kind: ModuleKind, cell: number) => ({ id, kind, cell, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0 });
+  s.modules.push(mod('hab', 'hab', 2), mod('m2', 'oxygen', 7));
   return s;
 };
 
@@ -27,9 +35,11 @@ describe('no perfect equilibrium', () => {
   });
 
   it('refuses to switch on a module the power budget cannot cover', () => {
-    let s = acceptCargo(toFirstLander(1), ['dome', 'hydro']);
+    let s = starter(1);
+    s.blueprints = ['dome'];
     s = build(s, 'dome');
-    s = step(s, 1.1);
+    s = assign(s, s.crew[0].id, s.modules.find((m) => m.kind === 'dome')!.id);
+    for (let i = 0; i < 80 && s.modules.some((m) => m.buildLeft > 0); i++) s = step(s, 0.05);
     const r = toggleModule(s, s.modules.find((m) => m.kind === 'dome')!.id);
     expect(r.ok).toBe(false);
     expect(power(r.state).free).toBeGreaterThanOrEqual(0);
@@ -53,7 +63,7 @@ describe('no perfect equilibrium', () => {
 
 describe('growth has a cost', () => {
   it('every new astronaut drains life support faster', () => {
-    const before = toFirstLander(3);
+    const before = toCrewLander(3);
     const after = acceptCargo(before, []);
     expect(after.crew.length).toBe(before.crew.length + 1);
     expect(lifeFlow(after).used).toBeGreaterThan(lifeFlow(before).used);
@@ -67,8 +77,8 @@ describe('growth has a cost', () => {
   });
 
   it('a staffed module out-produces an empty one, and a specialist does best', () => {
-    const s = createGame(5, catalog, 1, 'hard', 'ada');
-    const m = createGame(5, catalog, 1, 'hard', 'mei');
+    const s = starter(5, 'ada');
+    const m = starter(5, 'mei');
     const oxygen = s.modules.find((x) => x.kind === 'oxygen')!;
     const empty = lifeFlow(s).made;
     const medic = lifeFlow(assign(m, 'mei', oxygen.id)).made;
@@ -87,7 +97,8 @@ describe('growth has a cost', () => {
   });
 
   it('domes go on the surface next to the base, rooms go underground, gear goes in the yard', () => {
-    const s = acceptCargo(toFirstLander(2), ['solar', 'hydro']);
+    const s = starter(2);
+    s.blueprints = ['solar', 'hydro'];
     expect(build(s, 'hydro', 0)).toBe(s); // not next to anything yet
     expect(buildableCells(s, 'hydro')).toEqual([1, 3]);
     expect(buildableCells(s, 'solar')[0]).toBeGreaterThanOrEqual(100);
@@ -131,7 +142,7 @@ describe('simulation rules', () => {
   });
 
   it('a patch runs a dead module for one sol with no power, then wears out', () => {
-    let s = createGame(5, catalog);
+    let s = starter(5);
     const oxy = s.modules.find((m) => m.kind === 'oxygen')!.id;
     s = toggleModule(s, oxy).state;
     const before = power(s).used;
@@ -148,7 +159,7 @@ describe('simulation rules', () => {
   });
 
   it('cannot patch without spare parts', () => {
-    let s = createGame(5, catalog);
+    let s = starter(5);
     s.spareParts = 0;
     const oxy = s.modules.find((m) => m.kind === 'oxygen')!.id;
     s = toggleModule(s, oxy).state;
@@ -156,8 +167,9 @@ describe('simulation rules', () => {
   });
 
   it('always has a mini-mission to offer, and finishing one pays out', () => {
-    let s = createGame(5, catalog);
-    const g = nextGoal(s, [])!;
+    let s = starter(5);
+    expect(nextGoal(s, [])!.id).toBe('first-find');
+    const g = nextGoal(s, ['first-find'])!;
     expect(g.id).toBe('staff-oxygen');
     expect(g.progress(s, markOf(s)).value).toBe(0);
     s = assign(s, s.crew[0].id, s.modules.find((m) => m.kind === 'oxygen')!.id);
@@ -167,15 +179,14 @@ describe('simulation rules', () => {
     expect(s.life).toBeGreaterThan(life);
     expect(s.stats.goals).toBe(1);
     expect(nextGoal(s, GOALS.map((x) => x.id))).toBeNull();
-    expect(nextGoal(s, [g.id])).not.toBeNull();
+    expect(nextGoal(s, ['first-find', g.id])).not.toBeNull();
   });
 
   it('a crewmate can die and the base carries on, but losing the commander ends the mission', () => {
-    let s = createGame(5, catalog, 1, 'easy', 'kofi');
-    expect(s.crew.length).toBe(1);
+    expect(createGame(5, catalog, 1, 'easy', 'kofi').crew.length).toBe(1);
+    let s = acceptCargo(toCrewLander(5, 'kofi'), []);
     expect(s.crew[0].commander).toBe(true);
-    while (!s.offer) s = step(s, 0.05);
-    s = acceptCargo(s, []);
+    s.crew.forEach((c) => { c.health = 100; c.noAir = 0; });
     s.crew[1].noAir = 9;
     s.crew[1].hurtBy.air = 50;
     s = step(s, 0.05);
@@ -190,7 +201,7 @@ describe('simulation rules', () => {
 
   it('each commander brings their own perk', () => {
     expect(createGame(5, catalog, 1, 'easy', 'ada').spareParts).toBeGreaterThan(createGame(5, catalog, 1, 'easy', 'mei').spareParts);
-    expect(createGame(5, catalog, 1, 'easy', 'kofi').blueprints).toContain('hydro');
+    expect(createGame(5, catalog, 1, 'easy', 'kofi').blueprints).toEqual([]);
   });
 
   it('a discovery pays out', () => {
@@ -201,7 +212,7 @@ describe('simulation rules', () => {
   });
 
   it('work tires astronauts out, tired ones work slower, and sleep in the Hab brings them back', () => {
-    let s = createGame(5, catalog, 1, 'easy', 'ada');
+    let s = starter(5, 'ada', 'easy');
     const oxy = s.modules.find((m) => m.kind === 'oxygen')!;
     s = assign(s, s.crew[0].id, oxy.id);
     const fresh = staffing(s, s.modules.find((m) => m.id === oxy.id)!);
@@ -216,7 +227,7 @@ describe('simulation rules', () => {
   });
 
   it('an overworked astronaut collapses, and a very unhappy one walks off the job', () => {
-    let s = createGame(5, catalog, 1, 'easy', 'ada');
+    let s = starter(5, 'ada', 'easy');
     s = assign(s, s.crew[0].id, s.modules.find((m) => m.kind === 'oxygen')!.id);
     s.crew[0].energy = 0.5;
     s = step(s, 0.05);

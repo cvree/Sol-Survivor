@@ -1,5 +1,5 @@
 import { POWER_COST, WORK_SLOTS } from './constants';
-import { SPECIALIST, acceptCargo, assign, build, power, step, toggleModule, workersIn } from './engine';
+import { SPECIALIST, acceptCargo, assign, build, collectFind, grantReward, power, step, toggleModule, workersIn } from './engine';
 import type { GameState, ModuleKind } from './types';
 
 /**
@@ -27,10 +27,14 @@ function applyPriority(s: GameState, order: ModuleKind[]): GameState {
   return s;
 }
 
-const WANT: ModuleKind[] = ['dome', 'solar', 'hydro', 'medbay', 'battery', 'oxygen', 'dome', 'solar', 'comms', 'lab', 'hydro'];
+const WANT: ModuleKind[] = ['oxygen', 'hab', 'dome', 'solar', 'hydro', 'medbay', 'battery', 'dome', 'solar', 'comms', 'lab', 'hydro'];
 
 export const carefulBot: Bot = (s0) => {
   let s = s0;
+  // A careful player explores: about one discovery every two sols (the first right away),
+  // and finishes a mini-mission every few sols. Both bring landers sooner.
+  if (s.stats.finds < Math.min(12, 1 + Math.floor((s.time - 1) / 2))) s = collectFind(s, 'science', 'a discovery');
+  if (s.stats.goals < Math.floor((s.time - 1) / 4)) s = grantReward(s, 'supplies');
   if (s.offer) {
     const short = power(s).free <= 1 && s.landers > 0;
     const order = short ? ['solar', 'battery', ...WANT] : WANT;
@@ -40,6 +44,12 @@ export const carefulBot: Bot = (s0) => {
   }
   for (let i = 0; i < 4 && s.blueprints.length; i++) s = build(s, s.blueprints[0]);
 
+  // Nothing builds itself: send a rested astronaut to each site that has nobody on it.
+  for (const site of s.modules.filter((m) => m.buildLeft > 0 && workersIn(s, m.id).length === 0)) {
+    const hand = s.crew.find((c) => !c.out && !c.exhausted && c.energy > 45 && c.sick < 0.15 && !s.modules.some((m) => m.id === c.at && m.buildLeft > 0));
+    if (hand) s = assign(s, hand.id, site.id);
+  }
+
   // Staff the working modules, specialists first, and send the sick to the Med Bay.
   const med = s.modules.find((m) => m.kind === 'medbay' && m.on);
   for (const c of s.crew.filter((x) => !x.out)) {
@@ -48,6 +58,7 @@ export const carefulBot: Bot = (s0) => {
     if (med && c.at === med.id && !needsBed && c.health > 85) s = assign(s, c.id, 'hab');
     // Tired or unhappy crew go to bed; rested crew go back to work.
     if (c.at !== 'hab' && c.at !== med?.id && (c.energy < 28 || c.mood < 30)) { s = assign(s, c.id, 'hab'); continue; }
+    if (s.modules.some((m) => m.id === c.at && m.buildLeft > 0)) continue;
     if (c.at !== 'hab') continue;
     if (c.energy < 85 || c.exhausted) continue;
     const jobs = s.modules.filter((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(s, m.id).length === 0);

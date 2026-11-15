@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { donki, hasDonki, osdrFetchedAt, osdrStudies, recordById, type RealRecord } from '../data/records';
-import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, alive, buildableCells } from '../engine/engine';
+import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, SKIP_CREW_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
+import { MODULE_NAME, SPECIALIST, TRAITS, alive, buildableCells } from '../engine/engine';
 import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Marv } from './art';
@@ -56,6 +56,7 @@ function RecordCard({ r }: { r: RealRecord }) {
 
 /** The real science behind each module, shown when it is offered and in the Science Log. */
 export const MODULE_SCIENCE: Record<ModuleKind, { text: string; study?: string }> = {
+  pod: { text: 'Landing capsules keep their crew alive for only a short time. They are a ride, not a home.' },
   hab: { text: 'Mars averages about minus 80°F. A habitat has to make its own warmth.' },
   solar: { text: 'Mars gets less than half the sunlight Earth does, and dust can block most of it. In 2018 the Opportunity rover\'s solar power fell from 645 to 22 watt-hours a day.' },
   battery: { text: 'Rovers and landers on Mars store power in batteries to get through nights and dust storms.' },
@@ -67,7 +68,7 @@ export const MODULE_SCIENCE: Record<ModuleKind, { text: string; study?: string }
   comms: { text: 'A radio message between Mars and Earth takes 4 to 24 minutes each way. A better antenna means NASA\'s storm forecasts reach you sooner.' },
 };
 const STRAIN: Record<ModuleKind, string> = {
-  hab: '', solar: 'More power, but dust storms block every Solar Field at once.',
+  pod: '', hab: 'Needs 1 power. Warm beds for proper sleep, and heat for the whole base.', solar: 'More power, but dust storms block every Solar Field at once.',
   battery: 'Steady power in any weather, but only a little.',
   oxygen: `Needs ${POWER_COST.oxygen} power and someone to run it.`,
   hydro: `Needs ${POWER_COST.hydro} power and someone to run it. Fresh food keeps long-stay crew healthier.`,
@@ -81,29 +82,56 @@ export function CargoPanel({ game }: { game: GameState }) {
   const unpack = useGame((s) => s.unpack);
   const offer = game.offer;
   const [picks, setPicks] = useState<ModuleKind[]>([]);
+  const [who, setWho] = useState<string | null | undefined>(undefined);
   if (!offer) return null;
   const flip = (k: ModuleKind) => setPicks((p) => (p.includes(k) ? p.filter((x) => x !== k) : p.length < offer.picks ? [...p, k] : p));
-  const crewAfter = alive(game).length + (offer.crew ? 1 : 0);
+  const choosing = offer.crewOptions.length > 0;
+  const chosen = who === undefined ? undefined : who;
+  const crewAfter = alive(game).length + (chosen ? 1 : 0);
+  const ready = picks.length >= offer.picks && (!choosing || chosen !== undefined);
   return (
     <Modal title={`Cargo lander ${offer.number} has landed!`} onClose={() => undefined} wide tone="good" locked>
       <div className="cargo-top">
         <motion.div initial={{ y: -220, rotate: -6 }} animate={{ y: 0, rotate: 0 }} transition={{ type: 'spring', stiffness: 90, damping: 11 }}><Lander size={72} /></motion.div>
-        {offer.crew ? (
-          <motion.div className="recruit" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14, delay: 0.5 }}>
-            <Astronaut who={offer.crew} look={HAPPY} size={52} />
-            <div>
-              <p className="record-kicker">New crew member</p>
-              <h3>{offer.crew.name} the {offer.crew.role}</h3>
-              <p>{offer.crew.role === 'Engineer' && 'Best in the Oxygen Maker.'}{offer.crew.role === 'Botanist' && 'Best in Hydroponics.'}{offer.crew.role === 'Scientist' && 'Best in the Science Lab.'}{offer.crew.role === 'Medic' && 'Makes the Med Bay heal faster.'}</p>
-              <p className="quirk">"{offer.crew.quirk}"</p>
-              <p className="strain">One more mouth to feed: {crewAfter} astronauts now share your air and food.</p>
-            </div>
-          </motion.div>
-        ) : (
-          <div className="recruit"><p>The base is full, so this lander brought only supplies and blueprints.</p></div>
-        )}
+        <p className="lede">{offer.number === 1
+          ? 'You earned your first lander! It carries building plans, but only room for two. Air, warmth or power: what do you need most?'
+          : choosing ? 'Earth sent help! Choose who joins your crew, then pick the building plans to unpack.' : 'The base is full, so this lander brought supplies and building plans.'}</p>
       </div>
-      <p className="lede">The lander could only carry so much. Pick {offer.picks} blueprints to unpack.</p>
+      {choosing && (
+        <>
+          <h3 className="cargo-step">1. Who comes to Mars?</h3>
+          <div className="recruits">
+            {offer.crewOptions.map((r, i) => {
+              const t = TRAITS[r.trait];
+              const on = chosen === r.id;
+              return (
+                <motion.button key={r.id} className={`recruit-card ${on ? 'picked' : ''}`} onClick={() => setWho(r.id)} aria-pressed={on}
+                  initial={{ scale: 0, rotate: i ? 4 : -4 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 14, delay: 0.3 + i * 0.12 }} whileTap={{ scale: 0.96 }}>
+                  <span className="recruit-face"><Astronaut who={r} look={HAPPY} size={58} act="wave" /></span>
+                  <span className="recruit-text">
+                    <strong>{r.name} <small>the {r.role}</small></strong>
+                    <span className="trait-chip">{t.name}: {t.text}</span>
+                    <span className="recruit-quirk">"{r.quirk}"</span>
+                    <span className="real">{r.role === 'Engineer' && 'Best in the Oxygen Maker.'}{r.role === 'Botanist' && 'Best in Hydroponics.'}{r.role === 'Scientist' && 'Best in the Science Lab.'}{r.role === 'Medic' && 'Best in the Med Bay.'}</span>
+                  </span>
+                  <span className="tick" aria-hidden="true">{on && <Check />}</span>
+                </motion.button>
+              );
+            })}
+            <motion.button className={`recruit-card nobody ${chosen === null ? 'picked' : ''}`} onClick={() => setWho(null)} aria-pressed={chosen === null}
+              initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14, delay: 0.55 }} whileTap={{ scale: 0.96 }}>
+              <span className="recruit-text">
+                <strong>Nobody this time</strong>
+                <span>Fill the seat with +{SKIP_CREW_SUPPLIES} extra life support instead.</span>
+                <span className="real">Fewer mouths to feed, but fewer hands to build and work.</span>
+              </span>
+              <span className="tick" aria-hidden="true">{chosen === null && <Check />}</span>
+            </motion.button>
+          </div>
+          {chosen && <p className="strain">One more mouth to feed: {crewAfter} astronauts will share your air and food.</p>}
+        </>
+      )}
+      <h3 className="cargo-step">{choosing ? '2. ' : ''}Pick {offer.picks} building plans to unpack</h3>
       <div className="offer-list">
         {offer.options.map((k, i) => {
           const Icon = MODULE_ICON[k];
@@ -124,10 +152,10 @@ export function CargoPanel({ game }: { game: GameState }) {
         })}
       </div>
       <div className="modal-actions">
-        <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={picks.length < offer.picks} onClick={() => unpack(picks)}>
-          {picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : 'Unpack the lander'}
+        <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={!ready} onClick={() => unpack(picks, chosen)}>
+          {choosing && chosen === undefined ? 'Choose who comes' : picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : 'Unpack the lander'}
         </motion.button>
-        <span className="aside">Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. The clock is stopped.</span>
+        <span className="aside">Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. Plans must be built by hand. The clock is stopped.</span>
       </div>
     </Modal>
   );
@@ -138,7 +166,7 @@ export function BuildPanel({ game, cell }: { game: GameState; cell?: number }) {
   const kinds = [...new Set(game.blueprints)].filter((k) => cell === undefined || buildableCells(game, k).includes(cell));
   return (
     <Modal title="Build" onClose={() => open(null)}>
-      <p className="lede">Pick a blueprint to put up. Building takes 1 sol.</p>
+      <p className="lede">Pick a plan. It becomes a building site: drag an astronaut onto it to build it.</p>
       <div className="offer-list one">
         {kinds.map((k) => {
           const Icon = MODULE_ICON[k];

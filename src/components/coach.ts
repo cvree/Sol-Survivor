@@ -1,5 +1,6 @@
 import { pannedBy } from '../lib/camera';
 import type { GameState } from '../engine/types';
+import { MODULE_NAME, POWER_COST_OF, bedName, power } from '../engine/engine';
 
 /**
  * M.A.R.V.'s hands-on lessons. Each one teaches a single idea by doing, and only
@@ -8,7 +9,7 @@ import type { GameState } from '../engine/types';
  * Steps marked `pause` stop the clock, so nothing bad happens while learning.
  */
 export interface CoachState { game: GameState | null; picked: string | null; subject?: string }
-export type CoachTarget = 'oxygen' | 'crew' | 'assign-oxygen' | 'assign-hab' | 'explore' | 'none';
+export type CoachTarget = 'oxygen' | 'crew' | 'assign-oxygen' | 'assign-hab' | 'explore' | 'pod' | 'spot' | 'site' | 'build-btn' | 'none';
 export interface CoachStep {
   say: (s: CoachState) => string;
   target: CoachTarget;
@@ -24,37 +25,55 @@ export interface Lesson {
   steps: CoachStep[];
 }
 
-const oxygen = (s: CoachState) => s.game?.modules.find((m) => m.kind === 'oxygen');
 const lead = (s: CoachState) => s.game?.crew.find((c) => c.commander);
 const who = (s: CoachState) => s.game?.crew.find((c) => c.id === s.subject);
 const name = (s: CoachState) => who(s)?.name ?? lead(s)?.name ?? 'your astronaut';
+const bed = (s: CoachState) => (s.game ? bedName(s.game) : 'the capsule');
 const tired = (s: CoachState) => s.game?.crew.find((c) => !c.out && c.at !== 'hab' && c.energy < 45);
 const grumpy = (s: CoachState) => s.game?.crew.find((c) => !c.out && c.mood < 40);
+const sites = (s: CoachState) => s.game?.modules.filter((m) => m.buildLeft > 0) ?? [];
+const idleHand = (s: CoachState) => s.game?.crew.find((c) => !c.out && !c.exhausted && !s.game!.modules.some((m) => m.id === c.at && m.buildLeft > 0));
+const switchable = (s: CoachState) => s.game?.modules.find((m) => m.buildLeft <= 0 && !m.on && !['pod', 'solar', 'battery'].includes(m.kind) && !!s.game && POWER_COST_OF(m.kind) <= power(s.game).free && m.onSince === 0);
 
 export const LESSONS: Lesson[] = [
   {
     id: 'start', when: () => false, subject: (s) => lead(s)?.id,
     steps: [
-      { say: () => 'Lesson 1: every module needs power. Tap the Oxygen Maker to switch it OFF. Watch the yellow power blocks.', target: 'oxygen', pause: true,
-        done: (s) => oxygen(s)?.on === false },
-      { say: () => 'See? Power came back. Now tap it again to switch the air back ON. No air, no astronaut!', target: 'oxygen', pause: true,
-        done: (s) => oxygen(s)?.on === true },
-      { say: (s) => `Lesson 2: modules work twice as well with someone inside. Drag ${name(s)} into the Oxygen Maker. (Or tap ${name(s)} and pick it.)`, target: 'crew', pause: true,
-        done: (s) => !!s.game && s.game.crew.some((c) => c.at === oxygen(s)?.id) },
-      { say: (s) => `Working uses energy. See the green bar under ${name(s)}? It goes down while they work. Astronauts need sleep!`, target: 'none', pause: false,
-        done: (_s, ms) => ms > 6500 },
-      { say: () => 'Lesson 3: drag the ground sideways, or press an arrow, to explore. Real Mars discoveries are hiding out there!', target: 'explore', pause: true,
+      { say: () => 'This capsule is all you have, Commander. It keeps you warm and makes 3 power. But its air tank will run out! Watch the Life support bar at the top.', target: 'pod', pause: true,
+        done: (_s, ms) => ms > 8500 },
+      { say: () => 'Earth will send cargo landers full of building plans, but you have to earn them. Drag the ground sideways to explore the crater!', target: 'explore', pause: true,
         done: () => pannedBy() > 260 },
-      { say: () => 'You are on your own for now, Commander. Cargo landers will bring more crew. Keep yourself alive: if the commander dies, the mission is over!', target: 'none', pause: false,
-        done: (_s, ms) => ms > 7000 },
+      { say: () => 'See something sparkle? Tap it to investigate. Every discovery brings the next lander closer.', target: 'none', pause: false,
+        done: (s) => (s.game?.stats.finds ?? 0) > 0 },
+    ],
+  },
+  {
+    id: 'place', when: (s) => !!s.game && s.game.blueprints.length > 0 && !sites(s).length && s.game.modules.length <= 2,
+    steps: [
+      { say: (s) => `You earned plans for a ${MODULE_NAME[s.game!.blueprints[0]]}! Press a glowing green spot, or the Build button, to mark out a building site.`, target: 'spot', pause: true,
+        done: (s) => sites(s).length > 0 },
+    ],
+  },
+  {
+    id: 'builder', when: (s) => sites(s).some((m) => !s.game!.crew.some((c) => c.at === m.id)) && !!idleHand(s), subject: (s) => idleHand(s)?.id,
+    steps: [
+      { say: (s) => `Nothing on Mars builds itself. Drag ${name(s)} onto the building site to build it. Building is hard work and uses energy!`, target: 'site', pause: true,
+        done: (s) => sites(s).length === 0 || sites(s).some((m) => s.game!.crew.some((c) => c.at === m.id)) },
+    ],
+  },
+  {
+    id: 'switch', when: (s) => !!switchable(s), subject: (s) => switchable(s)?.id,
+    steps: [
+      { say: () => 'You built it! New modules start switched off. Tap it to switch it on. Every module uses power, and power is never quite enough.', target: 'none', pause: false,
+        done: (s, ms) => ms > 9000 || !!s.game?.modules.find((m) => m.id === s.subject)?.on },
     ],
   },
   {
     id: 'tired', when: (s) => !!tired(s), subject: (s) => tired(s)?.id,
     steps: [
-      { say: (s) => `${name(s)} is getting tired! The energy bar is low. Tired astronauts work slower, and if they keep going they collapse. Drag ${name(s)} to the Hab to sleep.`, target: 'crew', pause: true,
+      { say: (s) => `${name(s)} is getting tired! Tired astronauts work slower, and if they keep going they collapse. Drag ${name(s)} to ${bed(s)} to sleep.`, target: 'crew', pause: true,
         done: (s) => who(s)?.at === 'hab' },
-      { say: (s) => `Sweet dreams, ${name(s)}! Sleep fills energy back up, fastest at night. When the bar is full again, send them back to work.`, target: 'none', pause: false,
+      { say: (s) => `Sweet dreams, ${name(s)}! Sleep fills energy back up, fastest at night${bed(s) === 'the capsule' ? '. A real bed in a Hab is even better than the cramped capsule.' : '.'}`, target: 'none', pause: false,
         done: (_s, ms) => ms > 7000 },
     ],
   },
@@ -68,15 +87,15 @@ export const LESSONS: Lesson[] = [
   {
     id: 'grumpy', when: (s) => !!grumpy(s), subject: (s) => grumpy(s)?.id,
     steps: [
-      { say: (s) => `${name(s)} is grumpy (see the storm cloud?). Being tired, cold or overworked makes crew unhappy. Very unhappy crew stop working! Rest, warmth, fresh food and friends cheer them up.`, target: 'crew', pause: false,
+      { say: (s) => `${name(s)} is grumpy (see the storm cloud?). Being tired, cold, cramped or overworked makes crew unhappy. Very unhappy crew stop working! Rest, warmth, fresh food and friends cheer them up.`, target: 'crew', pause: false,
         done: (_s, ms) => ms > 8000 },
     ],
   },
   {
     id: 'crew2', when: (s) => !!s.game && s.game.crew.filter((c) => !c.out).length >= 2,
     steps: [
-      { say: () => 'A new crewmate! Now you can take turns: one works while the other sleeps. Astronauts in the same room cheer each other up too.', target: 'none', pause: false,
-        done: (_s, ms) => ms > 7500 },
+      { say: () => 'A new crewmate! Now you can take turns: one works while the other sleeps. Everyone has their own trait, so tap them to see what makes them special.', target: 'none', pause: false,
+        done: (_s, ms) => ms > 8000 },
     ],
   },
 ];
