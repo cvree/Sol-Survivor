@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { FastForward, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
 import { FACTS } from '../data/facts';
-import { CAREER_LIMIT, WORK_SLOTS } from '../engine/constants';
+import { CAREER_LIMIT, POWER_COST, WORK_SLOTS } from '../engine/constants';
 import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workersIn } from '../engine/engine';
 import type { CrewState, GameState } from '../engine/types';
 import { TRIAGE_LABEL, maxHealth, triage } from '../engine/vitals';
@@ -12,21 +12,27 @@ import { feeling, lookOf } from './crewLook';
 import { Term } from './Term';
 import { TOUR } from './tour';
 
-/** What M.A.R.V. says when nothing else is going on: the single most useful thing to know right now. */
+/**
+ * What M.A.R.V. says when nothing else is going on: the single most useful thing to know right now,
+ * in the voice of a cheerful mission director who solves problems out loud.
+ */
 function advice(game: GameState, party: boolean): { text: string; mood: Mood } {
-  if (party) return { text: 'Storm beaten! Systems stabilized. Great work, Commander!', mood: 'party' };
+  if (party) return { text: 'Storm beaten! We scienced our way out of that one. Great work, Commander!', mood: 'party' };
   const domes = game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0);
   const storm = stormDose(game) > 0;
-  if (storm && !domes.length) return { text: 'Radiation is hitting us and we have no Shield Dome. Hang on, crew!', mood: 'alert' };
-  if (storm && game.shield < 50) return { text: 'Radiation is getting in! Switch on a Shield Dome!', mood: 'alert' };
+  const p = power(game);
+  if (storm && !domes.length) return { text: 'Radiation is hitting us and we have no Shield Dome. Hang on, crew! We will build one next.', mood: 'alert' };
+  if (storm && game.shield < 50) return { text: 'Radiation is getting in! Switch on a Shield Dome, quick!', mood: 'alert' };
   if (storm && shieldCover(game) < 1) return { text: `The domes only cover part of the crew. ${domes.some((m) => !m.on) ? 'Switch on the other dome!' : 'We need a second Shield Dome.'}`, mood: 'alert' };
-  if (storm) return { text: 'The shield is holding! Hang on until the storm passes.', mood: 'worried' };
-  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Press Build to put it up.`, mood: 'happy' };
+  if (storm) return { text: 'The shield is holding! Nice and steady until the storm passes.', mood: 'worried' };
+  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Press Build and let's put it up!`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
-  if (coming && coming.kind !== 'dust' && domes.length && !isOn(game, 'dome')) return { text: 'Storm on the way! Free up 4 power, then switch on the Shield Dome.', mood: 'alert' };
-  if (coming && coming.kind === 'dust') return { text: 'Dust storm on the way. Solar power is about to drop.', mood: 'worried' };
+  if (coming && coming.kind !== 'dust' && domes.length && !isOn(game, 'dome')) return { text: `${coming.kind === 'cme' ? 'Solar storm' : 'Solar flare'} incoming! Time to science our way out: free up 4 power, then switch on the Shield Dome.`, mood: 'alert' };
+  if (coming && coming.kind === 'dust') return { text: 'Dust storm on the way. Solar power is about to drop, so pick what can go dark.', mood: 'worried' };
+  const dead = game.modules.find((m) => !m.on && m.buildLeft <= 0 && ((m.kind === 'oxygen' && game.life < 45 && !isOn(game, 'oxygen')) || m.kind === 'hab') && POWER_COST[m.kind] > p.free);
+  if (dead && game.spareParts > 0) return { text: `No power for the ${MODULE_NAME[dead.kind]}? Press its Patch button. A spare part will run it for 1 sol.`, mood: 'worried' };
   if (game.life <= 0) return { text: 'The air tank is empty! Switch on the Oxygen Maker right now!', mood: 'alert' };
-  if (game.life < 20) return { text: 'Life support is nearly empty. Get the Oxygen Maker and Hydroponics on, with crew inside.', mood: 'alert' };
+  if (game.life < 20) return { text: 'Life support is nearly empty. Oxygen Maker and Hydroponics on, with crew inside. We can fix this!', mood: 'alert' };
   const red = game.crew.find((c) => triage(c) === 'red');
   if (red) return { text: `${red.name} is in trouble: ${feeling(red).toLowerCase()}. Click ${red.name} to check.`, mood: 'worried' };
   if (!isOn(game, 'hab')) return { text: 'The Hab is off, so there is no heat. The crew are getting colder.', mood: 'worried' };
@@ -36,7 +42,6 @@ function advice(game: GameState, party: boolean): { text: string; mood: Mood } {
   const idle = game.modules.find((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(game, m.id).length === 0);
   const resting = alive(game).find((c) => c.at === 'hab' && triage(c) !== 'red');
   if (idle && resting) return { text: `Nobody is working in the ${MODULE_NAME[idle.kind]}. Click ${resting.name} and send them there.`, mood: 'happy' };
-  const p = power(game);
   const off = game.modules.find((m) => !m.on && m.buildLeft <= 0 && m.kind !== 'dome' && m.kind !== 'solar' && m.kind !== 'battery');
   if (p.free > 0 && off && p.free >= 1) return { text: `You have ${p.free} spare power. Is there a module you could switch on?`, mood: 'happy' };
   const sol = Math.floor(game.time);
@@ -78,6 +83,7 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
         <div>
           <h3>{c.name} <small>{c.role}</small> <span className="mood" aria-hidden="true">{MOOD(c)}</span></h3>
           <p className={`chip t-${t}`}><Term k="triage">{TRIAGE_LABEL[t]}</Term>: {feeling(c)}</p>
+          <p className="quirk">{c.quirk}</p>
         </div>
         <button className="icon-btn" onClick={() => pick(null)} aria-label="Close"><X /></button>
       </header>

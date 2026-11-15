@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
-import { FlaskConical, Rocket, ShieldHalf, Wind, Zap } from 'lucide-react';
-import { CARGO_SOLS, DOME_COVERS, MISSION_SOLS } from '../engine/constants';
+import { FlaskConical, Rocket, ShieldHalf, Sparkles, Wind, Wrench, Zap } from 'lucide-react';
+import { CARGO_SOLS, DOME_COVERS, MAX_SPARE_PARTS, MISSION_SOLS } from '../engine/constants';
 import { alive, isOn, lifeFlow, power, shieldBlock, stormDose } from '../engine/engine';
 import type { GameState } from '../engine/types';
 import { Term } from './Term';
@@ -19,6 +19,7 @@ export function Header({ game }: { game: GameState }) {
   const block = Math.round((shieldBlock(game) / 0.92) * 100);
   const lowLife = game.life < 20;
   const eta = (1 - game.cargoProgress) * CARGO_SOLS;
+  const tuned = p.free === 0 && p.supply >= 4 && p.sunlight >= 0.99;
 
   return (
     <header className="header">
@@ -28,19 +29,19 @@ export function Header({ game }: { game: GameState }) {
         <span className="sol-track"><motion.i animate={{ width: `${(game.time - Math.floor(game.time)) * 100}%` }} transition={{ duration: 0.1 }} /></span>
       </div>
 
-      <div className={`res res-power`}>
-        <span className="res-icon"><Zap /></span>
+      <div className={`res res-power ${tuned ? 'tuned' : ''}`}>
+        <span className="res-icon" data-bar="power"><Zap /></span>
         <div className="res-body">
           <div className="res-head"><span>Power</span><b>{p.used}/{p.supply}</b></div>
           <div className="pips" role="img" aria-label={`${p.used} of ${p.supply} power in use`}>
             {Array.from({ length: p.most }, (_, i) => <span key={i} className={`pip ${i < p.used ? 'used' : i < p.supply ? 'free' : 'lost'}`} />)}
           </div>
-          <div className="res-note">{p.sunlight < 0.99 ? `Dust is blocking ${Math.round((1 - p.sunlight) * 100)}% of the sun` : p.free > 0 ? `${p.free} spare` : 'All in use'}</div>
+          <div className="res-note">{p.sunlight < 0.99 ? `Dust is blocking ${Math.round((1 - p.sunlight) * 100)}% of the sun` : p.free > 0 ? `${p.free} spare` : tuned ? <><Sparkles /> Perfect! Every block in use</> : 'All in use'}</div>
         </div>
       </div>
 
       <div className={`res res-life ${lowLife ? 'alarm' : ''}`}>
-        <span className="res-icon"><Wind /></span>
+        <span className="res-icon" data-bar="life"><Wind /></span>
         <div className="res-body">
           <div className="res-head"><span><Term k="lifesupport">Life support</Term></span><b>{Math.round(game.life)}%</b></div>
           <div className="bar"><motion.i animate={{ width: `${game.life}%` }} transition={spring} /></div>
@@ -49,7 +50,7 @@ export function Header({ game }: { game: GameState }) {
       </div>
 
       <div className={`res res-shield ${storm && block < 50 ? 'alarm' : ''}`}>
-        <span className="res-icon"><ShieldHalf /></span>
+        <span className="res-icon" data-bar="shield"><ShieldHalf /></span>
         <div className="res-body">
           <div className="res-head"><span>Shield</span><b>{block}%</b></div>
           <div className="bar"><motion.i animate={{ width: `${block}%` }} transition={spring} /></div>
@@ -60,7 +61,13 @@ export function Header({ game }: { game: GameState }) {
         </div>
       </div>
 
-      <div className={`cargo-chip`} aria-label={`Next cargo lander in ${eta.toFixed(1)} sols`}>
+      <div className="parts-chip" aria-label={`${game.spareParts} spare parts. Use one to patch a module that has no power.`} title="Spare parts: patch a module that has no power, for 1 sol">
+        <Wrench />
+        <span>Spare parts</span>
+        <span className="parts-pips">{Array.from({ length: MAX_SPARE_PARTS }, (_, i) => <i key={i} className={i < game.spareParts ? 'have' : ''} />)}</span>
+      </div>
+
+      <div className={`cargo-chip`} data-bar="cargo" aria-label={`Next cargo lander in ${eta.toFixed(1)} sols`}>
         <Rocket />
         <span>Next lander</span>
         <span className="sol-track"><motion.i animate={{ width: `${game.cargoProgress * 100}%` }} transition={{ duration: 0.2 }} /></span>

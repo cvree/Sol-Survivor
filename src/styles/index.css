@@ -104,13 +104,13 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .site.tour-target::after { content: ''; position: absolute; inset: 4px; border: 6px solid var(--color-cyan); border-radius: 22px; pointer-events: none; animation: flash 1s steps(2) infinite; }
 
 /* ---------- game layout ---------- */
-.game { height: 100%; min-height: 640px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.game { height: 100%; min-height: 640px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; }
 .stage { position: relative; overflow: clip; border-block: var(--line); }
 .game.critical .stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; border: 14px solid var(--color-danger); animation: flash 0.7s steps(2) infinite; }
 @keyframes flash { 50% { opacity: 0; } }
 
 /* ---------- header ---------- */
-.header { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)) auto; gap: 0.9rem; align-items: center; padding: 0.5rem 1rem 0.7rem; background: var(--color-void); }
+.header { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)) auto auto; gap: 0.9rem; align-items: center; padding: 0.5rem 1rem 0.7rem; background: var(--color-void); }
 .sol-badge { display: grid; justify-items: center; padding: 0.3rem 0.9rem 0.45rem; background: var(--color-rust); border: var(--line); border-radius: 18px; box-shadow: var(--drop); min-width: 104px; }
 .sol-word { font-weight: 600; font-size: 0.95rem; line-height: 1; margin-bottom: 5px; }
 .sol-word .term { border-bottom-width: 2px; }
@@ -222,8 +222,8 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .mod.under .tag { top: -12px; }
 @keyframes bob { 50% { translate: -50% -5px; } }
 .mod-floor { position: absolute; z-index: 2; display: flex; gap: 2px; align-items: flex-end; justify-content: center; pointer-events: none; }
-.mod.surface .mod-floor { left: 18%; right: 18%; bottom: 14%; }
-.mod.under .mod-floor { left: 6%; right: 48%; bottom: 17%; }
+.mod.surface .mod-floor { left: 16%; right: 16%; bottom: 17%; }
+.mod.under .mod-floor { left: 7%; right: 50%; bottom: 12%; }
 .spot { display: grid; place-content: center; justify-items: center; gap: 2px; min-height: 0; margin: 14px 10px; cursor: pointer; border: 5px dashed var(--color-go); border-radius: 26px; background: rgba(94, 230, 160, 0.25); color: var(--color-clean); font: 700 1.05rem/1 var(--font-display); animation: spot 1.1s ease-in-out infinite; }
 .spot svg.lucide { width: 30px; height: 30px; }
 @keyframes spot { 50% { background: rgba(94, 230, 160, 0.5); } }
@@ -454,33 +454,312 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .dot-offline { background: var(--color-volt); }
 
 /* ---------- debrief ---------- */
-.debrief-wrap { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 1rem; background: rgba(29, 16, 51, 0.85); overflow-y: auto; }
-.debrief { width: min(1000px, 100%); display: grid; gap: 0.8rem; padding: 1.3rem 1.6rem 1.5rem; background: var(--color-void); border: var(--line); border-color: var(--color-danger); border-radius: 30px; box-shadow: 0 8px 0 var(--ink); }
+.debrief-wrap { position: fixed; inset: 0; z-index: 30; display: grid; padding: 0.8rem; background: rgba(29, 16, 51, 0.85); overflow-y: auto; }
+.debrief { width: min(1040px, 100%); margin: auto; display: grid; gap: 0.6rem; padding: 0.9rem 1.4rem 1.1rem; background: var(--color-void); border: var(--line); border-color: var(--color-danger); border-radius: 30px; box-shadow: 0 8px 0 var(--ink); }
 .debrief.won { border-color: var(--color-go); }
 .debrief-top { display: flex; align-items: center; gap: 1rem; }
 .debrief-kicker { font: 700 0.85rem/1 var(--font-mono); color: var(--muted); }
-.debrief h1 { font-size: clamp(2rem, 5vw, 3.2rem); }
+.debrief h1 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); }
 .debrief h2 { font-size: 1.15rem; color: var(--color-sand); margin-bottom: 0.4rem; }
 .stars { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
 .stars svg.lucide { width: 44px; height: 44px; color: var(--color-dusk); fill: var(--color-dusk); stroke: var(--ink); }
 .stars svg.lit { color: var(--color-volt); fill: var(--color-volt); }
-.lesson { padding: 0.7rem 1rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 18px; font-size: 1.25rem; font-weight: 600; line-height: 1.25; }
+.lesson { padding: 0.55rem 0.9rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 18px; font-size: 1.08rem; font-weight: 600; line-height: 1.25; }
 .debrief-grid { display: grid; grid-template-columns: 1.25fr 0.9fr 1fr; gap: 1.4rem; }
 .mono-list { list-style: none; padding: 0; }
 .mono-list li { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 2px dashed var(--color-dusk); padding-bottom: 2px; }
 .mono-list b { font: 700 0.92rem/1.5 var(--font-mono); text-align: right; }
 .mono-list b.wrap { font-family: var(--font-display); max-width: 60%; }
-.debrief-crew, .debrief-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.debrief-crew, .debrief-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.95rem; }
 .debrief-crew li { display: flex; gap: 0.6rem; align-items: center; }
 .debrief-crew small, .debrief-events small { display: block; font: 400 0.78rem/1.3 var(--font-mono); color: var(--muted); }
+
+
+/* ==================================================================
+   P0: a base that feels alive
+================================================================== */
+
+/* ---------- the sky: bands, moons, a rover on the ridge ---------- */
+.scene { --ground: 46%; --swell: 0; --wall: 0; transition: transform 0.3s ease-out, filter 0.3s; }
+.sky-top { position: absolute; inset: 0 0 80% 0; background: #c9582f; border-bottom: 12px solid #d4683a; transition: background 0.6s; }
+.sky-stars i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--color-clean); opacity: 0; transition: opacity 0.8s; animation: twinkle 2.2s ease-in-out infinite; }
+.stormy .sky-stars i { opacity: 0.9; }
+@keyframes twinkle { 50% { scale: 0.4; } }
+.moon { position: absolute; border-radius: 50%; background: #f4c9a0; border: 3px solid #b9532c; opacity: 0.85; }
+.moon.phobos { left: 30%; top: 26px; width: 15px; height: 12px; rotate: -20deg; }
+.moon.deimos { left: 58%; top: 14px; width: 8px; height: 8px; }
+.hills-back { height: 78%; background: #cf6a3a; clip-path: polygon(0 40%, 6% 40%, 9% 20%, 20% 20%, 23% 44%, 40% 46%, 44% 30%, 52% 30%, 55% 48%, 72% 44%, 76% 18%, 88% 18%, 91% 40%, 100% 42%, 100% 100%, 0 100%); }
+.far-rover { position: absolute; left: 0; bottom: 27%; animation: drive 80s linear infinite; }
+@keyframes drive { from { translate: -80px 0; } to { translate: 100vw 0; } }
+.far-rover .wheel { animation: spin 1.1s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+.rover-dust { position: absolute; left: -10px; bottom: 0; width: 12px; height: 12px; border-radius: 50%; background: #e7b08a; animation: kick 0.9s ease-out infinite; }
+.rover-dust.d2 { animation-delay: 0.45s; }
+@keyframes kick { from { translate: 0 0; scale: 0.4; opacity: 0.9; } to { translate: -26px -10px; scale: 1.3; opacity: 0; } }
+.dusty .far-rover, .stormy .far-rover { animation-play-state: paused; }
+
+/* The Sun is the bomb everyone watches. It swells and bristles as a storm closes in. */
+.sun-wrap { position: absolute; right: 19%; top: 22px; width: 40px; height: 40px; scale: calc(1 + var(--swell) * 1.5); transform-origin: 50% 50%; transition: scale 0.25s; }
+.sun-wrap .sun { position: static; }
+.sun-spikes { position: absolute; inset: -70%; width: 240%; height: 240%; fill: var(--color-volt); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; opacity: 0; scale: 0.6; transition: opacity 0.4s, scale 0.4s; animation: spin 14s linear infinite; }
+.sun-angry .sun-spikes { opacity: 1; scale: 1; animation-duration: calc(9s - var(--swell) * 7s); }
+.sun-angry .sun { background: var(--color-volt); box-shadow: 0 0 0 8px #ff9a4d; animation: throb calc(1.1s - var(--swell) * 0.8s) ease-in-out infinite; }
+.stormy .sun { background: #fff; box-shadow: 0 0 0 8px var(--color-danger); }
+@keyframes throb { 50% { scale: 1.18; } }
+
+/* Dust: a wall rolls in from the left, the land darkens, wind streaks sweep the screen. */
+.dust-wall { position: absolute; left: 0; bottom: 0; width: 70%; height: 92%; background: #9a3f2a; border-radius: 0 60% 0 0 / 0 100% 0 0; border-right: 16px solid #b9532c; translate: calc(-104% + var(--wall) * 104%) 0; transition: translate 0.4s linear; opacity: 0.92; }
+.dusty .sky { background: #b4633a; }
+.dusty .sky::before { background: #8f3f27; border-bottom-color: #a04d2c; }
+.dusty .sky-top { background: #6f2f22; border-bottom-color: #7f3826; }
+.dusty .hills-far { background: #8d3f25; }
+.dusty .hills-near { background: #7c311f; }
+.dusty .hills-back { background: #9d4c2c; }
+.dusty .dirt { background: #6e2422; }
+.dusty .sun-wrap { opacity: 0.45; }
+.hills, .dirt, .sun-wrap { transition: background 0.8s, opacity 0.8s, scale 0.25s; }
+.wind { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; opacity: 0; transition: opacity 0.8s; }
+.dusty .wind { opacity: 1; }
+.wind i { position: absolute; left: 0; height: 5px; border-radius: 3px; background: #f2c79a; opacity: 0.75; animation: gust 1.2s linear infinite; }
+.wind i:nth-child(3n) { background: #ffb37a; height: 3px; }
+@keyframes gust { from { translate: 105vw 0; } to { translate: -320px 14px; } }
+
+/* Underground: layered soil with pockets of buried water ice. */
+.strata { position: absolute; left: 0; right: 0; }
+.strata.s1 { top: 30%; height: 30%; background: #862b28; border-top: 6px solid #7a2626; }
+.strata.s2 { top: 60%; height: 26%; background: #7a2625; border-top: 6px solid #6c2020; }
+.strata.s3 { top: 86%; bottom: 0; background: #6a2020; border-top: 6px solid #5e1d22; }
+.dusty .strata { filter: brightness(0.82); }
+.ice { position: absolute; width: 52px; overflow: visible; }
+
+/* The last 300 ms before a storm hits: time slows, the camera pushes in, bars close. */
+.scene.slowmo { transform: scale(1.07); filter: saturate(1.5) contrast(1.12); }
+.letterbox::before, .letterbox::after { content: ''; position: absolute; z-index: 9; left: 0; right: 0; height: 0; background: var(--ink); transition: height 0.25s ease-out; pointer-events: none; }
+.letterbox::before { top: 0; }
+.letterbox::after { bottom: 0; }
+.slowmo .letterbox::before, .slowmo .letterbox::after { height: 11%; }
+.hit-flash { position: absolute; inset: 0; z-index: 9; pointer-events: none; background: #fff; animation: hit-flash 0.6s ease-out both; }
+@keyframes hit-flash { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+
+/* Perfect power: every block in use. The base hums cyan. */
+.scene.tuned .mod.on .mod-art { animation: hum 1.4s ease-in-out infinite; }
+@keyframes hum { 0%, 100% { filter: drop-shadow(0 0 3px #4fd8ff); } 50% { filter: drop-shadow(0 0 13px #4fd8ff); } }
+.scene.tuned .mod.on.link-left::before { background: repeating-linear-gradient(90deg, var(--color-cyan) 0 10px, #bfeeff 10px 20px); background-size: 20px 100%; animation: flow 0.5s linear infinite; }
+@keyframes flow { to { background-position: 20px 0; } }
+.tuned-flash { position: absolute; z-index: 8; left: 50%; top: 30%; translate: -50% 0; padding: 0.4rem 1.3rem; background: var(--color-cyan); color: var(--ink); border: var(--line); border-radius: 999px; box-shadow: var(--drop); font-size: 1.7rem; font-weight: 700; pointer-events: none; animation: pop-in 1.5s ease-out both; }
+@keyframes pop-in { 0% { scale: 0.2; opacity: 0; } 15% { scale: 1.15; opacity: 1; } 25% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; translate: -50% -30px; } }
+.res.tuned { background: #1f6f8f; }
+.res.tuned .res-note { color: #d6f6ff; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.res.tuned .pip.used { background: var(--color-cyan); animation: pip-hum 1.4s ease-in-out infinite; }
+@keyframes pip-hum { 50% { background: #d6f6ff; } }
+.res-note svg.lucide { width: 1em; height: 1em; }
+
+/* ---------- every switch answers back ---------- */
+.flip { position: absolute; z-index: 1; inset: 4% 6%; border-radius: 32% 32% 22% 22%; border: 7px solid var(--color-cyan); pointer-events: none; animation: flip-ring 0.45s ease-out both; }
+.flip.flip-off { border-color: #6b5b98; animation-duration: 0.3s; }
+@keyframes flip-ring { from { scale: 0.75; opacity: 1; } to { scale: 1.28; opacity: 0; } }
+.mod.on .mod-art { animation: lights-on 0.3s ease-out; }
+@keyframes lights-on { 0% { filter: brightness(2.2); scale: 1.05; } 100% { filter: brightness(1); scale: 1; } }
+
+/* Jury-rig patches. */
+.patch-btn { position: absolute; z-index: 5; right: 2px; top: 4px; display: flex; align-items: center; gap: 4px; padding: 4px 10px 4px 7px; cursor: pointer; font: 700 0.85rem/1 var(--font-display); color: var(--ink); background: var(--color-volt); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); animation: bob-btn 0.9s ease-in-out infinite; }
+.patch-btn svg.lucide { width: 1.1em; height: 1.1em; }
+.mod.under .patch-btn { top: -10px; right: 6px; }
+.tape { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; animation: tape-on 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes tape-on { from { scale: 1.6; opacity: 0; rotate: 8deg; } }
+.tag.patch-tag { display: flex; align-items: center; gap: 4px; background: var(--color-clean); animation: none; font-family: var(--font-display); }
+.tag.patch-tag svg.lucide { width: 1em; height: 1em; }
+.mod.patched .plate { background: #fff7c9; }
+.parts-chip { display: grid; justify-items: center; gap: 3px; min-width: 96px; padding: 0.35rem 0.7rem 0.5rem; background: #ffe9a8; color: var(--ink); border: var(--line); border-radius: 18px; box-shadow: var(--drop); font-weight: 600; font-size: 0.85rem; line-height: 1; }
+.parts-chip > svg.lucide { width: 24px; height: 24px; }
+.parts-pips { display: flex; gap: 3px; }
+.parts-pips i { width: 14px; height: 14px; border: 3px solid var(--ink); border-radius: 4px; background: transparent; opacity: 0.35; }
+.parts-pips i.have { background: var(--color-rust); opacity: 1; }
+
+/* ---------- number pops ---------- */
+.pops { position: fixed; inset: 0; z-index: 25; pointer-events: none; overflow: hidden; }
+.pop { position: absolute; left: 0; top: 0; translate: -50% -50%; padding: 3px 11px 4px; white-space: nowrap; font: 700 1rem/1 var(--font-mono); color: var(--ink); background: var(--color-go); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink); }
+.pop-food { background: #ff8fd8; }
+.pop-science { background: #c9a6ff; }
+.pop-power { background: var(--color-volt); }
+.pop-shield { background: var(--color-cyan); }
+.pop-dull { background: #b9b0d0; font-size: 0.8rem; box-shadow: none; opacity: 0.85; }
+
+/* ---------- the storm fuse ---------- */
+.fuses { position: absolute; z-index: 7; top: 6px; left: 12px; width: min(980px, 72%); display: flex; gap: 10px; }
+.fuse { flex: 1; min-width: 0; }
+.fuse:not(:only-child) .fuse-text small { display: none; }
+.fuse:not(:only-child) .fuse-text strong { font-size: 1.02rem; }
+.fuse { display: grid; grid-template-columns: auto auto minmax(80px, 1fr) auto; align-items: center; gap: 10px; padding: 3px 8px; cursor: pointer; font: inherit; text-align: left; color: var(--ink); background: var(--color-volt); border: var(--line); border-radius: 999px; box-shadow: var(--drop); }
+.fuse-badge, .fuse-target { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: var(--line); border-radius: 50%; background: var(--ink); color: var(--color-volt); }
+.fuse-badge svg.lucide, .fuse-target svg.lucide { width: 24px; height: 24px; }
+.fuse-target { background: var(--color-clean); color: var(--ink); }
+.fuse-text { display: grid; }
+.fuse-text strong { font-size: 1.18rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.fuse-text strong b { font: 700 1.25rem/1 var(--font-mono); }
+.fuse-text small { font: 700 0.7rem/1.2 var(--font-mono); text-decoration: underline; white-space: nowrap; }
+.fuse-track { position: relative; height: 26px; }
+.fuse-rope { position: absolute; right: 0; top: 50%; height: 10px; translate: 0 -50%; border: 3px solid var(--ink); border-radius: 6px; background: repeating-linear-gradient(115deg, #f7f4ec 0 7px, #c2512a 7px 14px); }
+.fuse-ash { position: absolute; left: 0; top: 50%; height: 0; translate: 0 -50%; border-top: 5px dotted rgba(29, 16, 51, 0.55); }
+.fuse-spark { position: absolute; top: 50%; width: 22px; height: 22px; translate: -50% -50%; border-radius: 50%; background: #fff; border: 4px solid var(--ink); box-shadow: 0 0 0 5px #ff9a4d, 0 0 0 9px var(--color-danger); animation: spark 0.16s steps(2) infinite; }
+@keyframes spark { 50% { scale: 1.25; box-shadow: 0 0 0 6px var(--color-volt), 0 0 0 10px #ff9a4d; } }
+.fuse-spark b { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3px; border-radius: 2px; background: var(--color-danger); border: 2px solid var(--ink); animation: ember 0.55s ease-out infinite; }
+.fuse-spark b:nth-child(1) { --x: -24px; --y: -20px; }
+.fuse-spark b:nth-child(2) { --x: -30px; --y: 6px; animation-delay: 0.1s; background: var(--color-volt); }
+.fuse-spark b:nth-child(3) { --x: -12px; --y: 22px; animation-delay: 0.22s; }
+.fuse-spark b:nth-child(4) { --x: 6px; --y: -26px; animation-delay: 0.33s; background: var(--color-volt); }
+.fuse-spark b:nth-child(5) { --x: -20px; --y: -8px; animation-delay: 0.44s; background: #fff; }
+@keyframes ember { from { translate: 0 0; scale: 1; opacity: 1; } to { translate: var(--x) var(--y); scale: 0.2; opacity: 0; } }
+.fuse.urgent { background: #ff9a4d; animation: wobble 0.22s ease-in-out infinite; }
+.fuse.urgent .fuse-target { background: var(--color-danger); color: #fff; animation: throb 0.3s ease-in-out infinite; }
+.fuse.urgent .fuse-spark b { animation-duration: 0.3s; }
+.fuse.active { grid-template-columns: auto auto minmax(80px, 1fr); background: var(--color-danger); color: #fff; }
+.fuse.active.k-dust { background: #b3541e; }
+.fuse-track.drain { height: 16px; border: var(--line); border-radius: 999px; background: var(--ink); overflow: hidden; margin-right: 6px; }
+.fuse-left { display: block; height: 100%; background: var(--color-clean); border-radius: 999px; }
+
+/* ---------- mini-missions ---------- */
+.goal-slot { position: absolute; z-index: 6; left: 12px; bottom: 12px; width: min(350px, 44%); pointer-events: none; }
+.goal { position: relative; display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.9rem 0.6rem 0.6rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 22px; box-shadow: var(--drop); }
+.goal-icon { display: grid; place-items: center; width: 46px; height: 46px; flex: none; border: var(--line); border-radius: 50%; background: var(--color-cyan); }
+.goal-icon svg.lucide { width: 26px; height: 26px; }
+.goal-body { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.goal-body small { font: 700 0.72rem/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: #1f4fd1; }
+.goal-body strong { font-size: 1.08rem; font-weight: 700; line-height: 1.12; }
+.goal-bar { display: block; height: 12px; border: 3px solid var(--ink); border-radius: 999px; background: var(--ink); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--color-go); border-radius: 999px; }
+.goal-reward { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 600; opacity: 0.8; }
+.goal-reward svg.lucide { width: 1em; height: 1em; }
+.goal.done { background: var(--color-go); }
+.goal.done .goal-icon { background: var(--color-volt); }
+.goal.done .goal-body small { color: var(--ink); }
+.goal.done .goal-reward { opacity: 1; }
+.goal-spark { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; background: var(--color-volt); border: 3px solid var(--ink); border-radius: 3px; rotate: var(--a); animation: spark-out 0.8s ease-out both; }
+.goal-spark:nth-child(odd) { background: var(--color-cyan); border-radius: 50%; }
+@keyframes spark-out { from { transform: translateX(0) scale(1); opacity: 1; } to { transform: translateX(calc(var(--d) + 90px)) scale(0.3); opacity: 0; } }
+.paused-tag { bottom: auto; top: 12px; }
+
+/* ---------- held moments ---------- */
+.held { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 1rem; border: 0; cursor: pointer; font: inherit; color: var(--ink); background: rgba(29, 16, 51, 0.84); overflow: hidden; }
+.held-rays { position: absolute; left: 50%; top: 50%; width: 200vmax; height: 200vmax; margin: -100vmax; background: repeating-conic-gradient(rgba(255, 210, 63, 0.2) 0 10deg, transparent 10deg 20deg); animation: spin 24s linear infinite; }
+.held.meh .held-rays { background: repeating-conic-gradient(rgba(159, 220, 245, 0.12) 0 10deg, transparent 10deg 20deg); }
+.held-card { position: relative; display: grid; justify-items: center; gap: 0.35rem; width: min(580px, 94vw); padding: 1.3rem 2rem 1.9rem; text-align: center; background: var(--color-clean); border: 5px solid var(--ink); border-radius: 36px; box-shadow: 0 11px 0 var(--ink); }
+.held-kicker { display: flex; align-items: center; gap: 6px; font: 700 0.8rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: #1f4fd1; }
+.held-title { font-size: clamp(2.4rem, 7vw, 3.7rem); font-weight: 700; line-height: 1; color: var(--color-rust); text-shadow: 0 4px 0 var(--color-volt); }
+.held.meh .held-title { color: var(--color-dusk); text-shadow: 0 4px 0 #cfc6e6; }
+.held-stars { display: flex; gap: 0.5rem; margin: 0.5rem 0 0.2rem; }
+.held-stars svg.lucide { width: 78px; height: 78px; stroke: var(--ink); stroke-width: 2.2; fill: #d9d3c5; }
+.held-stars svg.lit { fill: var(--color-volt); }
+.held-stat { font-size: 1.4rem; font-weight: 600; }
+.held-stat b { font: 700 1.9rem/1 var(--font-mono); color: #0f7a4a; }
+.held-next { font-size: 1.08rem; font-weight: 500; max-width: 26em; }
+.held-real { margin-top: 0.2rem; font: 700 0.76rem/1.3 var(--font-mono); color: #1f4fd1; }
+.held-marv { position: absolute; right: -30px; top: -34px; rotate: 10deg; }
+.held-timer { position: absolute; left: 28px; right: 28px; bottom: 10px; height: 7px; border-radius: 4px; background: var(--color-go); transform-origin: 0 50%; animation: run-out linear both; }
+@keyframes run-out { to { transform: scaleX(0); } }
+.held-banner { position: fixed; z-index: 44; left: 50%; bottom: 200px; translate: -50% 0; display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 1.5rem; white-space: nowrap; font-size: 1.6rem; font-weight: 700; color: var(--ink); background: var(--color-volt); border: var(--line); border-radius: 999px; box-shadow: 0 7px 0 var(--ink); }
+.held-banner svg.lucide { width: 1.3em; height: 1.3em; }
+
+/* The lander comes down on a flame, with its shadow growing on the pad. */
+.pad-shadow { position: absolute; left: -6px; right: -6px; bottom: -9px; height: 14px; border-radius: 50%; background: #5e1d22; z-index: -1; }
+.pad::after { display: none; }
+.flame { transform-box: fill-box; transform-origin: 50% 0; animation: flame 0.09s steps(2) infinite; }
+@keyframes flame { 50% { transform: scaleY(0.72) scaleX(1.1); } }
+.pad-blast { position: absolute; left: 50%; bottom: -8px; width: 150px; height: 22px; margin-left: -75px; border-radius: 50%; background: #e7b08a; animation: blast 0.5s ease-out 1.5s infinite; opacity: 0; }
+@keyframes blast { from { scale: 0.3; opacity: 0.9; } to { scale: 1.5; opacity: 0; } }
+
+/* ---------- the mission ticker ---------- */
+.ticker { display: flex; align-items: center; gap: 0.8rem; width: 100%; height: 36px; padding: 0 1rem; overflow: hidden; cursor: pointer; text-align: left; border: 0; border-top: 4px solid var(--ink); background: #150b27; color: #cfe0ff; font: 400 0.92rem/1 var(--font-mono); }
+.ticker-tag { display: flex; align-items: center; gap: 6px; flex: none; padding: 4px 10px; border-radius: 999px; background: var(--color-clean); color: var(--ink); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.ticker-tag b { color: #b3361a; font-weight: 700; }
+.ticker-tag svg.lucide { width: 14px; height: 14px; }
+.ticker-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-line b { font-weight: 700; color: var(--color-clean); }
+.ticker.tone-good { color: var(--color-go); }
+.ticker.tone-warn { color: var(--color-volt); }
+.ticker.tone-bad { color: #ff8a9b; }
+
+/* ---------- crew that act ---------- */
+.astro .arm, .astro .leg { transform-box: fill-box; transform-origin: 50% 12%; }
+.astro .eyes { transform-box: fill-box; transform-origin: 50% 50%; animation: blink 4.2s infinite; }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+.act-idle .arm-l, .act-sip .arm-l { animation: swing 0.5s ease-in-out infinite alternate; }
+.act-idle .arm-r { animation: swing 0.5s ease-in-out infinite alternate-reverse; }
+@keyframes swing { from { transform: rotate(14deg); } to { transform: rotate(-14deg); } }
+.act-type .arm-l { animation: tap 0.22s ease-in-out infinite alternate; }
+.act-type .arm-r { animation: tap 0.22s ease-in-out infinite alternate-reverse; }
+@keyframes tap { from { transform: rotate(-62deg); } to { transform: rotate(-84deg); } }
+.act-water .arm-r { animation: pour 1.6s ease-in-out infinite alternate; }
+@keyframes pour { from { transform: rotate(-52deg); } to { transform: rotate(-76deg); } }
+.act-wrench .arm-r { animation: crank 0.42s ease-in-out infinite alternate; }
+@keyframes crank { from { transform: rotate(-110deg); } to { transform: rotate(-48deg); } }
+.act-check .arm-r { transform: rotate(-58deg); }
+.act-check .arm-l { animation: tap 0.6s ease-in-out infinite alternate; }
+.act-sip .arm-r { animation: sip 2.6s ease-in-out infinite; }
+@keyframes sip { 0%, 55%, 100% { transform: rotate(-50deg); } 65%, 90% { transform: rotate(-128deg); } }
+.act-wave .arm-r { animation: wave 0.28s ease-in-out infinite alternate; }
+@keyframes wave { from { transform: rotate(-158deg); } to { transform: rotate(-122deg); } }
+.act-jump { animation: jump 0.46s cubic-bezier(0.3, 0, 0.5, 1) infinite alternate; }
+@keyframes jump { from { translate: 0 0; } to { translate: 0 -16px; } }
+.act-jump .arm-l { transform: rotate(150deg); }
+.act-jump .arm-r { transform: rotate(-150deg); }
+.act-cold .arm-l { transform: rotate(-52deg); }
+.act-cold .arm-r { transform: rotate(52deg); }
+.drip { animation: drip 0.7s ease-in infinite; }
+.drip.d2 { animation-delay: 0.35s; }
+@keyframes drip { from { translate: 0 0; opacity: 1; } to { translate: 3px 12px; opacity: 0; } }
+.steam { animation: flicker 1.2s steps(3) infinite; }
+.zzz { animation: zzz 2s ease-in-out infinite; }
+@keyframes zzz { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+.say.chat { background: #fff7c9; font-weight: 500; }
+.quirk { margin-top: 3px; font-size: 0.86rem; font-style: italic; opacity: 0.78; line-height: 1.2; }
+
+/* Life inside the richer modules. */
+.glow-led { animation: led 1.6s ease-in-out infinite; }
+@keyframes led { 50% { opacity: 0.55; } }
+.drip-fall { animation: drip-fall 1.8s ease-in infinite; opacity: 0; }
+@keyframes drip-fall { 0% { translate: 0 0; opacity: 0; } 15% { opacity: 1; } 100% { translate: 0 26px; opacity: 0; } }
+.bubble { animation: bubble 2s ease-in infinite; opacity: 0; }
+@keyframes bubble { 0% { translate: 0 0; opacity: 0; } 20% { opacity: 0.95; } 100% { translate: 0 -30px; opacity: 0; } }
+.slosh { animation: slosh 1.3s ease-in-out infinite alternate; }
+@keyframes slosh { from { translate: -2px 0; } to { translate: 2px 0; } }
+.needle { animation: needle 1.1s ease-in-out infinite alternate; }
+@keyframes needle { from { rotate: -30deg; } to { rotate: 20deg; } }
+.radar { animation: spin 2.2s linear infinite; }
+.shine { animation: shine 3.2s ease-in-out infinite; }
+@keyframes shine { 0%, 55% { translate: 0 0; opacity: 0; } 60% { opacity: 0.6; } 100% { translate: 130px 0; opacity: 0; } }
+.charge { animation: charge 1.4s ease-in-out infinite; }
+@keyframes charge { 50% { fill: #c9ffe2; } }
+.crane { animation: crane 0.7s ease-in-out infinite alternate; }
+@keyframes crane { to { translate: 0 14px; } }
+
+/* ---------- mission-control debrief ---------- */
+.debrief-title { flex: 1; min-width: 0; }
+.debrief-kicker { letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-cyan); }
+.debrief-sub { margin-top: 0.3rem; font: 700 0.8rem/1.3 var(--font-mono); color: var(--muted); }
+.patch-badge { display: block; filter: drop-shadow(0 5px 0 var(--ink)); }
+.lesson small { display: block; margin-bottom: 3px; font: 700 0.72rem/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: #1f4fd1; }
+.review { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+.review section { padding: 0.5rem 0.8rem 0.6rem; border: var(--line); border-radius: 20px; background: var(--color-dusk); }
+.review ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.review li { display: flex; gap: 0.5rem; align-items: flex-start; line-height: 1.2; font-size: 0.97rem; }
+.debrief .mono-list li { font-size: 0.95rem; }
+.debrief .patch-badge { width: 84px; height: 84px; }
+.debrief .stars svg.lucide { width: 34px; height: 34px; }
+.review li svg.lucide { margin-top: 0.1em; padding: 2px; border-radius: 50%; background: var(--color-go); color: var(--ink); stroke-width: 3.4; }
+.review-next li svg.lucide { background: var(--color-volt); }
+.review .review-good h2 { color: var(--color-go); }
+.review .review-next h2 { color: var(--color-volt); }
 
 @media (max-width: 1050px) {
   .header { grid-template-columns: auto 1fr; }
   .drawer { grid-template-columns: 1fr; }
   .crew-row { flex-wrap: wrap; }
-  .game { height: auto; grid-template-rows: auto minmax(620px, 1fr) auto; }
+  .game { height: auto; grid-template-rows: auto minmax(620px, 1fr) auto auto; }
   .offer-list { grid-template-columns: 1fr; }
-  .debrief-grid, .levels { grid-template-columns: 1fr; }
+  .debrief-grid, .levels, .review { grid-template-columns: 1fr; }
+  .fuse { grid-template-columns: auto 1fr; border-radius: 24px; }
+  .fuse-track, .fuse-target { display: none; }
   .payload-foot { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { donki, hasDonki, osdrFetchedAt, osdrStudies, recordById, type RealRecord } from '../data/records';
-import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
+import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
 import { MODULE_NAME, SPECIALIST, alive, buildableCells } from '../engine/engine';
 import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
@@ -95,6 +95,7 @@ export function CargoPanel({ game }: { game: GameState }) {
               <p className="record-kicker">New crew member</p>
               <h3>{offer.crew.name} the {offer.crew.role}</h3>
               <p>{offer.crew.role === 'Engineer' && 'Best in the Oxygen Maker.'}{offer.crew.role === 'Botanist' && 'Best in Hydroponics.'}{offer.crew.role === 'Scientist' && 'Best in the Science Lab.'}{offer.crew.role === 'Medic' && 'Makes the Med Bay heal faster.'}</p>
+              <p className="quirk">"{offer.crew.quirk}"</p>
               <p className="strain">One more mouth to feed: {crewAfter} astronauts now share your air and food.</p>
             </div>
           </motion.div>
@@ -126,7 +127,7 @@ export function CargoPanel({ game }: { game: GameState }) {
         <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={picks.length < offer.picks} onClick={() => unpack(picks)}>
           {picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : 'Unpack the lander'}
         </motion.button>
-        <span className="aside">Also on board: {CARGO_SUPPLIES} life support. The clock is stopped.</span>
+        <span className="aside">Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. The clock is stopped.</span>
       </div>
     </Modal>
   );
@@ -165,7 +166,7 @@ export function LogPanel({ game }: { game: GameState }) {
 }
 
 const HEADLINE: Record<EventKind, string> = {
-  cme: 'A cloud of radiation is flying at us from the Sun!',
+  cme: 'A cloud of radiation is flying at us from the Sun! Time to science our way out of this, Commander!',
   flare: 'The Sun just flashed! Radiation arrives at the speed of light!',
   dust: 'A wall of dust is about to hide the Sun!',
 };
@@ -285,6 +286,8 @@ export function DataPanel({ recordId }: { recordId?: string }) {
           <li>Long-stay wear is real, but how fast it happens here is a game number. The studies used mice, bed rest and the Space Station, not Mars.</li>
           <li>The Shield Dome is simplified. Real plans use thick walls, water tanks and Mars dirt, with no switch.</li>
           <li>Cargo landers every few sols are much faster than real life. A real trip from Earth takes about seven months.</li>
+          <li>Spare parts and the Patch button are made up. Fixing things with what you have is very real: the Apollo 13 crew built an air filter from a plastic bag, a hose, cardboard and tape.</li>
+          <li>The crew's names, jokes and habits are made up to make them feel like people.</li>
           <li>Crew vitals follow an EMT's field notes for low oxygen, cold and radiation sickness, simplified for young players.</li>
         </ul>
       </section>

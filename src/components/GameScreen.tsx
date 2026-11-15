@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { recordById } from '../data/records';
 import { useGame } from '../store/game';
 import { BottomBar } from './BottomBar';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
-import { Header } from './Header';
-import { BuildPanel, CargoPanel, DataPanel, EventCard, EVENT_TITLE, LogPanel } from './Panels';
 import { Diorama } from './Diorama';
+import { GoalCard } from './GoalCard';
+import { Header } from './Header';
+import { Moments } from './Moments';
+import { BuildPanel, CargoPanel, DataPanel, EventCard, LogPanel } from './Panels';
+import { Pops } from './Pops';
+import { StormFuse } from './StormFuse';
+import { Ticker } from './Ticker';
 
 export function GameScreen() {
   const game = useGame((s) => s.game);
@@ -15,7 +18,6 @@ export function GameScreen() {
   const paused = useGame((s) => s.paused);
   const party = useGame((s) => s.party);
   const tick = useGame((s) => s.tick);
-  const open = useGame((s) => s.open);
   const setPaused = useGame((s) => s.setPaused);
 
   useEffect(() => {
@@ -43,34 +45,21 @@ export function GameScreen() {
   if (!game) return null;
   const over = game.status !== 'playing';
   const critical = game.crew.some((c) => c.spo2 < 86 || c.health < 30);
-  const live = game.events.filter((e) => e.phase === 'warned' || e.phase === 'active');
 
   return (
     <div className={`game ${critical && !over ? 'critical' : ''} ${tour === 0 ? 'intro' : ''}`}>
       <Header game={game} />
       <main className="stage">
         <Diorama game={game} />
-        <div className="alerts" role="alert">
-          <AnimatePresence>
-            {live.map((e) => {
-              const warned = e.phase === 'warned';
-              const left = warned ? e.startAt - game.time : e.endAt - game.time;
-              const span = warned ? e.startAt - e.warnAt : e.endAt - e.startAt;
-              return (
-                <motion.button key={e.id} className={`alert ${warned ? 'incoming' : 'active'}`} onClick={() => open({ type: 'data', recordId: e.recordId })}
-                  initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
-                  <strong>{EVENT_TITLE[e.kind]} {warned ? 'incoming' : 'is here'}</strong>
-                  <span className="alert-real">{e.recordId.startsWith('no-snapshot') ? 'See the data' : `Real event: ${recordById(e.recordId)?.date}`}</span>
-                  <span className="alert-bar"><i style={{ width: `${Math.max(0, Math.min(1, left / span)) * 100}%` }} /></span>
-                </motion.button>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+        {tour === null && !over && <StormFuse game={game} />}
+        {tour === null && !over && <GoalCard />}
         {paused && !over && <div className="paused-tag">Paused. You can still flip switches. Press P to play.</div>}
         <Confetti burst={party} />
       </main>
       <BottomBar game={game} />
+      <Ticker />
+      <Pops />
+      <Moments />
       {over && !panel && <Debrief game={game} />}
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'cargo' && <CargoPanel game={game} />}

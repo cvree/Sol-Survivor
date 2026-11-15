@@ -11,6 +11,8 @@ export interface ModuleState {
   buildLeft: number;
   /** Game time when it was last switched on. Newest loads trip first in a brownout. */
   onSince: number;
+  /** Game time until which a jury-rigged patch keeps it running without drawing power. 0 means no patch. */
+  patchedUntil: number;
 }
 
 export type Triage = 'green' | 'yellow' | 'red';
@@ -23,6 +25,8 @@ export interface CrewState {
   /** Colours for the portrait, so every astronaut looks different. */
   skin: string;
   suit: string;
+  /** One small made-up habit, so each astronaut feels like a person. Story only, not science. */
+  quirk: string;
   /** Game time when they landed. Longer stays wear the body down. */
   arrived: number;
   /** Id of the module they are working or resting in. */
@@ -67,7 +71,7 @@ export interface GameEvent {
 /** What a cargo lander brought. The game waits until the commander has chosen. */
 export interface CargoOffer {
   number: number;
-  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr'> | null;
+  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr' | 'quirk'> | null;
   options: ModuleKind[];
   picks: number;
 }
@@ -85,6 +89,10 @@ export interface Stats {
   coldSols: number;
   lowestLife: number;
   built: number;
+  /** Mini-missions finished. */
+  goals: number;
+  /** Jury-rig patches used. */
+  patches: number;
 }
 
 export interface GameState {
@@ -108,10 +116,12 @@ export interface GameState {
   landers: number;
   offer: CargoOffer | null;
   science: number;
+  /** Spare parts for jury-rig patches. A patch runs a dead module for a short while with no power. */
+  spareParts: number;
   log: LogEntry[];
   stats: Stats;
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
-  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number };
+  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number };
   nextId: number;
 }
 

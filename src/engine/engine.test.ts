@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BATTERY_OUTPUT, DOME_COVERS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, buildableCells, createGame, lifeFlow, power, shieldCover, step, toggleModule, wear } from './engine';
+import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, START_SPARE_PARTS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
+import { acceptCargo, assign, build, buildableCells, createGame, grantReward, lifeFlow, patch, power, shieldCover, step, toggleModule, wear } from './engine';
+import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
 import type { ModuleKind } from './types';
@@ -126,5 +127,44 @@ describe('simulation rules', () => {
       expect(s.crew[0].dose).toBeGreaterThanOrEqual(last);
       last = s.crew[0].dose;
     }
+  });
+
+  it('a patch runs a dead module for one sol with no power, then wears out', () => {
+    let s = createGame(5, catalog);
+    const oxy = s.modules.find((m) => m.kind === 'oxygen')!.id;
+    s = toggleModule(s, oxy).state;
+    const before = power(s).used;
+    const r = patch(s, oxy);
+    expect(r.ok).toBe(true);
+    s = r.state;
+    expect(s.spareParts).toBe(START_SPARE_PARTS - 1);
+    expect(s.modules.find((m) => m.id === oxy)!.on).toBe(true);
+    expect(power(s).used).toBe(before);
+    for (let i = 0; i < (PATCH_SOLS + 0.2) / 0.05; i++) s = step(s, 0.05);
+    expect(s.modules.find((m) => m.id === oxy)!.patchedUntil).toBe(0);
+    expect(power(s).free).toBeGreaterThanOrEqual(0);
+  });
+
+  it('cannot patch without spare parts', () => {
+    let s = createGame(5, catalog);
+    s.spareParts = 0;
+    const oxy = s.modules.find((m) => m.kind === 'oxygen')!.id;
+    s = toggleModule(s, oxy).state;
+    expect(patch(s, oxy).ok).toBe(false);
+  });
+
+  it('always has a mini-mission to offer, and finishing one pays out', () => {
+    let s = createGame(5, catalog);
+    const g = nextGoal(s, [])!;
+    expect(g.id).toBe('staff-oxygen');
+    expect(g.progress(s, markOf(s)).value).toBe(0);
+    s = assign(s, s.crew[0].id, s.modules.find((m) => m.kind === 'oxygen')!.id);
+    expect(g.progress(s, markOf(s)).value).toBe(1);
+    const life = s.life;
+    s = grantReward(s, g.reward);
+    expect(s.life).toBeGreaterThan(life);
+    expect(s.stats.goals).toBe(1);
+    expect(nextGoal(s, GOALS.map((x) => x.id))).toBeNull();
+    expect(nextGoal(s, [g.id])).not.toBeNull();
   });
 });

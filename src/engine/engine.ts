@@ -14,16 +14,16 @@ export const LEVEL: Record<Difficulty, { ease: number; warning: number; life: nu
 type Recruit = NonNullable<CargoOffer['crew']>;
 
 const FIRST_CREW: Recruit[] = [
-  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62 },
-  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60 },
+  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald." },
+  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats." },
 ];
 const RECRUITS: Recruit[] = [
-  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66 },
-  { id: 'luis', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68 },
-  { id: 'zara', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64 },
-  { id: 'omar', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67 },
-  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61 },
-  { id: 'tala', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65 },
+  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens." },
+  { id: 'luis', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
+  { id: 'zara', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
+  { id: 'omar', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
+  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks." },
+  { id: 'tala', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
 ];
 
 /** Which specialist makes each module work best. */
@@ -56,7 +56,7 @@ function newCrew(r: Recruit, time: number, at: string, tolerance: number): CrewS
 export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'hard'): GameState {
   const level = LEVEL[difficulty];
   const rng = makeRng(seed);
-  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0 });
+  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0, patchedUntil: 0 });
   const life = K.START_LIFE + level.life;
   return {
     seed,
@@ -74,9 +74,10 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     landers: 0,
     offer: null,
     science: 0,
+    spareParts: K.START_SPARE_PARTS,
     log: [{ t: 1, tone: 'info', text: 'Touchdown at Gale Crater. Grow the base and keep everyone alive for 30 sols.' }],
-    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0 },
-    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0 },
+    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0 },
+    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0 },
     nextId: 3,
   };
 }
@@ -85,6 +86,10 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
 
 const GENERATOR = (k: ModuleKind) => k === 'solar' || k === 'battery';
 const ready = (m: ModuleState) => m.buildLeft <= 0;
+/** A jury-rigged module runs on spare parts for a while, so it draws no power. */
+export const isPatched = (s: GameState, m: ModuleState) => m.patchedUntil > s.time;
+/** Power this module is drawing right now. */
+const draw = (s: GameState, m: ModuleState) => (m.on && !isPatched(s, m) ? K.POWER_COST[m.kind] : 0);
 
 export const activeEvents = (s: GameState, kind?: GameEvent['kind']) =>
   s.events.filter((e) => e.phase === 'active' && (!kind || e.kind === kind));
@@ -100,7 +105,7 @@ export function power(s: GameState): PowerInfo {
   const arrays = s.modules.filter((m) => m.kind === 'solar' && ready(m)).length;
   const batteries = s.modules.filter((m) => m.kind === 'battery' && ready(m)).length;
   const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + batteries * K.BATTERY_OUTPUT;
-  const used = s.modules.reduce((n, m) => n + (m.on ? K.POWER_COST[m.kind] : 0), 0);
+  const used = s.modules.reduce((n, m) => n + draw(s, m), 0);
   return { supply, used, free: supply - used, sunlight: light, most: arrays * K.SOLAR_OUTPUT + batteries * K.BATTERY_OUTPUT };
 }
 
@@ -201,8 +206,39 @@ export function toggleModule(prev: GameState, id: string): ToggleResult {
     m.onSince = s.time;
   } else {
     m.on = false;
+    m.patchedUntil = 0;
   }
   return { state: s, ok: true };
+}
+
+/**
+ * Jury-rig a dead module with spare parts. It runs for PATCH_SOLS without drawing
+ * any power, which can keep the air flowing through a dust storm.
+ */
+export function patch(prev: GameState, id: string): ToggleResult {
+  const target = prev.modules.find((m) => m.id === id);
+  if (!target || !K.PATCHABLE.includes(target.kind) || prev.status !== 'playing' || !ready(target) || target.on) return { state: prev, ok: false };
+  if (prev.spareParts <= 0) return { state: prev, ok: false, reason: 'No spare parts left. The next lander brings more.' };
+  const s = clone(prev);
+  const m = s.modules.find((x) => x.id === id)!;
+  m.on = true;
+  m.onSince = s.time;
+  m.patchedUntil = s.time + K.PATCH_SOLS;
+  s.spareParts--;
+  s.stats.patches++;
+  s.pulse.patched++;
+  log(s, 'good', `Patched the ${MODULE_NAME[m.kind]} with spare parts. It will run for ${K.PATCH_SOLS} sol with no power.`);
+  return { state: s, ok: true };
+}
+
+/** Earth says thanks for a finished mini-mission: a spare part, or a small crate of supplies. */
+export function grantReward(prev: GameState, reward: 'part' | 'supplies'): GameState {
+  if (prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  s.stats.goals++;
+  if (reward === 'part' && s.spareParts < K.MAX_SPARE_PARTS) s.spareParts++;
+  else s.life = Math.min(100, s.life + K.GOAL_SUPPLIES);
+  return s;
 }
 
 export function canBuild(s: GameState, kind: ModuleKind, cell: number): string | null {
@@ -217,7 +253,7 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
   if (prev.status !== 'playing' || cell === undefined || canBuild(prev, kind, cell)) return prev;
   const s = clone(prev);
   s.blueprints.splice(s.blueprints.indexOf(kind), 1);
-  s.modules.push({ id: `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0 });
+  s.modules.push({ id: `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0 });
   s.stats.built++;
   log(s, 'info', `Building a ${MODULE_NAME[kind]}.`);
   return s;
@@ -274,6 +310,7 @@ export function acceptCargo(prev: GameState, picks: ModuleKind[]): GameState {
     log(s, 'good', `${c.name} the ${c.role} has landed.`);
   }
   s.life = Math.min(100, s.life + K.CARGO_SUPPLIES);
+  s.spareParts = Math.min(K.MAX_SPARE_PARTS, s.spareParts + K.CARGO_SPARE_PARTS);
   s.landers = offer.number;
   s.offer = null;
   s.cargoProgress = 0;
@@ -287,7 +324,7 @@ function shedLoad(s: GameState) {
   let p = power(s);
   let tripped = false;
   while (p.free < 0) {
-    const victim = s.modules.filter((m) => m.on && K.POWER_COST[m.kind] > 0).sort((a, b) => b.onSince - a.onSince)[0];
+    const victim = s.modules.filter((m) => draw(s, m) > 0).sort((a, b) => b.onSince - a.onSince)[0];
     if (!victim) break;
     victim.on = false;
     log(s, 'bad', `Brownout! The ${MODULE_NAME[victim.kind]} lost power.`);
@@ -416,6 +453,13 @@ export function step(prev: GameState, dt: number): GameState {
         s.pulse.built++;
         log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : '. Switch it on when you have power'}.`);
       }
+    }
+  }
+  // A patch that has run out stops helping. If there is no power for the module, it trips like any other.
+  for (const m of s.modules) {
+    if (m.patchedUntil > 0 && m.patchedUntil <= s.time) {
+      m.patchedUntil = 0;
+      log(s, 'warn', `The patch on the ${MODULE_NAME[m.kind]} has worn out.`);
     }
   }
   shedLoad(s);

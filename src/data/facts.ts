@@ -18,4 +18,15 @@ export const FACTS: string[] = [
   'Dust storms on Mars can grow until they cover the whole planet. That happened in 2018.',
   'NASA limits how much radiation an astronaut may soak up in a whole career: 600 millisieverts.',
   'Mars has the tallest volcano in the solar system, Olympus Mons. It is about two and a half times as tall as Mount Everest.',
+  // Real astronaut life. Typed in by hand from NASA mission pages, not downloaded.
+  'Astronauts on the International Space Station see about 16 sunrises and sunsets every single day.',
+  'Astronauts eat tortillas instead of bread. Crumbs float away in space and can get stuck in machines.',
+  'Space Station crews exercise about two hours every day, so their muscles and bones stay strong.',
+  'Astronauts can grow up to 3% taller in space, because their spines stretch out without gravity pulling down.',
+  'On the Space Station, about 98% of the water is recycled. That includes sweat, and yes, pee.',
+  'The Ingenuity helicopter made the first powered flight on another planet in April 2021. It went on to fly 72 times.',
+  'Astronaut Scott Kelly spent 340 days in space while his twin brother Mark stayed on Earth, so scientists could compare the two.',
+  'Astronaut Frank Rubio spent 371 days in a row in space. That is the longest single trip by a NASA astronaut.',
+  'The Perseverance rover carries microphones. It recorded the sound of wind blowing on Mars.',
+  'From Mars, Earth looks like a bright star in the sky. The Curiosity rover took a photo of it.',
 ];

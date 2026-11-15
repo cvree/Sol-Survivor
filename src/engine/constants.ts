@@ -92,3 +92,16 @@ export const HYPOTHERMIA_TEMP = 95;
 export const HYPOXIA = { dizzy: 0.4, weak: 2.5, faint: 4.6, lost: 6 };
 
 export const DUST_MAX_LOSS = 0.67;
+
+// Jury-rig patches. GAME VALUES: the idea (fixing things with what you have) is real, the numbers are not.
+/** Spare parts on the first lander. */
+export const START_SPARE_PARTS = 2;
+/** Each cargo lander brings this many more. */
+export const CARGO_SPARE_PARTS = 1;
+export const MAX_SPARE_PARTS = 4;
+/** Only life-support modules can be patched: the ones the crew cannot live without. */
+export const PATCHABLE: ModuleKind[] = ['hab', 'oxygen', 'hydro', 'medbay'];
+/** A patched module runs this long without drawing power. */
+export const PATCH_SOLS = 1;
+/** Life support a finished mini-mission can send as a thank-you crate from Earth. */
+export const GOAL_SUPPLIES = 5;

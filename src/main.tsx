@@ -14,3 +14,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// Development only: lets test scripts drive the game from the browser console.
+if (import.meta.env.DEV) {
+  void Promise.all([import('./store/game'), import('./engine/engine'), import('./engine/bots')]).then(([store, engine, bots]) => {
+    Object.assign(window, { __game: store.useGame, __engine: engine, __bots: bots });
+  });
+}

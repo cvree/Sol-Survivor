@@ -7,9 +7,6 @@ export function Confetti({ burst }: { burst: number }) {
   if (!burst || Date.now() - burst > 4000) return null;
   return (
     <div className="confetti" aria-hidden="true" key={burst}>
-      <motion.div className="stabilized" initial={{ scale: 0, rotate: -8 }} animate={{ scale: [0, 1.15, 1], rotate: [-8, 3, 0] }} transition={{ duration: 0.6 }}>
-        Systems stabilized!
-      </motion.div>
       {Array.from({ length: 44 }, (_, i) => {
         const angle = (i / 44) * Math.PI * 2;
         const far = 180 + ((i * 53) % 220);
