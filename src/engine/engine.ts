@@ -1,7 +1,7 @@
 import * as K from './constants';
 import { planEvents, type Catalog } from './events';
 import { makeRng } from './rng';
-import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role, TraitId, Trip } from './types';
+import type { CargoOffer, Cause, CrewState, GameEvent, GameState, Like, ModuleKind, ModuleState, PowerInfo, Role, TraitId, Trip } from './types';
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -26,19 +26,41 @@ export const TRAITS: Record<TraitId, { name: string; text: string }> = {
 };
 const has = (c: CrewState, t: TraitId) => c.trait === t && !c.out;
 
+/** What each 'likes' means, in a child's words. */
+export const LIKE_TEXT: Record<Like, string> = {
+  fixing: 'working in the Oxygen Maker', medbay: 'looking after people in the Med Bay', hydro: 'growing plants in Hydroponics',
+  explore: 'exploring the crater', lab: 'doing science in the Lab', build: 'building and upgrading',
+  sleep: 'a good long sleep', company: 'being with other people',
+};
+/** Is this astronaut doing the thing they love right now? */
+export function enjoying(s: GameState, c: CrewState): boolean {
+  if (c.out) return false;
+  const room = s.modules.find((m) => m.id === c.at);
+  switch (c.likes) {
+    case 'explore': return !!c.trip;
+    case 'build': return !!room && room.buildLeft > 0;
+    case 'sleep': return c.at === 'hab' && !c.trip;
+    case 'company': return !c.trip && s.crew.some((o) => o !== c && !o.out && !o.trip && o.at === c.at);
+    case 'fixing': return room?.kind === 'oxygen' && room.on;
+    case 'medbay': return room?.kind === 'medbay' && room.on;
+    case 'hydro': return room?.kind === 'hydro' && room.on;
+    case 'lab': return room?.kind === 'lab' && room.on;
+  }
+}
+
 /** The four astronauts a player can pick as their commander, one of each specialist. */
 export const COMMANDERS: (Recruit & { perk: string })[] = [
-  { id: 'ada', trait: 'nightowl', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald.", perk: `Starts with ${K.ENGINEER_EXTRA_PARTS} extra spare parts for Patches.` },
-  { id: 'mei', trait: 'steady', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats.", perk: 'The whole crew heals faster while Mei is alive.' },
-  { id: 'kofi', trait: 'sunny', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens.", perk: 'Green fingers: Hydroponics makes 25% more food while Kofi is alive.' },
-  { id: 'yuki', trait: 'explorer', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks.", perk: 'Cargo landers arrive faster, because Earth loves the data.' },
+  { id: 'ada', likes: 'fixing', trait: 'nightowl', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald.", perk: `Starts with ${K.ENGINEER_EXTRA_PARTS} extra spare parts for Patches.` },
+  { id: 'mei', likes: 'medbay', trait: 'steady', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats.", perk: 'The whole crew heals faster while Mei is alive.' },
+  { id: 'kofi', likes: 'hydro', trait: 'sunny', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens.", perk: 'Green fingers: Hydroponics makes 25% more food while Kofi is alive.' },
+  { id: 'yuki', likes: 'explore', trait: 'explorer', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks.", perk: 'Cargo landers arrive faster, because Earth loves the data.' },
 ];
 const RECRUITS: Recruit[] = [
   ...COMMANDERS.map(({ perk: _perk, ...r }) => r),
-  { id: 'luis', trait: 'tireless', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
-  { id: 'zara', trait: 'builder', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
-  { id: 'omar', trait: 'sleepyhead', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
-  { id: 'tala', trait: 'brave', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
+  { id: 'luis', likes: 'lab', trait: 'tireless', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
+  { id: 'zara', likes: 'build', trait: 'builder', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
+  { id: 'omar', likes: 'sleep', trait: 'sleepyhead', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
+  { id: 'tala', likes: 'company', trait: 'brave', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
 ];
 
 /** Which specialist makes each module work best. */
@@ -80,7 +102,7 @@ const VOICE: Record<string, Partial<Record<keyof typeof LINES, string[]>>> = {
 function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
   const { perk: _perk, ...rest } = r as Recruit & { perk?: string };
   return {
-    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false, trip: null, arriving: 0,
+    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false, trip: null, arriving: 0, cheeredAt: -9, emote: null,
     spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
     hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
   };
@@ -334,6 +356,23 @@ export function patch(prev: GameState, id: string): ToggleResult {
   s.stats.patches++;
   s.pulse.patched++;
   log(s, 'good', `Patched the ${MODULE_NAME[m.kind]} with spare parts. It will run for ${K.PATCH_SOLS} sol with no power.`);
+  return { state: s, ok: true };
+}
+
+/**
+ * The commander spends a moment with an astronaut: a chat, a high five or a pep talk.
+ * It lifts their mood, and they will not need it again for a little while.
+ */
+export function cheer(prev: GameState, id: string, kind: keyof typeof K.CHEER_MOOD): ToggleResult {
+  const c0 = prev.crew.find((c) => c.id === id);
+  if (!c0 || c0.out || prev.status !== 'playing') return { state: prev, ok: false };
+  if (c0.trip) return { state: prev, ok: false, reason: `${c0.name} is out in the crater.` };
+  if (prev.time - c0.cheeredAt < K.CHEER_COOLDOWN) return { state: prev, ok: false, reason: `${c0.name} is happy, and getting back to work. Try again later!` };
+  const s = clone(prev);
+  const c = s.crew.find((x) => x.id === id)!;
+  c.mood = Math.min(100, c.mood + K.CHEER_MOOD[kind]);
+  c.cheeredAt = s.time;
+  c.emote = { kind: kind === 'chat' ? 'note' : kind === 'highfive' ? 'star' : 'heart', until: s.time + 0.5 };
   return { state: s, ok: true };
 }
 
@@ -725,8 +764,11 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, stor
     const mates = s.crew.filter((o) => o !== c && !o.out && o.at === c.at);
     if (mates.length) up += 3;
     if (mates.some((o) => has(o, 'sunny'))) up += 6;
+    if (enjoying(s, c)) up += K.LIKE_MOOD;
     if (has(c, 'steady')) down /= 2;
     c.mood = Math.max(0, Math.min(100, c.mood + (up - down) * dt));
+    if (c.emote && c.emote.until <= s.time) c.emote = null;
+    if (!c.emote && c.energy < 20 && !resting) c.emote = { kind: 'sweat', until: s.time + 0.4 };
     if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && !outside && c.at !== 'hab') {
       c.at = 'hab';
       s.stats.strikes++;

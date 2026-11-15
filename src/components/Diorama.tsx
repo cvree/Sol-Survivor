@@ -2,7 +2,7 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { Hammer, Plus, Wrench } from 'lucide-react';
 import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, MAX_LEVEL, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, cannotUpgrade, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
 import { Deposits, Walkers } from './World';
 import { LevelDeco, LevelStars } from './LevelDeco';
 import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/types';
@@ -16,7 +16,7 @@ import { canDrop, startCrewDrag, useDrag, wasDragged } from '../lib/crewDrag';
 import { EdgeArrows, MiniMap } from './Explore';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
 import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
-import { ArrowUpCircle, Check, CloudLightning, LayoutGrid, Move, Package, Rocket, Star } from 'lucide-react';
+import { ArrowUpCircle, Armchair, Check, CloudLightning, Droplet, Heart, LayoutGrid, MessageCircle, Move, Package, Rocket, Star } from 'lucide-react';
 
 export const MODULE_JOB: Record<ModuleKind, string> = {
   pod: `Warm, cramped, +3 power`,
@@ -86,10 +86,17 @@ function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?:
       </AnimatePresence>
       {/* Healthy crew with nothing to do wander about. Busy, sick or fainted crew stay put. */}
       <span className={still ? '' : `pace pace-${index % 3}`}>
-        <span className={still ? '' : 'waddle'}><Astronaut who={c} look={look} size={38} act={act} /></span>
+        <span className={still ? '' : 'waddle'}><Astronaut who={c} look={look} size={44} act={act} /></span>
       </span>
       <span className={`sprite-dot t-${look.triage}`} />
-      {c.mood < 35 && <span className="grump" aria-hidden="true"><CloudLightning /></span>}
+      {c.mood < 35 && !c.emote && <span className="grump" aria-hidden="true"><CloudLightning /></span>}
+      <AnimatePresence>
+        {c.emote && (
+          <motion.span key={c.emote.until} className={`emote e-${c.emote.kind}`} initial={{ scale: 0, y: 10 }} animate={{ scale: [0, 1.4, 1], y: -6 }} exit={{ scale: 0, opacity: 0 }} aria-hidden="true">
+            {c.emote.kind === 'heart' ? <Heart /> : c.emote.kind === 'star' ? <Star /> : c.emote.kind === 'note' ? <MessageCircle /> : <Droplet />}
+          </motion.span>
+        )}
+      </AnimatePresence>
       <span className={`energy ${c.energy < 30 ? 'low' : c.energy < 55 ? 'mid' : ''}`} aria-hidden="true"><i style={{ width: `${Math.max(4, c.energy)}%` }} /></span>
     </motion.button>
   );
@@ -180,19 +187,20 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
         ) : (
           <>
             <LevelStars level={m.level} />
-            <span className="plate-cost">{Array.from({ length: cost }, (_, i) => <i key={i} />)}</span>
+            {empty && <span className="plate-seat" title="Nobody working here: it only half works"><Armchair /></span>}
+            {boosted && <span className="plate-boost" title={`${SPECIALIST[m.kind]} boost`}><Star /></span>}
             <span className="switch"><motion.i layout transition={{ type: 'spring', stiffness: 500, damping: 28 }} /></span>
           </>
         )}
       </div>
       {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? `${m.upgrading ? 'Upgrading' : 'Building'}... ${Math.round((1 - m.buildLeft / total) * 100)}%` : m.upgrading ? `Drag a builder here: level ${m.level + 1}` : 'Drag an astronaut here to build!'}</span>}
-      {!building && !editing && m.level < MAX_LEVEL && (
+      {!building && !editing && m.level < MAX_LEVEL && !cannotUpgrade(game, m) && (
         <motion.button className="up-btn no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.12 }}
           aria-label={`Upgrade the ${MODULE_NAME[m.kind]} (level ${m.level})`} title="Upgrade"><ArrowUpCircle /></motion.button>
       )}
       {patched
         ? <span className="tag patch-tag"><Wrench /> Patched! {Math.max(0, m.patchedUntil - game.time).toFixed(1)} sols left</span>
-        : !building && (empty || boosted) && <span className={`tag ${boosted ? 'good' : ''}`}>{boosted ? `${SPECIALIST[m.kind]} boost!` : 'Needs a worker'}</span>}
+        : null}
       {canPatch && (
         <motion.button className="patch-btn" onClick={() => patch(m.id)} whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
           initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 14 }}
@@ -256,7 +264,8 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
         <motion.button className={`bin-bubble no-drag ${m.bin >= 20 * m.level - 0.5 ? 'full' : ''}`} onClick={() => emptyBin(m.id)} initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.85 }}
           aria-label={`Collect ${Math.floor(m.bin)} bricks from the miner`}><Package /> +{Math.floor(m.bin)}</motion.button>
       )}
-      {!building && <span className="prop-level"><LevelStars level={m.level} />{m.level < MAX_LEVEL && <button className="up-btn small no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} aria-label={`Upgrade the ${MODULE_NAME[m.kind]}`}><ArrowUpCircle /></button>}</span>}
+      {!building && !cannotUpgrade(game, m) && <button className="up-btn small no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} aria-label={`Upgrade the ${MODULE_NAME[m.kind]}`}><ArrowUpCircle /></button>}
+      {!building && m.level > 1 && <span className="prop-level"><LevelStars level={m.level} /></span>}
       {building && <span className="build-bar prop-bar"><i style={{ width: `${(1 - m.buildLeft / total) * 100}%` }} /></span>}
       {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : m.upgrading ? 'Needs a builder' : `Build the ${MODULE_NAME[m.kind]}`}</span>}
       <div className="prop-floor">{here.map((c, i) => <Sprite key={c.id} c={c} index={i} act="wrench" />)}</div>
@@ -400,19 +409,19 @@ export function Diorama({ game }: { game: GameState }) {
                   <span>{c.name}</span>
                 </motion.div>
               ))}
+            </div>
+
               <div className={`pad ${landing ? 'landing' : ''}`}>
-                {/* The shadow grows as the lander comes down. */}
-                <motion.i key={`sh-${landerNo}`} className="pad-shadow" initial={{ scaleX: 0.15, opacity: 0.2 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ duration: landing ? 2.05 : 0.9, ease: 'easeIn' }} />
-                <motion.div key={landerNo} initial={{ y: -420, rotate: -7 }} animate={{ y: 0, rotate: 0 }}
-                  transition={landing ? { duration: 2.1, ease: [0.2, 0.6, 0.35, 1] } : { type: 'spring', stiffness: 60, damping: 9 }}>
-                  <Lander size={74} burn={landing} />
-                </motion.div>
-                {landing && <i className="pad-blast" />}
-              </div>
+              {/* The shadow grows as the lander comes down. */}
+              <motion.i key={`sh-${landerNo}`} className="pad-shadow" initial={{ scaleX: 0.15, opacity: 0.2 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ duration: landing ? 2.05 : 0.9, ease: 'easeIn' }} />
+              <motion.div key={landerNo} initial={{ y: -420, rotate: -7 }} animate={{ y: 0, rotate: 0 }}
+                transition={landing ? { duration: 2.1, ease: [0.2, 0.6, 0.35, 1] } : { type: 'spring', stiffness: 60, damping: 9 }}>
+                <Lander size={74} burn={landing} />
+              </motion.div>
+              {landing && <i className="pad-blast" />}
             </div>
 
             <div className="base">
-              <motion.div className="dome-glow" aria-hidden="true" animate={{ opacity: game.shield / 100 }} />
               {/* Each dome's protection zone. Only crew inside a blue zone are shielded. */}
               {(editing || warnedNow || storm) && game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0).map((m) => {
                 const [a, b] = domeZone(m);

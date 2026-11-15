@@ -206,3 +206,10 @@ export const ROVER_SPEED = 2;
 /** Regolith Miner: bricks per sol at level 1, and how many fit in its bin. */
 export const MINER_RATE = 5;
 export const MINER_BIN = 20;
+
+// Getting to know the crew. GAME VALUES.
+/** Mood gained per sol while doing the thing they love. */
+export const LIKE_MOOD = 6;
+/** How long before the commander can cheer the same astronaut again. */
+export const CHEER_COOLDOWN = 0.6;
+export const CHEER_MOOD = { chat: 6, highfive: 10, peptalk: 14 } as const;

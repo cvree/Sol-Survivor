@@ -110,7 +110,7 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 @keyframes flash { 50% { opacity: 0; } }
 
 /* ---------- header ---------- */
-.header { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)) auto auto auto; gap: 0.9rem; align-items: center; padding: 0.5rem 1rem 0.7rem; background: var(--color-void); }
+.header { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)) auto auto; gap: 0.9rem; align-items: center; padding: 0.5rem 1rem 0.7rem; background: var(--color-void); }
 .sol-badge { display: grid; justify-items: center; padding: 0.3rem 0.9rem 0.45rem; background: var(--color-rust); border: var(--line); border-radius: 18px; box-shadow: var(--drop); min-width: 104px; }
 .sol-word { font-weight: 600; font-size: 0.95rem; line-height: 1; margin-bottom: 5px; }
 .sol-word .term { border-bottom-width: 2px; }
@@ -1132,3 +1132,117 @@ button.find::before { content: ''; position: absolute; inset: -12px; border-radi
 .rec-meta { font: 400 0.75rem/1.3 var(--font-mono); opacity: 0.85; }
 .rank-chip { display: inline-block; margin: 0.3rem 0; padding: 3px 12px; border: 3px solid var(--ink); border-radius: 999px; background: var(--color-clean); color: var(--ink); font-weight: 700; }
 .rank-chip.best { background: var(--color-volt); animation: throb 0.8s ease-in-out infinite; }
+
+/* ==================================================================
+   Clarity pass: every thing has its own place
+================================================================== */
+/* The yard is its own lane on the left, on the ground. The base has the middle. The landing pad has the right. */
+.yard { left: 0.5%; right: auto; width: 18%; top: auto; bottom: calc(100% - var(--ground) + 2px); height: auto; display: flex; flex-wrap: wrap-reverse; align-items: flex-end; align-content: flex-start; justify-content: center; gap: 22px 8px; padding: 0; }
+.yard::before { content: ''; position: absolute; z-index: -1; left: -4%; right: -4%; bottom: -8px; height: 16px; border-radius: 8px; background: #6e2622; }
+.prop { width: 66px; }
+.prop.k-battery { width: 48px; }
+.prop.k-comms, .prop.k-miner, .prop.k-rover { width: 62px; }
+.pod { width: 118px; margin: 0; }
+.pod.is-home .pod-craft { scale: 1; }
+.base { left: 19.5%; right: 10%; }
+.home > .pad { position: absolute; right: 1.5%; left: auto; top: auto; bottom: calc(100% - var(--ground) + 4px); margin: 0; }
+.home > .pad::before { content: 'Landing pad'; position: absolute; left: 50%; bottom: -26px; translate: -50% 0; white-space: nowrap; padding: 1px 8px; border: 2px solid var(--ink); border-radius: 8px; background: var(--color-clean); color: var(--ink); font-size: 0.7rem; font-weight: 700; }
+.prop-level { bottom: -14px; }
+.prop-wrap .up-btn.small { position: absolute; right: -10px; top: -8px; }
+
+/* A calmer background, so the base and the crew stand out */
+.hills-back { filter: saturate(0.75) brightness(0.95); }
+.hills-far { filter: saturate(0.8); }
+.strata, .rock { opacity: 0.55; }
+.dirt .ice { opacity: 0.6; }
+.scene::after { content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; box-shadow: inset 0 0 120px rgba(29, 16, 51, 0.45); }
+
+/* Name plates: name, level, and one small icon for what matters */
+.plate { gap: 5px; padding: 3px 7px 3px 4px; font-size: 0.92rem; }
+.plate-seat, .plate-boost { display: grid; place-items: center; width: 20px; height: 20px; border: 2.5px solid var(--ink); border-radius: 50%; }
+.plate-seat { background: #cfc6e6; animation: led 1.4s ease-in-out infinite; }
+.plate-boost { background: var(--color-go); }
+.plate-seat svg.lucide, .plate-boost svg.lucide { width: 11px; height: 11px; }
+.plate-boost svg.lucide { fill: var(--ink); }
+.up-btn { bottom: auto; top: -10px; right: -10px; background: var(--color-go); animation: bob 1s ease-in-out infinite; }
+
+/* Finds: a single bouncing question mark, no extra rings */
+button.find::before { display: none; }
+.dep-tag { top: -22px; }
+
+/* Header: one tidy stock chip */
+.stock-chip { display: grid; gap: 3px; padding: 0.35rem 0.7rem; background: #f2c79a; color: var(--ink); border: var(--line); border-radius: 18px; box-shadow: var(--drop); }
+.stock { display: flex; align-items: center; gap: 5px; line-height: 1; }
+.stock svg.lucide { width: 18px; height: 18px; }
+.stock b { font: 700 1.1rem/1 var(--font-mono); min-width: 2ch; }
+.stock small { font-size: 0.75rem; font-weight: 600; opacity: 0.75; }
+
+/* A smaller mission card */
+.goal-slot { width: min(300px, 36%); }
+.goal { padding: 0.4rem 0.7rem 0.45rem 0.5rem; gap: 0.5rem; }
+.goal-icon { width: 36px; height: 36px; }
+.goal-icon svg.lucide { width: 20px; height: 20px; }
+.goal-body strong { font-size: 0.95rem; }
+.goal-reward { font-size: 0.75rem; }
+
+/* Crew: bigger, with little pictures for how they feel */
+.emote { position: absolute; z-index: 4; left: 50%; top: -26px; translate: -50% 0; display: grid; place-items: center; width: 28px; height: 28px; border: 3px solid var(--ink); border-radius: 50%; background: #fff; pointer-events: none; }
+.emote svg.lucide { width: 16px; height: 16px; }
+.emote.e-heart { background: #ffb3c8; }
+.emote.e-heart svg.lucide { fill: #ff2e4d; color: var(--ink); }
+.emote.e-star { background: var(--color-volt); }
+.emote.e-star svg.lucide { fill: var(--ink); }
+.emote.e-note { background: var(--color-cyan); }
+.emote.e-sweat { background: #d6f6ff; }
+.emote.e-sweat svg.lucide { color: #1f4fd1; }
+
+/* The crew card */
+.crew-card { position: fixed; z-index: 20; right: 14px; bottom: 146px; width: 400px; max-height: calc(100vh - 170px); overflow-y: auto; display: grid; gap: 0.55rem; padding: 0.9rem 1rem 1rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 26px; box-shadow: 0 8px 0 var(--ink); }
+.cc-close { position: absolute; right: 10px; top: 10px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; cursor: pointer; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-clean); color: var(--ink); }
+.cc-top { display: flex; gap: 0.8rem; align-items: center; }
+.cc-portrait { display: grid; place-items: center; width: 116px; height: 116px; flex: none; border: var(--line); border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff 0 30%, var(--suit) 31%); box-shadow: 0 5px 0 var(--ink); }
+.cc-who { display: grid; gap: 4px; min-width: 0; padding-right: 30px; }
+.cc-who h3 { font-size: 1.8rem; line-height: 1; }
+.cc-role { display: flex; align-items: center; gap: 6px; font-weight: 600; opacity: 0.85; }
+.cc-cmd { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border: 2px solid var(--ink); border-radius: 999px; background: var(--color-volt); font-size: 0.75rem; font-weight: 700; }
+.cc-cmd svg.lucide { width: 12px; height: 12px; fill: var(--ink); }
+.cc-status { font: 700 0.75rem/1.2 var(--font-mono); color: #1f4fd1; }
+.cc-likes { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 2px 9px; border: 2.5px solid var(--ink); border-radius: 10px; background: #ffd6e5; font-size: 0.8rem; font-weight: 700; line-height: 1.2; }
+.cc-likes svg.lucide { width: 13px; height: 13px; flex: none; fill: #ff2e4d; }
+.cc-likes.now { background: #ff8fb1; }
+.cc-say { position: relative; padding: 0.55rem 0.8rem; border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; background: #fff7c9; font-size: 1rem; font-weight: 600; line-height: 1.25; }
+.cc-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; }
+.cc-act { display: grid; justify-items: center; gap: 2px; padding: 0.5rem 0.3rem; cursor: pointer; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); font: 700 0.85rem/1 var(--font-display); color: var(--ink); }
+.cc-act svg.lucide { width: 22px; height: 22px; }
+.cc-act.chat { background: var(--color-cyan); }
+.cc-act.five { background: var(--color-volt); }
+.cc-act.pep { background: #ff8fb1; }
+.cc-act:disabled { opacity: 0.4; cursor: default; box-shadow: none; translate: 0 3px; }
+.cc-wait { font-size: 0.8rem; opacity: 0.7; text-align: center; }
+.cc-bars { display: grid; gap: 0.3rem; padding: 0.5rem 0.6rem; border: 3px solid var(--ink); border-radius: 14px; background: #efe9dc; }
+.cc-bar { display: grid; grid-template-columns: 20px 3.6rem 1fr 4.4rem; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; }
+.cc-bar svg.lucide { width: 18px; height: 18px; }
+.cc-bar-track { height: 12px; border: 2.5px solid var(--ink); border-radius: 999px; background: var(--ink); overflow: hidden; }
+.cc-bar-track i { display: block; height: 100%; border-radius: 999px; background: var(--color-go); }
+.cc-bar.warn .cc-bar-track i { background: var(--color-volt); }
+.cc-bar.bad .cc-bar-track i { background: var(--color-danger); }
+.cc-bar.mood .cc-bar-track i { background: #ff8fd8; }
+.cc-bar b { text-align: right; font-size: 0.8rem; }
+.cc-tip { font-size: 0.85rem; line-height: 1.25; }
+.cc-tip.small { grid-column: 1 / -1; color: var(--color-clean); font-size: 0.75rem; }
+.cc-medical-toggle { display: flex; align-items: center; gap: 4px; justify-self: start; padding: 0; cursor: pointer; border: 0; background: none; color: #1f4fd1; font: 700 0.85rem/1 var(--font-display); }
+.cc-medical-toggle svg.lucide { transition: rotate 0.2s; }
+.cc-medical-toggle svg.open { rotate: 180deg; }
+.crew-card .tiles { grid-template-columns: repeat(4, 1fr); }
+.crew-card .vt b { font-size: 1.05rem; }
+.assign-label small { font-weight: 500; opacity: 0.6; }
+/* Upgrade arrows: small and still, so they inform without shouting */
+.up-btn { width: 24px; height: 24px; border-width: 2.5px; animation: none; top: -8px; right: -8px; }
+.up-btn svg.lucide { width: 14px; height: 14px; }
+.up-btn:hover { scale: 1.15; }
+/* Yard gear stands on its own little patch of ground, front row and back row */
+.prop-wrap::after, .pod::after { content: ''; position: absolute; z-index: -1; left: 8%; right: 8%; bottom: -5px; height: 10px; border-radius: 50%; background: rgba(94, 29, 34, 0.75); }
+.prop { width: 52px; }
+.prop.k-battery { width: 40px; }
+.prop.k-comms, .prop.k-miner, .prop.k-rover { width: 54px; }
+.yard { gap: 26px 6px; }

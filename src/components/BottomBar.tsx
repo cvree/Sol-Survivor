@@ -1,15 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
-import { BatteryMedium, Compass, FastForward, Smile, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
+import { Compass, FastForward, Hammer, Pause, Play, Satellite, ScrollText, Users, Volume2, VolumeX } from 'lucide-react';
 import { FACTS } from '../data/facts';
-import { CAREER_LIMIT, POWER_COST, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, TRAITS, alive, bedName, habReady, isOn, power, shieldCover, stormDose, wear, workRate, workersIn } from '../engine/engine';
-import type { CrewState, GameState } from '../engine/types';
-import { TRIAGE_LABEL, maxHealth, triage } from '../engine/vitals';
+import { POWER_COST, WORK_SLOTS } from '../engine/constants';
+import { MODULE_NAME, alive, bedName, habReady, isOn, power, shieldCover, stormDose, workersIn } from '../engine/engine';
+import type { GameState } from '../engine/types';
+import { TRIAGE_LABEL, triage } from '../engine/vitals';
 import { useGame } from '../store/game';
 import { Astronaut, Marv, type Mood } from './art';
 import { feeling, lookOf } from './crewLook';
-import { Term } from './Term';
 import { TOUR } from './tour';
 import { lessonOf, stepOf } from './coach';
 import { useOpenFinds } from './Finds';
@@ -64,113 +63,7 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   return { text: `Sol ${sol} log. Did you know? ${FACTS[(sol + game.seed) % FACTS.length]}`, mood: 'happy' };
 }
 
-function Ecg({ hr }: { hr: number }) {
-  const beat = 'l6 0l3-9l4 16l3-10l3 3l11 0';
-  return (
-    <svg viewBox="0 0 90 24" className="ecg" aria-hidden="true">
-      <g className="ecg-run" style={{ animationDuration: `${(60 / Math.max(30, hr)).toFixed(2)}s` }}>
-        <path d={`M0 14${beat}${beat}${beat}${beat}${beat}`} />
-      </g>
-    </svg>
-  );
-}
-
-const MOOD = (c: CrewState) => {
-  const f = feeling(c);
-  return f.startsWith('Fainted') ? '😵' : f.startsWith('Can barely') ? '😰' : f.startsWith('Dizzy') ? '😵‍💫' : f.startsWith('Freezing') ? '🥶' : f.startsWith('Radiation') ? '🤢' : f.startsWith('Worn') ? '😓' : '😀';
-};
-
-function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
-  const { pick, assign } = useGame();
-  const coachAssign = useGame((s) => stepOf(s.coach)?.target === 'assign-oxygen');
-  const t = triage(c);
-  const cap = maxHealth(c.dose, CAREER_LIMIT);
-  const sols = Math.max(0, Math.floor(game.time - c.arrived));
-  const extra = Math.round((wear(game, c) - 1) * 100);
-  // Home first (the Hab, or the capsule before it exists), then building sites, then workplaces.
-  const places = [
-    { id: 'hab', label: habReady(game) ? 'Hab (sleep)' : 'Capsule (rest)', best: false, full: false },
-    ...game.modules.filter((m) => m.buildLeft > 0).map((m) => ({ id: m.id, label: `Build: ${MODULE_NAME[m.kind]}`, best: false, full: c.at !== m.id && workersIn(game, m.id).length >= 2 })),
-    ...game.modules.filter((m) => m.buildLeft <= 0 && WORK_SLOTS[m.kind]).map((m) => ({ id: m.id, label: MODULE_NAME[m.kind], best: SPECIALIST[m.kind] === c.role, full: c.at !== m.id && workersIn(game, m.id).length >= (WORK_SLOTS[m.kind] ?? 0) })),
-  ];
-  return (
-    <motion.section
-      className={`vitals-card t-${t}`}
-      initial={{ y: 30, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-      aria-label={`${c.name}'s vitals`}
-    >
-      <header>
-        <Astronaut who={c} look={lookOf(c)} bust size={54} />
-        <div>
-          <h3>{c.name} <small>{c.commander ? `Commander · ${c.role}` : c.role}</small> <span className="mood" aria-hidden="true">{MOOD(c)}</span></h3>
-          <p className={`chip t-${t}`}><Term k="triage">{TRIAGE_LABEL[t]}</Term>: {feeling(c)}</p>
-          <p className="trait-chip small">{TRAITS[c.trait].name}: {TRAITS[c.trait].text}</p>
-          <p className="quirk">{c.quirk}</p>
-        </div>
-        <button className="icon-btn" onClick={() => pick(null)} aria-label="Close"><X /></button>
-      </header>
-      <div className="tiles">
-        <div className={`vt ${c.spo2 < 94 ? (c.spo2 < 86 ? 'bad' : 'warn') : ''}`}>
-          <Wind /><span><Term k="spo2">Oxygen</Term></span><b>{Math.round(c.spo2)}%</b>
-        </div>
-        <div className={`vt ${c.hr > 105 || c.hr < 52 ? 'warn' : ''}`}>
-          <Heart /><span><Term k="bpm">Heart</Term></span><b>{Math.round(c.hr)}</b><Ecg hr={c.hr} />
-        </div>
-        <div className={`vt ${c.temp < 95 ? (c.temp < 93 ? 'bad' : 'warn') : ''}`}>
-          <Thermometer /><span>Body temp</span><b>{c.temp.toFixed(1)}°F</b>
-        </div>
-      </div>
-      <div className="needs">
-        <div className={`need ${c.exhausted || c.energy < 30 ? 'bad' : c.energy < 50 ? 'warn' : ''}`}>
-          <BatteryMedium /><span>Energy</span>
-          <span className="need-bar"><motion.i animate={{ width: `${c.energy}%` }} /></span>
-          <b>{c.exhausted ? 'Collapsed' : c.energy >= 70 ? 'Rested' : c.energy >= 50 ? 'OK' : c.energy >= 30 ? 'Tired' : 'Worn out'}</b>
-        </div>
-        <div className={`need mood ${c.mood < 15 ? 'bad' : c.mood < 40 ? 'warn' : ''}`}>
-          <Smile /><span>Mood</span>
-          <span className="need-bar"><motion.i animate={{ width: `${c.mood}%` }} /></span>
-          <b>{c.mood >= 70 ? 'Happy' : c.mood >= 40 ? 'OK' : c.mood >= 15 ? 'Grumpy' : 'Upset'}</b>
-        </div>
-        <p className="need-tip">{
-          c.exhausted ? `${c.name} collapsed from overwork and is asleep where they fell. Drag them to ${bedName(game)} to sleep properly.`
-            : c.at === 'hab' ? `Sleeping in ${bedName(game)}. Energy is filling up${game.time - Math.floor(game.time) >= 0.72 ? ' fast, because it is night' : ''}.`
-            : c.energy < 50 ? `Tired, so working ${Math.round((1 - workRate(c)) * 100)}% slower. Send them to ${bedName(game)} to sleep.`
-            : c.mood < 40 ? 'Unhappy, so working slower. If mood gets too low they will stop working.'
-            : 'Working hard. Working uses energy, so plan a sleep soon.'
-        }</p>
-      </div>
-      <div className="dose-row">
-        <Radiation />
-        <span><Term k="radiation">Radiation</Term> soaked up, for good</span>
-        <b>{Math.round(c.dose)} <Term k="msv">mSv</Term></b>
-      </div>
-      <div className="health" role="img" aria-label={`Health ${Math.round(c.health)} of 100. Radiation has removed ${Math.round(100 - cap)} for good.`}>
-        <motion.i className="health-fill" animate={{ width: `${c.health}%` }} />
-        <i className="health-lost" style={{ width: `${100 - cap}%` }} />
-      </div>
-      <div className="dose-row">
-        <Hourglass />
-        <span><Term k="wear">{sols} sols on Mars</Term></span>
-        <b>{extra > 0 ? `needs ${extra}% more food` : 'just landed'}</b>
-      </div>
-      <div className="assign">
-        <span className="assign-label">Send {c.name} to</span>
-        <div className="assign-list">
-          {places.map((pl) => {
-            const here = c.at === pl.id;
-            return (
-              <motion.button key={pl.id} className={`btn assign-btn ${here ? 'here' : ''} ${coachAssign && pl.label === 'Oxygen Maker' && !here ? 'coach-target' : ''}`} whileTap={{ scale: 0.94 }} disabled={pl.full || here} onClick={() => assign(c.id, pl.id)}
-                aria-label={`Send ${c.name} to ${pl.label}${pl.best ? `. Best job for a ${c.role}` : ''}${here ? '. Already here' : pl.full ? '. Full' : ''}`}>
-                {pl.best && <Star />}{pl.label}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-    </motion.section>
-  );
-}
+import { CrewCard } from './CrewCard';
 
 export function BottomBar({ game }: { game: GameState }) {
   const { tour, setTour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
@@ -246,7 +139,7 @@ export function BottomBar({ game }: { game: GameState }) {
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={() => setSpeed(speed === 1 ? 2 : 1)} aria-pressed={speed === 2} aria-label="Double speed" title="Double speed"><FastForward /></motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={toggleMute} aria-pressed={muted} aria-label={muted ? 'Sound is off' : 'Sound is on'} title="Sound">{muted ? <VolumeX /> : <Volume2 />}</motion.button>
       </div>
-      <AnimatePresence>{chosen && <VitalsCard key={chosen.id} c={chosen} game={game} />}</AnimatePresence>
+      <AnimatePresence>{chosen && <CrewCard key={chosen.id} c={chosen} game={game} />}</AnimatePresence>
     </footer>
   );
 }

@@ -38,6 +38,9 @@ export interface Trip {
 /** A pile of rock in the crater. Regolith can be dug out and pressed into bricks. */
 export interface Deposit { id: string; x: number; left: number; size: number }
 
+/** The one thing each astronaut loves doing. Doing it cheers them up. */
+export type Like = 'fixing' | 'medbay' | 'hydro' | 'explore' | 'lab' | 'build' | 'sleep' | 'company';
+
 export type TraitId = 'nightowl' | 'steady' | 'sunny' | 'explorer' | 'tireless' | 'builder' | 'sleepyhead' | 'brave';
 
 export type Triage = 'green' | 'yellow' | 'red';
@@ -54,6 +57,12 @@ export interface CrewState {
   quirk: string;
   /** A trait that changes how this astronaut plays. */
   trait: TraitId;
+  /** What they love doing. Doing it lifts their mood. */
+  likes: Like;
+  /** Game time the commander last chatted, high-fived or gave a pep talk. */
+  cheeredAt: number;
+  /** A little picture that pops up over their head. */
+  emote: { kind: 'heart' | 'star' | 'note' | 'sweat'; until: number } | null;
   /** Game time when they landed. Longer stays wear the body down. */
   arrived: number;
   /** Id of the module they are working or resting in. */
@@ -113,7 +122,7 @@ export interface GameEvent {
 /** What a cargo lander brought. The game waits until the commander has chosen. */
 export interface CargoOffer {
   number: number;
-  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr' | 'quirk' | 'trait'> | null;
+  crew: Pick<CrewState, 'id' | 'name' | 'role' | 'skin' | 'suit' | 'restHr' | 'quirk' | 'trait' | 'likes'> | null;
   /** Who wants to come. The commander picks one, or nobody for extra supplies. */
   crewOptions: NonNullable<CargoOffer['crew']>[];
   options: ModuleKind[];

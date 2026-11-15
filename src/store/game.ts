@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { acceptCargo, activeEvents, assign, build, canGoOut, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { acceptCargo, activeEvents, assign, build, canGoOut, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { saveRecord } from '../lib/records';
+import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
 import { LESSONS, lessonOf, stepOf, type CoachRun } from '../components/coach';
 import { glideTo, homeX, resetPanned } from '../lib/camera';
@@ -114,6 +115,10 @@ interface Store {
   /** Send someone out to dig at a rock pile. */
   dig: (depositId: string, who?: string) => void;
   emptyBin: (id: string) => void;
+  /** Spend a moment with an astronaut. */
+  cheerUp: (id: string, kind: 'chat' | 'highfive' | 'peptalk') => void;
+  /** What an astronaut just said to the commander. */
+  said: { crewId: string; text: string; at: number } | null;
   upgrade: (id: string) => void;
   setEditing: (on: boolean) => void;
   pickToMove: (id: string | null) => void;
@@ -150,6 +155,7 @@ export const useGame = create<Store>((set, get) => ({
   albumSeen: loadAlbum().length,
   editing: false,
   moving: null,
+  said: null,
   lastRank: 0,
   sharpMind: false,
   game: null,
@@ -393,6 +399,16 @@ export const useGame = create<Store>((set, get) => ({
     sfx.assign();
     const name = agent === 'rover' ? 'The rover' : game.crew.find((c) => c.id === agent)?.name;
     set({ game: r.state, picked: null, notice: { text: `${name} is heading out to dig regolith bricks.`, at: Date.now() } });
+  },
+  cheerUp: (id, kind) => {
+    const { game } = get();
+    if (!game) return;
+    const r = cheer(game, id, kind);
+    if (!r.ok) { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); return; }
+    const lines = CHAT[id] ?? ['Thanks, Commander!'];
+    const text = kind === 'chat' ? lines[Math.floor(Math.random() * lines.length)] : kind === 'highfive' ? HIGH_FIVE[id] ?? 'High five!' : PEP_TALK[id] ?? 'Thanks, Commander! I needed that.';
+    if (kind === 'chat') sfx.pop(); else if (kind === 'highfive') sfx.reward(); else sfx.win();
+    set({ game: r.state, said: { crewId: id, text, at: Date.now() }, bubble: { crewId: id, text, until: Date.now() + 3500 } });
   },
   emptyBin: (id) => {
     const { game } = get();

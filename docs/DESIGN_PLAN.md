@@ -70,6 +70,11 @@ Fifth pass (Clash of Clans, translated to Mars):
 - Leaderboard of your longest missions (this device only), and the Daily Sol Check: a Wordle-style five-letter space word; solving it gives today's next mission +10 bricks and +1 spare part.
 - Left out on purpose: paid speed-ups and gems (this is a children's game and the plan rules out shops), and clans or PvP (Connor said to skip them).
 
+Sixth pass (clarity and characters):
+
+- Clearer screen: the yard (capsule, panels, miners) has its own lane on the left, the landing pad its own lane on the right, the base the middle. The big shield arc is gone (the blue zones show cover instead). One message bar: M.A.R.V. (the scrolling ticker was removed; crew chatter still appears in speech bubbles). Name plates show name, level, switch and one icon. Upgrade arrows only appear when you can afford the upgrade. Bricks and parts share one header chip. The background is calmer so the base stands out.
+- Characters: each astronaut loves one thing (Ada: fixing, Mei: caring, Kofi: plants, Yuki: exploring, Luis: science, Zara: building, Omar: sleeping, Tala: company) and doing it lifts their mood. Tap an astronaut for a big card with a Chat, a High five and a Pep talk, each with their own lines (`data/characters.ts`), which cheer them up. Little pop-up pictures (heart, star, speech, sweat) show how they feel.
+
 Known gaps:
 
 | Gap | Detail |

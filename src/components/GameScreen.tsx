@@ -13,7 +13,6 @@ import { Moments } from './Moments';
 import { BuildPanel, CargoPanel, DataPanel, EventCard, LogPanel } from './Panels';
 import { Pops } from './Pops';
 import { StormFuse } from './StormFuse';
-import { Ticker } from './Ticker';
 
 export function GameScreen() {
   const game = useGame((s) => s.game);
@@ -60,7 +59,6 @@ export function GameScreen() {
         <Confetti burst={party} />
       </main>
       <BottomBar game={game} />
-      <Ticker />
       <Pops />
       <Moments />
       <CrewGhost />
