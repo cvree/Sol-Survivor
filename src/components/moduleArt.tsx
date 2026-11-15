@@ -276,6 +276,30 @@ export function ModuleArt({ kind, on, building }: { kind: ModuleKind; on: boolea
           <path d="M64 24L48 48h12l-5 18l18-22H61z" fill="#ffd23f" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
         </svg>
       );
+    case 'miner':
+      return (
+        <svg viewBox="0 0 120 84" className="yard-art" aria-hidden="true">
+          <path d="M28 80V22l14-8l14 8v58" fill="#f7f4ec" stroke={INK} strokeWidth="4" strokeLinejoin="round" />
+          <path d="M34 34h16M34 48h16M34 62h16" stroke="#cfc6b4" strokeWidth="3" />
+          <g className={on ? 'spin-slow' : ''} style={{ transformOrigin: '42px 22px' }}>
+            <circle cx="42" cy="22" r="9" fill="#ffd23f" stroke={INK} strokeWidth="3" />
+            <path d="M42 13v18M33 22h18" stroke={INK} strokeWidth="2.5" />
+          </g>
+          <path d="M56 46l18 6" stroke="#8a7fa6" strokeWidth="6" strokeLinecap="round" />
+          <path d="M70 50h42v26a4 4 0 0 1-4 4H74a4 4 0 0 1-4-4z" fill="#8a5a3c" stroke={INK} strokeWidth="4" strokeLinejoin="round" />
+          {on && <><rect x="76" y="58" width="12" height="8" rx="2" fill="#e07a3f" stroke={INK} strokeWidth="2" /><rect x="92" y="60" width="12" height="8" rx="2" fill="#e07a3f" stroke={INK} strokeWidth="2" /><rect x="84" y="68" width="12" height="8" rx="2" fill="#e07a3f" stroke={INK} strokeWidth="2" /></>}
+          <path d="M34 80l4 -6M48 80l-4 -6" stroke={INK} strokeWidth="3" />
+        </svg>
+      );
+    case 'rover':
+      return (
+        <svg viewBox="0 0 120 84" className="yard-art" aria-hidden="true">
+          <path d="M8 80V40a52 30 0 0 1 104 0v40z" fill={on ? '#cfc6e6' : '#5a4a86'} stroke={INK} strokeWidth="4" strokeLinejoin="round" />
+          <path d="M22 80V48a38 20 0 0 1 76 0v32" fill={on ? '#46306f' : '#2a1d49'} stroke={INK} strokeWidth="3.5" />
+          <path d="M22 56h76M22 66h76" stroke={INK} strokeWidth="2" opacity=".35" />
+          <rect x="50" y="14" width="20" height="8" rx="3" fill={on ? '#ffd23f' : '#3a2d5c'} stroke={INK} strokeWidth="2.5" className={on ? 'blink' : ''} />
+        </svg>
+      );
     case 'comms':
       return (
         <svg viewBox="0 0 120 84" className="yard-art" aria-hidden="true">

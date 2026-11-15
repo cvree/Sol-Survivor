@@ -61,6 +61,15 @@ Fourth pass (earn everything):
 - Every astronaut has a trait that changes play (Night owl, Steady, Sunny, Explorer, Coffee powered, Speed builder, Big sleeper, Brave), a helmet accessory, and their own voice lines.
 - Lessons for the new start: the capsule, exploring, your first discovery, placing a site, building it, switching it on.
 
+Fifth pass (Clash of Clans, translated to Mars):
+
+- Every job is physical. Assigned crew walk to their module before they start. Discoveries and rock piles are out in the crater: an astronaut (or the rover, once a Rover Garage is built) walks out, works, and walks home. Outside there is no shield and no heat (`sendOut()`, `Walkers` in `World.tsx`).
+- Collect, upgrade, defend: regolith bricks come from digging rock piles, from a Regolith Miner's bin (tap to collect), from finds and from landers. Bricks pay for upgrades to level 2 and 3; each level boosts the module and visibly changes it (gold trim, lights, glow, beacon, flag). The Hab is the Town Hall: nothing can pass its level.
+- Builder bottleneck: astronauts are the builders, and an upgrading module is offline until one finishes the work.
+- Layout matters: a Shield Dome only protects crew in its own column and the ones beside it (wider at level 3). Edit layout pauses the clock and lets you drag modules to new spots; the blue zones show coverage.
+- Leaderboard of your longest missions (this device only), and the Daily Sol Check: a Wordle-style five-letter space word; solving it gives today's next mission +10 bricks and +1 spare part.
+- Left out on purpose: paid speed-ups and gems (this is a children's game and the plan rules out shops), and clans or PvP (Connor said to skip them).
+
 Known gaps:
 
 | Gap | Detail |
@@ -70,7 +79,8 @@ Known gaps:
 | Nothing to come back for | No progress survives a mission. No goals inside a mission beyond "survive". |
 | Quiet moments are flat | Between storms and landers, nothing rewards the player for a well-run base. |
 | Art rule relaxed | Section 6 says no blur. The perfect-power cyan glow uses a soft drop-shadow, at Connor's request. |
-| Too easy for the careful bot | The simulated careful player (which explores and finishes a mission every few sols) wins 24/24 on Easy and Normal and 23/24 on Hard. Without exploring it wins only 7/24 on Hard: earning landers is what keeps a base alive. |
+| Balance after the Clash pass | The simulated careful player now wins 24/24 on Easy, 23/24 on Normal and 20/24 on Hard: dome layout makes Hard harder. It never digs or upgrades, so a real player has more tools than it uses. |
+| Too easy for the careful bot (older note) | The simulated careful player (which explores and finishes a mission every few sols) wins 24/24 on Easy and Normal and 23/24 on Hard. Without exploring it wins only 7/24 on Hard: earning landers is what keeps a base alive. |
 | New numbers untested with children | Spare parts (start 2, +1 per lander, patch lasts 1 sol) and mini-mission rewards are first guesses in `constants.ts`. |
 
 ## 2. North star

@@ -26,6 +26,11 @@ const moduleAt = (x: number, y: number) => {
 export const canDrop = (crewId: string, moduleId: string) => {
   const game = useGame.getState().game;
   if (!game) return false;
+  // Out in the crater: a discovery or a rock pile. Anyone rested enough can go.
+  if (moduleId.startsWith('find:') || moduleId.startsWith('dep:')) {
+    const c = game.crew.find((x) => x.id === crewId);
+    return !!c && !c.out && !c.trip && !c.exhausted && c.energy > 25;
+  }
   const id = moduleId === 'pod' ? 'hab' : moduleId;
   const c = game.crew.find((x) => x.id === crewId);
   if (c?.at === id) return true;
@@ -69,6 +74,8 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
     useDrag.setState({ id: null, over: null, ok: false });
     justDragged = true;
     setTimeout(() => { justDragged = false; }, 0);
+    if (over?.startsWith('find:')) { useGame.getState().collect(over.slice(5), crewId); return; }
+    if (over?.startsWith('dep:')) { useGame.getState().dig(over.slice(4), crewId); return; }
     if (over) {
       const game = useGame.getState().game;
       const target = over === 'pod' ? 'hab' : over;

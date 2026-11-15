@@ -13,21 +13,21 @@ export const HAB_CELL = 2;
 export const YARD_CELL = 100;
 export type Layer = 'surface' | 'under' | 'yard';
 export const LAYER: Record<ModuleKind, Layer> = {
-  pod: 'yard', hab: 'surface', hydro: 'surface', dome: 'surface',
+  pod: 'yard', miner: 'yard', rover: 'yard', hab: 'surface', hydro: 'surface', dome: 'surface',
   oxygen: 'under', medbay: 'under', lab: 'under',
   solar: 'yard', battery: 'yard', comms: 'yard',
 };
 
 /** Power each module draws when it is on. Generators draw nothing. */
 export const POWER_COST: Record<ModuleKind, number> = {
-  pod: 0, hab: 1, solar: 0, battery: 0, oxygen: 2, hydro: 2, dome: 4, medbay: 2, lab: 2, comms: 1,
+  pod: 0, miner: 1, rover: 1, hab: 1, solar: 0, battery: 0, oxygen: 2, hydro: 2, dome: 4, medbay: 2, lab: 2, comms: 1,
 };
 export const SOLAR_OUTPUT = 4;
 /** A battery gives steady power that dust cannot block. */
 export const BATTERY_OUTPUT = 2;
 /** The most of each module a base can have. */
 export const MAX_OF: Record<ModuleKind, number> = {
-  pod: 1, hab: 1, solar: 4, battery: 2, oxygen: 2, hydro: 2, dome: 2, medbay: 1, lab: 1, comms: 1,
+  pod: 1, miner: 2, rover: 1, hab: 1, solar: 4, battery: 2, oxygen: 2, hydro: 2, dome: 2, medbay: 1, lab: 1, comms: 1,
 };
 /** Modules that astronauts can work in, and how many fit. */
 export const WORK_SLOTS: Partial<Record<ModuleKind, number>> = { oxygen: 2, hydro: 2, lab: 2, medbay: 2 };
@@ -170,3 +170,39 @@ export const BUILD_SLOTS = 2;
 export const SKIP_CREW_SUPPLIES = 12;
 /** Extra discoveries an Explorer spots. */
 export const EXPLORER_FINDS = 2;
+
+// Base building, Clash style. GAME VALUES.
+export const MAX_LEVEL = 3;
+/** Bricks to go from level n to n+1. The Hab is the heart of the base and costs more. */
+export const UPGRADE_COST: Record<number, number> = { 1: 20, 2: 45 };
+export const HAB_UPGRADE_COST: Record<number, number> = { 1: 30, 2: 60 };
+/** Builder time for an upgrade from level n, in sols at full speed. The module is offline meanwhile. */
+export const UPGRADE_SOLS: Record<number, number> = { 1: 1.2, 2: 1.8 };
+/** How much better a module works at each level (index = level). */
+export const LEVEL_BOOST = [1, 1, 1.35, 1.7];
+export const SOLAR_BY_LEVEL = [0, 4, 5, 6];
+export const BATTERY_BY_LEVEL = [0, 2, 3, 4];
+/** A Shield Dome protects crew in its own column and this many columns either side. */
+export const DOME_RADIUS = [0, 1, 1, 2];
+/** Share of the shield's full strength a dome gives at each level. */
+export const DOME_STRENGTH = [0, 0.85, 0.95, 1];
+
+// Bricks and trips. GAME VALUES.
+export const CARGO_MATERIALS = 10;
+export const FIND_MATERIALS = 5;
+export const DEPOSIT_COUNT = 6;
+export const DEPOSIT_MIN = 20;
+export const DEPOSIT_MAX = 40;
+/** Bricks an astronaut (or the rover) can carry home in one trip. */
+export const CARRY = 10;
+export const ROVER_CARRY = 15;
+/** Time spent digging at a rock pile, or looking at a discovery, at full speed. */
+export const MINE_SOLS = 0.4;
+export const FIND_WORK_SOLS = 0.25;
+/** Short walk inside the base, and the walk to the far edge of the crater. */
+export const WALK_BASE = 0.06;
+export const WALK_FAR = 0.9;
+export const ROVER_SPEED = 2;
+/** Regolith Miner: bricks per sol at level 1, and how many fit in its bin. */
+export const MINER_RATE = 5;
+export const MINER_BIN = 20;

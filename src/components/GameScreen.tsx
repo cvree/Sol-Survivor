@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useGame } from '../store/game';
 import { AlbumPanel } from './Album';
+import { UpgradePanel } from './Upgrade';
 import { BottomBar } from './BottomBar';
 import { CrewGhost } from './CrewGhost';
 import { Confetti } from './Confetti';
@@ -70,6 +71,7 @@ export function GameScreen() {
       {panel?.type === 'log' && <LogPanel game={game} />}
       {panel?.type === 'data' && <DataPanel recordId={panel.recordId} />}
       {panel?.type === 'finds' && <AlbumPanel />}
+      {panel?.type === 'upgrade' && <UpgradePanel game={game} id={panel.id} />}
     </div>
   );
 }

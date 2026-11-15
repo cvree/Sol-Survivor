@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, buildableCells, collectFind, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
+import { acceptCargo, assign, build, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
-import type { ModuleKind } from './types';
+import type { GameState, ModuleKind } from './types';
 import { spo2For } from './vitals';
 
 const catalog: Catalog = {
@@ -19,10 +19,12 @@ const toCrewLander = (seed: number, commander = 'ada') => {
   for (let i = 0; i < 4000 && !(s.offer && s.offer.crewOptions.length); i++) s = s.offer ? acceptCargo(s, []) : step(s, 0.05);
   return s;
 };
+/** Skip the short walk after an assignment, so a test can measure the work straight away. */
+const arrive = (s: GameState) => { s.crew.forEach((c) => { c.arriving = 0; }); return s; };
 /** A game with a Hab and a working Oxygen Maker already built, for testing the rules. */
 const starter = (seed: number, commander = 'ada', difficulty: 'easy' | 'hard' = 'hard') => {
   const s = createGame(seed, catalog, 1, difficulty, commander);
-  const mod = (id: string, kind: ModuleKind, cell: number) => ({ id, kind, cell, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0 });
+  const mod = (id: string, kind: ModuleKind, cell: number) => ({ id, kind, cell, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
   s.modules.push(mod('hab', 'hab', 2), mod('m2', 'oxygen', 7));
   return s;
 };
@@ -81,8 +83,8 @@ describe('growth has a cost', () => {
     const m = starter(5, 'mei');
     const oxygen = s.modules.find((x) => x.kind === 'oxygen')!;
     const empty = lifeFlow(s).made;
-    const medic = lifeFlow(assign(m, 'mei', oxygen.id)).made;
-    const engineer = lifeFlow(assign(s, 'ada', oxygen.id)).made;
+    const medic = lifeFlow(arrive(assign(m, 'mei', oxygen.id))).made;
+    const engineer = lifeFlow(arrive(assign(s, 'ada', oxygen.id))).made;
     expect(medic).toBeGreaterThan(empty);
     expect(engineer).toBeGreaterThan(medic);
   });
@@ -214,7 +216,7 @@ describe('simulation rules', () => {
   it('work tires astronauts out, tired ones work slower, and sleep in the Hab brings them back', () => {
     let s = starter(5, 'ada', 'easy');
     const oxy = s.modules.find((m) => m.kind === 'oxygen')!;
-    s = assign(s, s.crew[0].id, oxy.id);
+    s = arrive(assign(s, s.crew[0].id, oxy.id));
     const fresh = staffing(s, s.modules.find((m) => m.id === oxy.id)!);
     for (let i = 0; i < 60; i++) s = step(s, 0.05);
     expect(s.crew[0].energy).toBeLessThan(70);
@@ -240,5 +242,59 @@ describe('simulation rules', () => {
     s = step(s, 0.05);
     expect(s.crew[0].at).toBe('hab');
     expect(s.stats.strikes).toBe(1);
+  });
+
+  it('every job outside is a real trip: walk out, work, walk home', () => {
+    let s = starter(5, 'ada', 'easy');
+    const c = s.crew[0].id;
+    const r = sendOut(s, c, { kind: 'find', id: 'rim', reward: 'science', title: 'The crater rim' }, 0.06);
+    expect(r.ok).toBe(true);
+    s = r.state;
+    expect(s.crew[0].trip?.phase).toBe('out');
+    expect(coverOf(s, s.crew[0])).toBe(0);
+    for (let i = 0; i < 400 && s.crew[0].trip; i++) s = step(s, 0.02);
+    expect(s.crew[0].trip).toBeNull();
+    expect(s.crew[0].at).toBe('hab');
+    expect(s.foundLog).toEqual(['rim']);
+    expect(s.stats.finds).toBe(1);
+  });
+
+  it('digging at a rock pile brings bricks home, and a full miner bin can be collected', () => {
+    let s = starter(5, 'ada', 'easy');
+    const dep = s.deposits[0];
+    s = sendOut(s, s.crew[0].id, { kind: 'mine', dep: dep.id }, dep.x).state;
+    for (let i = 0; i < 600 && s.crew[0].trip; i++) s = step(s, 0.02);
+    expect(s.materials).toBeGreaterThan(0);
+    expect(s.deposits[0].left).toBeLessThan(dep.left);
+    s.modules.push({ id: 'mx', kind: 'miner', cell: 101, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 7.5 });
+    const before = s.materials;
+    expect(collectBin(s, 'mx').materials).toBe(before + 7);
+  });
+
+  it('upgrades cost bricks, need a builder, and nothing can pass the Hab level', () => {
+    let s = starter(5, 'ada', 'easy');
+    s.materials = 200;
+    expect(startUpgrade(s, 'm2').ok).toBe(false); // Oxygen Maker cannot pass the level-1 Hab
+    s = startUpgrade(s, 'hab').state;
+    expect(s.materials).toBeLessThan(200);
+    const site = s.modules.find((m) => m.id === 'hab')!;
+    expect(site.upgrading).toBe(true);
+    s = assign(s, s.crew[0].id, 'hab');
+    s.crew[0].at = 'hab';
+    for (let i = 0; i < 300 && s.modules.find((m) => m.id === 'hab')!.upgrading; i++) s = step(s, 0.02);
+    expect(s.modules.find((m) => m.id === 'hab')!.level).toBe(2);
+    expect(startUpgrade(s, 'm2').ok).toBe(true);
+  });
+
+  it('a dome only shields crew in its zone, and modules can be moved', () => {
+    let s = starter(5, 'ada', 'easy');
+    s.shield = 100;
+    s.modules.push({ id: 'dm', kind: 'dome', cell: 0, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
+    s.modules.push({ id: 'h1', kind: 'hydro', cell: 1, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
+    s.crew[0].at = 'm2'; // column 2: outside the level-1 dome's zone (columns 0-1)
+    expect(coverOf(s, s.crew[0])).toBe(0);
+    expect(moveTargets(s, 'dm')).toContain(3);
+    s = moveModule(s, 'dm', 3);
+    expect(coverOf(s, s.crew[0])).toBeGreaterThan(0);
   });
 });

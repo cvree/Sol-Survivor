@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { FlaskConical, Moon, Rocket, Sun, ShieldHalf, Sparkles, Wind, Wrench, Zap } from 'lucide-react';
+import { FlaskConical, Moon, Package, Rocket, Sun, ShieldHalf, Sparkles, Wind, Wrench, Zap } from 'lucide-react';
 import { CARGO_SOLS, DOME_COVERS, MAX_SPARE_PARTS, MISSION_SOLS } from '../engine/constants';
 import { alive, isNight, isOn, lifeFlow, power, shieldBlock, stormDose } from '../engine/engine';
 import type { GameState } from '../engine/types';
@@ -59,6 +59,12 @@ export function Header({ game }: { game: GameState }) {
             {!domes.length ? 'No Shield Dome yet' : !isOn(game, 'dome') ? (game.shield > 1 ? 'Fading' : 'Domes are off') : `Covers ${covered} of ${crew} crew`}
           </div>
         </div>
+      </div>
+
+      <div className="bricks-chip" data-bar="bricks" aria-label={`${game.materials} regolith bricks for upgrades`} title="Regolith bricks: dig them from rock piles or collect them from a Regolith Miner. Spend them on upgrades.">
+        <Package />
+        <span>Bricks</span>
+        <b>{game.materials}</b>
       </div>
 
       <div className="parts-chip" aria-label={`${game.spareParts} spare parts. Use one to patch a module that has no power.`} title="Spare parts: patch a module that has no power, for 1 sol">

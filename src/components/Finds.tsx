@@ -136,7 +136,7 @@ function FindObject({ f, open, style }: { f: Find; open: boolean; style: CSSProp
   const s = { ...style, width: f.w, height: f.h };
   if (!open) return <div className={cls} style={s} aria-hidden="true">{body}</div>;
   return (
-    <motion.button className={cls} style={s} onClick={() => collect(f.id)} aria-label={`Something to investigate: ${f.sign ?? 'a mystery'}. Press to find out.`}
+    <motion.button className={cls} style={s} onClick={() => collect(f.id)} data-mod={`find:${f.id}`} aria-label={`Something to investigate: ${f.sign ?? 'a mystery'}. Press to send someone out, or drag an astronaut here.`}
       initial={{ scale: f.layer === 'ground' ? 0 : 1 }} animate={{ scale: 1 }} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.92 }}
       transition={{ type: 'spring', stiffness: 360, damping: 14 }}>
       {body}

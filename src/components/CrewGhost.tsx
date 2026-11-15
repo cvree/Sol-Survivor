@@ -11,7 +11,8 @@ export function CrewGhost() {
   const c = game?.crew.find((m) => m.id === id);
   if (!c || !game) return null;
   const mod = game.modules.find((m) => m.id === over);
-  const label = !mod ? `Drop ${c.name} on a module` : !ok ? `No room for ${c.name} there`
+  const outside = over?.startsWith('find:') ? 'investigate' : over?.startsWith('dep:') ? 'dig bricks' : null;
+  const label = outside ? (ok ? `${c.name} will walk out to ${outside}` : `${c.name} is too tired to go out`) : !mod ? `Drop ${c.name} on a module` : !ok ? `No room for ${c.name} there`
     : mod.kind === 'pod' ? `${c.name} will rest in the capsule`
     : mod.buildLeft > 0 ? `${c.name} will build the ${MODULE_NAME[mod.kind]}`
     : mod.kind === 'hab' ? `${c.name} will sleep in the Hab` : `${c.name} will work in the ${MODULE_NAME[mod.kind]}`;

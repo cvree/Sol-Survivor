@@ -1,4 +1,4 @@
-export type ModuleKind = 'pod' | 'hab' | 'solar' | 'battery' | 'oxygen' | 'hydro' | 'dome' | 'medbay' | 'lab' | 'comms';
+export type ModuleKind = 'pod' | 'miner' | 'rover' | 'hab' | 'solar' | 'battery' | 'oxygen' | 'hydro' | 'dome' | 'medbay' | 'lab' | 'comms';
 export type Role = 'Engineer' | 'Botanist' | 'Medic' | 'Scientist';
 
 export interface ModuleState {
@@ -13,7 +13,30 @@ export interface ModuleState {
   onSince: number;
   /** Game time until which a jury-rigged patch keeps it running without drawing power. 0 means no patch. */
   patchedUntil: number;
+  /** 1 to 3. Upgrades make a module stronger and change how it looks. */
+  level: number;
+  /** True while being upgraded: the module is offline until a builder finishes. */
+  upgrading: boolean;
+  /** How long the current building or upgrade job is, for the progress bar. */
+  buildTotal: number;
+  /** Regolith Miner: bricks waiting in the bin to be collected. */
+  bin: number;
 }
+
+/** A walk out into the crater: to a discovery or a rock pile, some work there, and back home. */
+export interface Trip {
+  phase: 'out' | 'work' | 'back';
+  left: number;
+  total: number;
+  /** Where in the crater, 0 (far west) to 1 (far east). */
+  x: number;
+  job: { kind: 'find'; id: string; reward: 'science' | 'part' | 'supplies'; title: string } | { kind: 'mine'; dep: string };
+  /** Bricks being carried home. */
+  carry: number;
+}
+
+/** A pile of rock in the crater. Regolith can be dug out and pressed into bricks. */
+export interface Deposit { id: string; x: number; left: number; size: number }
 
 export type TraitId = 'nightowl' | 'steady' | 'sunny' | 'explorer' | 'tireless' | 'builder' | 'sleepyhead' | 'brave';
 
@@ -62,6 +85,10 @@ export interface CrewState {
   commander: boolean;
   /** Game time of death, or null. */
   diedAt: number | null;
+  /** Out in the crater on a job, or null when at the base. */
+  trip: Trip | null;
+  /** Sols until they have walked over to the place they were sent. Not working until then. */
+  arriving: number;
   say: { text: string; until: number; mood: 'bad' | 'good' } | null;
   lastSaid: string;
 }
@@ -118,6 +145,9 @@ export interface Stats {
   collapses: number;
   /** Times someone was too unhappy to keep working. */
   strikes: number;
+  upgrades: number;
+  /** Bricks dug or collected. */
+  mined: number;
 }
 
 export interface GameState {
@@ -143,12 +173,19 @@ export interface GameState {
   science: number;
   /** Spare parts for jury-rig patches. A patch runs a dead module for a short while with no power. */
   spareParts: number;
+  /** Regolith bricks: building material for upgrades. */
+  materials: number;
+  deposits: Deposit[];
+  /** The rover, once a Rover Garage is built. It fetches finds and digs rock without tiring. */
+  rover: { trip: Trip | null } | null;
+  /** Discoveries brought home this mission, in order, so the screen can celebrate each one. */
+  foundLog: string[];
   /** Until this game time the crew are grieving a lost crewmate, and work a little slower. */
   griefUntil: number;
   log: LogEntry[];
   stats: Stats;
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
-  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number; died: number };
+  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number; died: number; upgraded: number; delivered: number };
   nextId: number;
 }
 

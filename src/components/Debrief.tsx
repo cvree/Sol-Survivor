@@ -75,7 +75,7 @@ function MissionPatch({ won, stars }: { won: boolean; stars: number }) {
 }
 
 export function Debrief({ game }: { game: GameState }) {
-  const { start, retry, quit, open } = useGame();
+  const { start, retry, quit, open, lastRank } = useGame();
   const won = game.status === 'won';
   const sols = Math.min(MISSION_SOLS, Math.floor(game.time) - (won ? 1 : 0));
   const storms = game.events.filter((e) => e.kind !== 'dust' && e.phase !== 'pending' && e.doseUnshielded > 0);
@@ -99,6 +99,7 @@ export function Debrief({ game }: { game: GameState }) {
           <div className="debrief-title">
             <p className="debrief-kicker">Mission Control to Gale Crater Base · Official debrief</p>
             <h1>{won ? 'Mission accomplished, Commander!' : `Mission report: you reached Sol ${sols}`}</h1>
+            {lastRank > 0 && <p className={`rank-chip ${lastRank === 1 ? 'best' : ''}`}>{lastRank === 1 ? 'New record! Your longest mission yet' : `#${lastRank} on your Records board`}</p>}
             <p className="debrief-sub">Flight Director's review · {level} Sun · {sols} of {MISSION_SOLS} sols · {game.crew.length} crew</p>
             {won && (
               <p className="stars" aria-label={`${stars} of 3 stars`}>
@@ -147,6 +148,8 @@ export function Debrief({ game }: { game: GameState }) {
               <li><span>Discoveries</span><b>{game.stats.finds}</b></li>
               <li><span>Crew lost</span><b>{game.stats.lost}</b></li>
               <li><span>Collapsed from overwork</span><b>{game.stats.collapses}</b></li>
+              <li><span>Bricks gathered</span><b>{game.stats.mined}</b></li>
+              <li><span>Upgrades finished</span><b>{game.stats.upgrades}</b></li>
               <li><span>Time with no air</span><b>{game.stats.airOutSols.toFixed(1)} sols</b></li>
               <li><span>Time with no heat</span><b>{game.stats.coldSols.toFixed(1)} sols</b></li>
             </ul>

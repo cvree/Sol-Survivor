@@ -1,7 +1,7 @@
 import * as K from './constants';
 import { planEvents, type Catalog } from './events';
 import { makeRng } from './rng';
-import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role, TraitId } from './types';
+import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role, TraitId, Trip } from './types';
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -45,7 +45,7 @@ const RECRUITS: Recruit[] = [
 export const SPECIALIST: Partial<Record<ModuleKind, Role>> = { oxygen: 'Engineer', hydro: 'Botanist', lab: 'Scientist', medbay: 'Medic' };
 
 export const MODULE_NAME: Record<ModuleKind, string> = {
-  pod: 'Capsule', hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
+  pod: 'Capsule', miner: 'Regolith Miner', rover: 'Rover Garage', hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
   dome: 'Shield Dome', medbay: 'Med Bay', lab: 'Science Lab', comms: 'Comms Array',
 };
 
@@ -80,7 +80,7 @@ const VOICE: Record<string, Partial<Record<keyof typeof LINES, string[]>>> = {
 function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
   const { perk: _perk, ...rest } = r as Recruit & { perk?: string };
   return {
-    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false,
+    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false, trip: null, arriving: 0,
     spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
     hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
   };
@@ -89,7 +89,13 @@ function newCrew(r: Recruit, time: number, at: string, tolerance: number, comman
 export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'hard', commanderId = 'ada'): GameState {
   const level = LEVEL[difficulty];
   const rng = makeRng(seed);
-  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0, patchedUntil: 0 });
+  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
+  // Rock piles out in the crater, west and east of the base (never under it).
+  const spots = [0.04, 0.12, 0.2, 0.78, 0.86, 0.95];
+  const deposits = spots.slice(0, K.DEPOSIT_COUNT).map((x, i) => {
+    const size = Math.round(rng.range(K.DEPOSIT_MIN, K.DEPOSIT_MAX));
+    return { id: `d${i}`, x: x + rng.range(-0.015, 0.015), left: size, size };
+  });
   const life = K.START_LIFE + level.life;
   const lead = COMMANDERS.find((c) => c.id === commanderId) ?? COMMANDERS[0];
   return {
@@ -111,10 +117,14 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     offer: null,
     science: 0,
     spareParts: K.START_SPARE_PARTS + (lead.role === 'Engineer' ? K.ENGINEER_EXTRA_PARTS : 0),
+    materials: 0,
+    deposits,
+    rover: null,
+    foundLog: [],
     griefUntil: 0,
     log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} has landed alone, with nothing but a capsule.` }],
-    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0, collapses: 0, strikes: 0 },
-    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0, died: 0 },
+    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0, collapses: 0, strikes: 0, upgrades: 0, mined: 0 },
+    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0, died: 0, upgraded: 0, delivered: 0 },
     nextId: 3,
   };
 }
@@ -145,12 +155,13 @@ export function sunlight(s: GameState): number {
 
 export function power(s: GameState): PowerInfo {
   const light = sunlight(s);
-  const arrays = s.modules.filter((m) => m.kind === 'solar' && ready(m)).length;
-  const batteries = s.modules.filter((m) => m.kind === 'battery' && ready(m)).length;
-  const pods = s.modules.filter((m) => m.kind === 'pod').length;
-  const supply = Math.floor(arrays * K.SOLAR_OUTPUT * light + 1e-6) + batteries * K.BATTERY_OUTPUT + pods * K.POD_POWER;
+  // Upgrading panels are offline. Higher levels make more.
+  const arrays = s.modules.filter((m) => m.kind === 'solar' && ready(m)).reduce((n, m) => n + K.SOLAR_BY_LEVEL[m.level], 0);
+  const batteries = s.modules.filter((m) => m.kind === 'battery' && ready(m)).reduce((n, m) => n + K.BATTERY_BY_LEVEL[m.level], 0);
+  const pods = s.modules.filter((m) => m.kind === 'pod').length * K.POD_POWER;
+  const supply = Math.floor(arrays * light + 1e-6) + batteries + pods;
   const used = s.modules.reduce((n, m) => n + draw(s, m), 0);
-  return { supply, used, free: supply - used, sunlight: light, most: arrays * K.SOLAR_OUTPUT + batteries * K.BATTERY_OUTPUT + pods * K.POD_POWER };
+  return { supply, used, free: supply - used, sunlight: light, most: arrays + batteries + pods };
 }
 
 /** Power a kind of module needs when it is on. */
@@ -160,7 +171,10 @@ export const count = (s: GameState, kind: ModuleKind) => s.modules.filter((m) =>
 export const alive = (s: GameState) => s.crew.filter((c) => !c.out);
 /** True while the commander of this role is alive, so their perk keeps working. */
 export const leadIs = (s: GameState, role: Role) => s.crew.some((c) => c.commander && !c.out && c.role === role);
-export const workersIn = (s: GameState, moduleId: string) => s.crew.filter((c) => c.at === moduleId && !c.out);
+/** Crew at this module (working, building or resting). People out in the crater are not. */
+export const workersIn = (s: GameState, moduleId: string) => s.crew.filter((c) => c.at === moduleId && !c.out && !c.trip);
+/** How much better a module works at its level. */
+export const boost = (m: ModuleState) => K.LEVEL_BOOST[m.level] ?? 1;
 
 /** Is it night on Mars right now? The last part of every sol. */
 export const isNight = (s: GameState) => s.time - Math.floor(s.time) >= K.NIGHT_FROM;
@@ -175,7 +189,7 @@ export function workRate(c: CrewState): number {
 
 /** How well a module is working: half with nobody inside, best with a rested, happy specialist. */
 export function staffing(s: GameState, m: ModuleState): number {
-  const able = workersIn(s, m.id).filter((c) => !isFainted(c) && !c.exhausted);
+  const able = workersIn(s, m.id).filter((c) => !isFainted(c) && !c.exhausted && c.arriving <= 0);
   const grief = s.griefUntil > s.time ? K.GRIEF_WORK : 1;
   if (!able.length) return K.UNSTAFFED * grief;
   const best = Math.max(...able.map(workRate));
@@ -183,14 +197,42 @@ export function staffing(s: GameState, m: ModuleState): number {
   return Math.max(K.UNSTAFFED, skill * best) * grief;
 }
 
-/** Share of the crew the powered Shield Domes are big enough to cover. */
-export function shieldCover(s: GameState): number {
-  const domes = s.modules.filter((m) => m.kind === 'dome' && m.on).length;
-  const crew = alive(s).length;
-  return crew ? Math.min(1, (domes * K.DOME_COVERS) / crew) : 1;
+/** Which column of the base an astronaut is in, or null if they are outside (in the crater, the yard or the capsule). */
+export function columnOf(s: GameState, c: CrewState): number | null {
+  if (c.trip || c.out) return null;
+  const m = s.modules.find((x) => x.id === c.at);
+  if (!m || K.LAYER[m.kind] === 'yard') return null;
+  return m.cell % K.GRID_COLS;
 }
-/** 0-1: the share of storm radiation being blocked right now. */
-export const shieldBlock = (s: GameState) => K.SHIELD_BLOCK * (s.shield / 100) * shieldCover(s);
+/** Columns a powered Shield Dome protects. Layout matters: build domes next to where people live and work. */
+export function domeZone(m: ModuleState): [number, number] {
+  const col = m.cell % K.GRID_COLS;
+  const r = K.DOME_RADIUS[m.level] ?? 1;
+  return [Math.max(0, col - r), Math.min(K.GRID_COLS - 1, col + r)];
+}
+/** 0-1: how well this astronaut is shielded by the domes around them. */
+export function coverOf(s: GameState, c: CrewState): number {
+  const col = columnOf(s, c);
+  if (col === null) return 0;
+  let best = 0;
+  for (const m of s.modules) {
+    if (m.kind !== 'dome' || !m.on || !ready(m)) continue;
+    const [a, b] = domeZone(m);
+    if (col >= a && col <= b) best = Math.max(best, K.DOME_STRENGTH[m.level] ?? 1);
+  }
+  return best;
+}
+/** Share of the crew inside a powered dome's zone. */
+export function shieldCover(s: GameState): number {
+  const crew = alive(s);
+  return crew.length ? crew.filter((c) => coverOf(s, c) > 0).length / crew.length : 1;
+}
+/** 0-1: the share of storm radiation being blocked right now, across the whole crew. */
+export const shieldBlock = (s: GameState) => {
+  const crew = alive(s);
+  if (!crew.length) return 0;
+  return K.SHIELD_BLOCK * (s.shield / 100) * crew.reduce((n, c) => n + coverOf(s, c), 0) / crew.length;
+};
 
 /** Storm radiation arriving right now, mSv per sol, before the shield. */
 export function stormDose(s: GameState): number {
@@ -214,8 +256,9 @@ export function lifeFlow(s: GameState) {
   let made = 0;
   for (const m of s.modules) {
     if (!m.on) continue;
-    if (m.kind === 'oxygen') made += K.OXYGEN_MAKES * staffing(s, m);
-    if (m.kind === 'hydro') made += K.HYDRO_MAKES * staffing(s, m) * (leadIs(s, 'Botanist') ? 1.25 : 1);
+    if (!ready(m)) continue;
+    if (m.kind === 'oxygen') made += K.OXYGEN_MAKES * staffing(s, m) * boost(m);
+    if (m.kind === 'hydro') made += K.HYDRO_MAKES * staffing(s, m) * boost(m) * (leadIs(s, 'Botanist') ? 1.25 : 1);
   }
   return { made, used, net: made - used };
 }
@@ -294,17 +337,23 @@ export function patch(prev: GameState, id: string): ToggleResult {
   return { state: s, ok: true };
 }
 
-/** Something real found around the base: data for Earth, a spare part, or supplies. */
-export function collectFind(prev: GameState, reward: 'science' | 'part' | 'supplies', title: string): GameState {
-  if (prev.status !== 'playing') return prev;
-  const s = clone(prev);
+/** Apply a discovery's rewards to the state (changes it in place). */
+function applyFind(s: GameState, reward: 'science' | 'part' | 'supplies', title: string) {
   s.stats.finds++;
   // Every discovery is news for Earth, so the next lander comes sooner. Data finds even more so.
   if (!s.offer) s.cargoProgress = Math.min(0.999, s.cargoProgress + K.FIND_CARGO_BOOST * (reward === 'science' ? 1.5 : 1));
   if (reward === 'part' && s.spareParts < K.MAX_SPARE_PARTS) s.spareParts++;
   else if (reward === 'science') s.science += K.FIND_SCIENCE;
   else s.life = Math.min(100, s.life + K.FIND_SUPPLIES);
+  s.materials += K.FIND_MATERIALS;
   log(s, 'good', `Discovery: ${title}!`);
+}
+
+/** Something real found around the base: data for Earth, a spare part, or supplies, plus a few bricks. */
+export function collectFind(prev: GameState, reward: 'science' | 'part' | 'supplies', title: string): GameState {
+  if (prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  applyFind(s, reward, title);
   return s;
 }
 
@@ -333,7 +382,7 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
   const s = clone(prev);
   s.blueprints.splice(s.blueprints.indexOf(kind), 1);
   // The Hab is built at a site of its own, then becomes the crew's home.
-  s.modules.push({ id: kind === 'hab' ? 'hab-site' : `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0 });
+  s.modules.push({ id: kind === 'hab' ? 'hab-site' : `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: K.BUILD_SOLS, bin: 0 });
   s.stats.built++;
   log(s, 'info', `Building site ready for a ${MODULE_NAME[kind]}. Send an astronaut to build it!`);
   return s;
@@ -353,10 +402,113 @@ export function assign(prev: GameState, crewId: string, moduleId: string): GameS
     const slots = ready(m) ? K.WORK_SLOTS[m.kind] : K.BUILD_SLOTS;
     if (!slots || (c.at !== m.id && workersIn(prev, m.id).length >= slots)) return prev;
   }
-  if (c.at === id) return prev;
+  if (c.at === id || c.trip) return prev;
   moduleId = id;
   const s = clone(prev);
-  s.crew.find((x) => x.id === crewId)!.at = moduleId;
+  const who = s.crew.find((x) => x.id === crewId)!;
+  who.at = moduleId;
+  // Nobody teleports: it takes a moment to walk (or climb down the ladder) to the new place.
+  who.arriving = K.WALK_BASE;
+  return s;
+}
+
+// ---------- jobs out in the crater ----------
+
+/** How long it takes to walk from the base to a spot in the crater (0-1 across the world). */
+export const walkTime = (x: number, rover = false) => (K.WALK_BASE + Math.abs(x - 0.5) * 2 * K.WALK_FAR) / (rover ? K.ROVER_SPEED : 1);
+/** Who could be sent out right now: rested, at the base, not already out. */
+export const canGoOut = (c: CrewState) => !c.out && !c.trip && !c.exhausted && c.energy > 25;
+const sameJob = (a: Trip['job'], b: Trip['job']) => (a.kind === 'find' && b.kind === 'find' && a.id === b.id) || (a.kind === 'mine' && b.kind === 'mine' && a.dep === b.dep);
+const jobTaken = (s: GameState, job: Trip['job']) => [...s.crew.map((c) => c.trip), s.rover?.trip].some((t) => !!t && t.phase !== 'back' && sameJob(t.job, job));
+
+/**
+ * Send an astronaut (or 'rover') out into the crater to fetch a discovery or dig bricks.
+ * They walk there, work, and walk home. While outside they get no shield and no heat.
+ */
+export function sendOut(prev: GameState, who: string, job: Trip['job'], x: number): ToggleResult {
+  if (prev.status !== 'playing') return { state: prev, ok: false };
+  if (jobTaken(prev, job)) return { state: prev, ok: false, reason: 'Someone is already on the way there.' };
+  if (job.kind === 'mine' && !(prev.deposits.find((d) => d.id === job.dep)?.left)) return { state: prev, ok: false, reason: 'That rock pile is used up.' };
+  const s = clone(prev);
+  const rover = who === 'rover';
+  const t = walkTime(x, rover);
+  const trip: Trip = { phase: 'out', left: t, total: t, x, job, carry: 0 };
+  if (rover) {
+    if (!s.rover || s.rover.trip) return { state: prev, ok: false, reason: 'The rover is busy.' };
+    s.rover.trip = trip;
+  } else {
+    const c = s.crew.find((m) => m.id === who);
+    if (!c || !canGoOut(c)) return { state: prev, ok: false, reason: c && !c.out && c.energy <= 25 ? `${c.name} is too tired to go out.` : 'Nobody is free to go.' };
+    c.trip = trip;
+    c.at = 'out';
+    c.arriving = 0;
+  }
+  log(s, 'info', `${rover ? 'The rover' : s.crew.find((m) => m.id === who)!.name} heads out ${job.kind === 'find' ? `to investigate: ${job.title}` : 'to dig regolith'}.`);
+  return { state: s, ok: true };
+}
+
+/** Tap a Regolith Miner to empty its bin into your brick pile. */
+export function collectBin(prev: GameState, id: string): GameState {
+  const m = prev.modules.find((x) => x.id === id);
+  if (!m || m.kind !== 'miner' || m.bin < 1) return prev;
+  const s = clone(prev);
+  const mm = s.modules.find((x) => x.id === id)!;
+  const got = Math.floor(mm.bin);
+  mm.bin -= got;
+  s.materials += got;
+  s.stats.mined += got;
+  s.pulse.delivered++;
+  return s;
+}
+
+// ---------- upgrades ----------
+
+/** The Hab is the heart of the base: nothing can be upgraded past the Hab's own level. */
+export const habLevel = (s: GameState) => s.modules.find((m) => m.id === 'hab')?.level ?? 0;
+export const upgradeCost = (m: ModuleState) => (m.kind === 'hab' ? K.HAB_UPGRADE_COST : K.UPGRADE_COST)[m.level] ?? Infinity;
+
+/** Why this module cannot be upgraded right now, or null if it can. */
+export function cannotUpgrade(s: GameState, m: ModuleState): string | null {
+  if (m.kind === 'pod') return 'The capsule cannot be upgraded.';
+  if (!ready(m)) return m.upgrading ? 'Already being upgraded.' : 'Finish building it first.';
+  if (m.level >= K.MAX_LEVEL) return 'Already at the top level!';
+  if (m.kind !== 'hab' && m.level >= habLevel(s)) return `Upgrade the Hab to level ${m.level + 1} first. Nothing can be better than your Hab.`;
+  if (s.materials < upgradeCost(m)) return `Needs ${upgradeCost(m) - s.materials} more bricks.`;
+  return null;
+}
+
+/** Start an upgrade: spend bricks, take the module offline, and wait for a builder. */
+export function startUpgrade(prev: GameState, id: string): ToggleResult {
+  const m0 = prev.modules.find((x) => x.id === id);
+  if (!m0 || prev.status !== 'playing') return { state: prev, ok: false };
+  const why = cannotUpgrade(prev, m0);
+  if (why) return { state: prev, ok: false, reason: why };
+  const s = clone(prev);
+  const m = s.modules.find((x) => x.id === id)!;
+  s.materials -= upgradeCost(m);
+  m.upgrading = true;
+  m.buildLeft = m.buildTotal = K.UPGRADE_SOLS[m.level] ?? 2;
+  m.on = false;
+  m.patchedUntil = 0;
+  log(s, 'info', `Upgrading the ${MODULE_NAME[m.kind]} to level ${m.level + 1}. It is offline until a builder finishes.`);
+  return { state: s, ok: true };
+}
+
+// ---------- layout ----------
+
+/** Where this module could be moved to: any free spot in its own row that touches the rest of the base. */
+export function moveTargets(s: GameState, id: string): number[] {
+  const m = s.modules.find((x) => x.id === id);
+  if (!m || K.LAYER[m.kind] === 'yard') return [];
+  const others = { ...s, modules: s.modules.filter((x) => x.id !== id) };
+  return buildableCells(others, m.kind).filter((c) => c !== m.cell);
+}
+
+/** Move a module to a new spot. Rearranging the base is free and instant. */
+export function moveModule(prev: GameState, id: string, cell: number): GameState {
+  if (!moveTargets(prev, id).includes(cell)) return prev;
+  const s = clone(prev);
+  s.modules.find((x) => x.id === id)!.cell = cell;
   return s;
 }
 
@@ -369,13 +521,15 @@ function makeOffer(s: GameState): CargoOffer {
   const n = s.landers + 1;
   const rng = makeRng(s.seed + n * 9973);
   const room = (k: ModuleKind) => count(s, k) < K.MAX_OF[k];
-  const all: ModuleKind[] = ['hab', 'solar', 'battery', 'oxygen', 'hydro', 'dome', 'medbay', 'lab', 'comms'];
+  const all: ModuleKind[] = ['hab', 'solar', 'battery', 'oxygen', 'hydro', 'dome', 'medbay', 'lab', 'comms', 'miner', 'rover'];
   let options: ModuleKind[];
   if (n === 1) options = ['hab', 'oxygen', 'solar', 'battery'];
   else {
     const pool = rng.shuffle(all.filter(room));
     // Essentials you still lack come first.
     const must = (['hab', 'oxygen'] as ModuleKind[]).filter((k) => room(k));
+    // The second lander always offers a way to make bricks.
+    if (n === 2 && room('miner') && !count(s, 'miner')) must.push('miner');
     const power = pool.find((k) => k === 'solar' || k === 'battery');
     options = [...new Set([...must, ...(power ? [power] : []), ...pool])].slice(0, 4);
     // Earth always offers a Shield Dome when the crew has outgrown the ones you have.
@@ -413,6 +567,7 @@ export function acceptCargo(prev: GameState, picks: ModuleKind[], crewId?: strin
   }
   s.life = Math.min(100, s.life + K.CARGO_SUPPLIES);
   s.spareParts = Math.min(K.MAX_SPARE_PARTS, s.spareParts + K.CARGO_SPARE_PARTS);
+  s.materials += K.CARGO_MATERIALS;
   s.landers = offer.number;
   s.offer = null;
   s.cargoProgress = 0;
@@ -485,7 +640,7 @@ function hurt(c: CrewState, cause: Cause, amount: number) {
   c.hurtBy[cause] += amount;
 }
 
-function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate: number) {
+function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, storm: number) {
   const inPod = !habReady(s);
   const med = s.modules.find((m) => m.kind === 'medbay' && m.on);
   const medicIn = !!med && workersIn(s, med.id).some((c) => c.role === 'Medic' && !isFainted(c));
@@ -506,8 +661,9 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
     if (stage > wasStage && stage === 2) speak(s, c, 'air2', 'bad');
     if (wasStage > 0 && stage === 0) speak(s, c, 'airBack', 'good');
 
-    // Warmth: the Hab heats the whole base. Before it exists, only the capsule is warm.
-    const heat = habHeat || (inPod && c.at === 'hab');
+    // Warmth: the Hab heats the whole base. Before it exists, only the capsule is warm. Outside is cold.
+    const outside = !!c.trip;
+    const heat = !outside && (habHeat || (inPod && c.at === 'hab'));
     const wasCold = c.temp < K.HYPOTHERMIA_TEMP;
     if (heat) c.temp = Math.min(K.NORMAL_TEMP, c.temp + (inBed ? K.TEMP_RISE_MEDBAY : K.TEMP_RISE) * dt);
     else c.temp = Math.max(88, c.temp - (K.TEMP_FALL / c.tolerance) * dt);
@@ -516,7 +672,8 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
     if (cold && !wasCold) speak(s, c, 'cold', 'bad');
     if (!cold && wasCold) speak(s, c, 'warm', 'good');
 
-    // Radiation: the dose is permanent, the sickness can be treated.
+    // Radiation: the dose is permanent, the sickness can be treated. The domes only protect crew in their zone.
+    const rate = K.BACKGROUND_DOSE + storm * (1 - K.SHIELD_BLOCK * (s.shield / 100) * coverOf(s, c));
     c.dose += (rate / c.tolerance) * dt;
     const acute = Math.max(0, rate - K.BACKGROUND_DOSE);
     const wasSick = c.sick > 0.25;
@@ -528,15 +685,17 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
     // Energy: work uses it, sleep fills it. Night makes both stronger.
     const night = isNight(s);
     const room = s.modules.find((m) => m.id === c.at);
-    const resting = c.exhausted || c.at === 'hab' || (inBed && c.role !== 'Medic');
+    if (c.arriving > 0) c.arriving = Math.max(0, c.arriving - dt);
+    const resting = !outside && (c.exhausted || c.at === 'hab' || (inBed && c.role !== 'Medic'));
     const wasTired = c.energy < 30;
     if (resting) {
       // A real bed in a warm Hab beats a cramped capsule seat.
-      const gain = c.exhausted && c.at !== 'hab' ? K.COLLAPSE_GAIN : c.at === 'hab' && habHeat && !inPod ? K.SLEEP_GAIN : K.REST_GAIN;
+      const habLvl = s.modules.find((m) => m.id === 'hab')?.level ?? 1;
+      const gain = c.exhausted && c.at !== 'hab' ? K.COLLAPSE_GAIN : c.at === 'hab' && habHeat && !inPod ? K.SLEEP_GAIN * (K.LEVEL_BOOST[habLvl] ?? 1) : K.REST_GAIN;
       c.energy = Math.min(100, c.energy + gain * (night ? K.NIGHT_SLEEP : 1) * (has(c, 'sleepyhead') ? 1.4 : 1) * dt);
     } else {
       const building = !!room && !ready(room);
-      const drain = room?.on || building ? K.WORK_DRAIN : K.IDLE_DRAIN;
+      const drain = room?.on || building || outside ? K.WORK_DRAIN : K.IDLE_DRAIN;
       const nightCost = night && !has(c, 'nightowl') ? K.NIGHT_WORK : 1;
       const style = has(c, 'tireless') ? 0.75 : has(c, 'sleepyhead') ? 1.2 : 1;
       c.energy = Math.max(0, c.energy - drain * nightCost * style * dt);
@@ -568,7 +727,7 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
     if (mates.some((o) => has(o, 'sunny'))) up += 6;
     if (has(c, 'steady')) down /= 2;
     c.mood = Math.max(0, Math.min(100, c.mood + (up - down) * dt));
-    if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && c.at !== 'hab') {
+    if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && !outside && c.at !== 'hab') {
       c.at = 'hab';
       s.stats.strikes++;
       log(s, 'warn', `${c.name} is too unhappy to work and went to the Hab for a break.`);
@@ -594,6 +753,7 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
     if (c.health <= 0 || c.noAir >= K.HYPOXIA.lost) {
       c.health = 0;
       c.out = true;
+      c.trip = null;
       c.say = null;
       c.diedAt = s.time;
       s.stats.lost++;
@@ -609,12 +769,68 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, rate
  * Move the base forward by `dt` sols. Pure: the same state and dt always
  * give the same result, which is what makes the balance testable.
  */
+/** Move one trip forward: walk out, do the job, walk home. Returns true when it is finished. */
+function stepTrip(s: GameState, t: Trip, dt: number, rate: number, carry: number): boolean {
+  if (t.phase === 'out') {
+    t.left -= dt;
+    if (t.left <= 0) {
+      t.phase = 'work';
+      t.left = t.total = t.job.kind === 'find' ? K.FIND_WORK_SOLS : K.MINE_SOLS;
+    }
+  } else if (t.phase === 'work') {
+    t.left -= dt * rate;
+    if (t.left <= 0) {
+      if (t.job.kind === 'find') {
+        applyFind(s, t.job.reward, t.job.title);
+        s.foundLog.push(t.job.id);
+      } else {
+        const job = t.job;
+        const d = s.deposits.find((x) => x.id === job.dep);
+        const take = Math.min(carry, d?.left ?? 0);
+        if (d) d.left -= take;
+        t.carry = take;
+      }
+      t.phase = 'back';
+      t.left = t.total = walkTime(t.x, carry === K.ROVER_CARRY);
+    }
+  } else {
+    t.left -= dt;
+    if (t.left <= 0) {
+      if (t.carry) {
+        s.materials += t.carry;
+        s.stats.mined += t.carry;
+        s.pulse.delivered++;
+        log(s, 'good', `${t.carry} regolith bricks delivered to the base.`);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 export function step(prev: GameState, dt: number): GameState {
   if (prev.status !== 'playing') return prev;
   const s = clone(prev);
   s.time += dt;
 
   stepEvents(s);
+
+  // Trips out in the crater. Collapsed astronauts stop where they are until they wake.
+  for (const c of s.crew) {
+    if (!c.trip || c.out) continue;
+    if (c.exhausted) continue;
+    if (stepTrip(s, c.trip, dt, Math.max(0.3, workRate(c)), K.CARRY)) {
+      c.trip = null;
+      c.at = 'hab';
+      c.arriving = K.WALK_BASE;
+    }
+  }
+  if (s.rover?.trip && stepTrip(s, s.rover.trip, dt, 1, K.ROVER_CARRY)) s.rover.trip = null;
+
+  // Regolith Miners fill their bins while switched on. Bigger miners hold more.
+  for (const m of s.modules) {
+    if (m.kind === 'miner' && m.on && ready(m)) m.bin = Math.min(K.MINER_BIN * m.level, m.bin + K.MINER_RATE * boost(m) * dt);
+  }
 
   // Nothing builds itself: an astronaut has to be at the site. Rested crew build faster.
   for (const m of s.modules) {
@@ -624,10 +840,21 @@ export function step(prev: GameState, dt: number): GameState {
       m.buildLeft = Math.max(0, m.buildLeft - dt * rate);
       if (m.buildLeft === 0) {
         // Builders stay on to work in a workplace; otherwise they head home.
-        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) c.at = 'hab';
+        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) { c.at = 'hab'; c.arriving = K.WALK_BASE; }
         if (m.id === 'hab-site') { m.id = 'hab'; m.on = true; m.onSince = s.time; }
-        s.pulse.built++;
-        log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : '. Switch it on when you have power'}.`);
+        if (m.kind === 'rover' && !s.rover) s.rover = { trip: null };
+        if (m.upgrading) {
+          m.upgrading = false;
+          m.level++;
+          m.on = true;
+          m.onSince = s.time;
+          s.stats.upgrades++;
+          s.pulse.upgraded++;
+          log(s, 'good', `${MODULE_NAME[m.kind]} upgraded to level ${m.level}!`);
+        } else {
+          s.pulse.built++;
+          log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : m.kind === 'rover' ? '. The rover is ready to roll!' : '. Switch it on when you have power'}.`);
+        }
       }
     }
   }
@@ -642,7 +869,7 @@ export function step(prev: GameState, dt: number): GameState {
 
   // Cargo: Earth sends a lander every few sols, sooner when the lab is doing science.
   const lab = s.modules.find((m) => m.kind === 'lab' && m.on);
-  const research = lab && workersIn(s, lab.id).some((c) => !isFainted(c)) ? staffing(s, lab) : 0;
+  const research = lab && ready(lab) && workersIn(s, lab.id).some((c) => !isFainted(c)) ? staffing(s, lab) * boost(lab) : 0;
   s.science += K.SCIENCE_PER_SOL * research * dt;
   if (!s.offer && s.time < K.MISSION_SOLS - 1) {
     s.cargoProgress += (dt / K.CARGO_SOLS) * (1 + K.LAB_CARGO_BOOST * research) * (leadIs(s, 'Scientist') ? K.SCIENTIST_CARGO_BOOST : 1);
@@ -666,17 +893,16 @@ export function step(prev: GameState, dt: number): GameState {
   // Shield
   s.shield = Math.max(0, Math.min(100, s.shield + (isOn(s, 'dome') ? K.SHIELD_CHARGE : -K.SHIELD_FADE) * dt));
 
-  // Radiation
+  // Radiation: each astronaut gets their own dose, depending on where they are.
   const storm = stormDose(s);
   const stormIn = storm * (1 - shieldBlock(s));
-  const rate = K.BACKGROUND_DOSE + stormIn;
   for (const e of activeEvents(s)) {
     if (e.kind === 'dust') continue;
     e.doseTaken += stormIn * dt;
     e.doseUnshielded += storm * dt;
   }
 
-  stepCrew(s, dt, air, heat, rate);
+  stepCrew(s, dt, air, heat, storm);
 
   // The mission ends if the commander dies, or if nobody is left.
   const lead = s.crew.find((c) => c.commander);

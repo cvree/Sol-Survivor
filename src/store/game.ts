@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { acceptCargo, activeEvents, assign, build, collectFind, createGame, grantReward, patch, power, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { acceptCargo, activeEvents, assign, build, canGoOut, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { saveRecord } from '../lib/records';
+import { takeBonus } from '../lib/daily';
 import { LESSONS, lessonOf, stepOf, type CoachRun } from '../components/coach';
 import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
@@ -24,6 +26,14 @@ export type Moment =
   | { type: 'find'; id: string; isNew: boolean; at: number }
   | { type: 'died'; crewId: string; at: number };
 
+/** Who to send out: the rover if it is free, otherwise the most rested astronaut, preferring ones who are resting. */
+function pickAgent(game: GameState): string | null {
+  if (game.rover && !game.rover.trip) return 'rover';
+  const busy = (c: GameState['crew'][number]) => (c.at === 'hab' ? 0 : game.modules.some((m) => m.id === c.at && m.buildLeft > 0) ? 2 : 1);
+  const free = game.crew.filter(canGoOut).sort((a, b) => busy(a) - busy(b) || b.energy - a.energy);
+  return free[0]?.id ?? null;
+}
+
 let lastTick = 0;
 let lastTuned = 0;
 let landerShown = -1;
@@ -36,6 +46,9 @@ export type Panel =
   | { type: 'build'; cell?: number }
   | { type: 'log' }
   | { type: 'finds' }
+  | { type: 'upgrade'; id: string }
+  | { type: 'records' }
+  | { type: 'daily' }
   | null;
 
 interface Store {
@@ -54,6 +67,14 @@ interface Store {
   /** Every discovery ever made, kept between missions. */
   album: string[];
   albumSeen: number;
+  /** Layout editing: the clock stops and modules can be moved. */
+  editing: boolean;
+  /** Module picked up in the layout editor (click to pick, click a spot to drop). */
+  moving: string | null;
+  /** Where the last finished mission landed on the leaderboard (0 = not on it). */
+  lastRank: number;
+  /** Today's Sol Check head start was applied to this mission. */
+  sharpMind: boolean;
   game: GameState | null;
   paused: boolean;
   speed: 1 | 2;
@@ -88,7 +109,15 @@ interface Store {
   /** Go from the title to choosing a commander. */
   begin: () => void;
   chooseCommander: (id: string) => void;
-  collect: (id: string) => void;
+  /** Send someone out to a discovery (by find id). */
+  collect: (id: string, who?: string) => void;
+  /** Send someone out to dig at a rock pile. */
+  dig: (depositId: string, who?: string) => void;
+  emptyBin: (id: string) => void;
+  upgrade: (id: string) => void;
+  setEditing: (on: boolean) => void;
+  pickToMove: (id: string | null) => void;
+  move: (id: string, cell: number) => void;
   setCoach: (run: CoachRun | null) => void;
   /** Straight back in after a loss: no intro, and the first mini-mission practises what went wrong. */
   retry: () => void;
@@ -119,6 +148,10 @@ export const useGame = create<Store>((set, get) => ({
   findsGot: [],
   album: loadAlbum(),
   albumSeen: loadAlbum().length,
+  editing: false,
+  moving: null,
+  lastRank: 0,
+  sharpMind: false,
   game: null,
   paused: false,
   speed: 1,
@@ -155,9 +188,13 @@ export const useGame = create<Store>((set, get) => ({
     clearTimeout(holdTimer);
     resetPanned();
     const order = findOrder(seed, album);
-    set({
+    let fresh = createGame(seed, catalog, sun.activity, difficulty, commander);
+    // Solved today's Sol Check? A sharp mind starts with a few bricks and a spare part.
+    const sharp = takeBonus();
+    if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
+    set({ sharpMind: sharp, editing: false, moving: null, lastRank: 0,
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [],
-      screen: 'game', game: createGame(seed, catalog, sun.activity, difficulty, commander),
+      screen: 'game', game: fresh,
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
       tour: 0, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
     });
@@ -206,7 +243,7 @@ export const useGame = create<Store>((set, get) => ({
     }
     // The clock waits while the commander is learning.
     const learning = !!stepOf(get().coach)?.pause;
-    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning) return;
+    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning || get().editing) return;
 
     // The fuse: the nearest warned storm ticks faster and higher as it closes in, then time slows.
     const now = performance.now();
@@ -231,7 +268,26 @@ export const useGame = create<Store>((set, get) => ({
     if (s.pulse.built !== game.pulse.built) sfx.thump();
     if (s.status === 'won' && game.status === 'playing') sfx.win();
     if (s.status === 'lost' && game.status === 'playing') sfx.lose();
+    if (s.pulse.delivered !== game.pulse.delivered) sfx.reward();
+    if (s.pulse.upgraded !== game.pulse.upgraded) { sfx.thump(); sfx.win(); }
     const patch: Partial<Store> = { game: s, slowmo: slow && s.pulse.hit === game.pulse.hit };
+    // The mission is over: put it on the leaderboard.
+    if (s.status !== 'playing' && game.status === 'playing') {
+      const lead = s.crew.find((c) => c.commander);
+      patch.lastRank = saveRecord({ sols: Math.min(30, Math.floor(s.time) - (s.status === 'won' ? 1 : 0)), won: s.status === 'won', commander: lead?.name ?? '?', difficulty: s.difficulty, crew: s.crew.length, modules: s.modules.length, finds: s.stats.finds, date: new Date().toISOString().slice(0, 10) });
+    }
+    // An astronaut (or the rover) came home with a discovery: celebrate it.
+    if (s.foundLog.length > game.foundLog.length && s.status === 'playing') {
+      const id = s.foundLog[s.foundLog.length - 1];
+      const { album } = get();
+      const isNew = !album.includes(id);
+      const nextAlbum = isNew ? [...album, id] : album;
+      if (isNew) saveAlbum(nextAlbum);
+      sfx.discover();
+      clearTimeout(holdTimer);
+      set({ ...patch, album: nextAlbum, moment: { type: 'find', id, isNew, at: Date.now() }, picked: null });
+      return;
+    }
 
     // Perfect power: every block in use and none wasted. The base hums.
     const p = power(s);
@@ -314,16 +370,50 @@ export const useGame = create<Store>((set, get) => ({
     else if (r.reason) sfx.denied();
     set({ game: r.state, notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice });
   },
-  collect: (id) => {
-    const { game, findsActive, findsGot, album, moment, panel } = get();
+  collect: (id, who) => {
+    const { game, findsActive, findsGot, moment, panel } = get();
     const f = findById(id);
     if (!game || !f || game.status !== 'playing' || moment || panel || !findsActive.includes(id) || findsGot.includes(id)) return;
-    const isNew = !album.includes(id);
-    const nextAlbum = isNew ? [...album, id] : album;
-    if (isNew) saveAlbum(nextAlbum);
-    sfx.discover();
-    clearTimeout(holdTimer);
-    set({ game: collectFind(game, f.reward, f.title), findsGot: [...findsGot, id], album: nextAlbum, moment: { type: 'find', id, isNew, at: Date.now() }, picked: null });
+    const agent = who ?? pickAgent(game);
+    if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out. Build a Rover Garage, or let someone rest.', at: Date.now() } }); return; }
+    const r = sendOut(game, agent, { kind: 'find', id, reward: f.reward, title: f.title }, f.layer === 'roam' ? 0.5 : f.x);
+    if (!r.ok) { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); return; }
+    sfx.assign();
+    const name = agent === 'rover' ? 'The rover' : game.crew.find((c) => c.id === agent)?.name;
+    set({ game: r.state, findsGot: [...findsGot, id], picked: null, notice: { text: `${name} is heading out to investigate!`, at: Date.now() } });
+  },
+  dig: (depId, who) => {
+    const { game } = get();
+    const d = game?.deposits.find((x) => x.id === depId);
+    if (!game || !d) return;
+    const agent = who ?? pickAgent(game);
+    if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out.', at: Date.now() } }); return; }
+    const r = sendOut(game, agent, { kind: 'mine', dep: depId }, d.x);
+    if (!r.ok) { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); return; }
+    sfx.assign();
+    const name = agent === 'rover' ? 'The rover' : game.crew.find((c) => c.id === agent)?.name;
+    set({ game: r.state, picked: null, notice: { text: `${name} is heading out to dig regolith bricks.`, at: Date.now() } });
+  },
+  emptyBin: (id) => {
+    const { game } = get();
+    if (!game) return;
+    const next = collectBin(game, id);
+    if (next !== game) { sfx.reward(); set({ game: next }); }
+  },
+  upgrade: (id) => {
+    const { game } = get();
+    if (!game) return;
+    const r = startUpgrade(game, id);
+    if (r.ok) { sfx.thump(); set({ game: r.state, panel: null }); }
+    else { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); }
+  },
+  setEditing: (editing) => { sfx.build(); set({ editing, moving: null, picked: null }); },
+  pickToMove: (moving) => { if (moving) sfx.on(); set({ moving }); },
+  move: (id, cell) => {
+    const { game } = get();
+    if (!game) return;
+    const next = moveModule(game, id, cell);
+    if (next !== game) { sfx.thump(); set({ game: next, moving: null }); } else sfx.denied();
   },
   patch: (id) => {
     const { game } = get();

@@ -1,6 +1,6 @@
 import { pannedBy } from '../lib/camera';
 import type { GameState } from '../engine/types';
-import { MODULE_NAME, POWER_COST_OF, bedName, power } from '../engine/engine';
+import { MODULE_NAME, POWER_COST_OF, bedName, habReady, power } from '../engine/engine';
 
 /**
  * M.A.R.V.'s hands-on lessons. Each one teaches a single idea by doing, and only
@@ -9,7 +9,7 @@ import { MODULE_NAME, POWER_COST_OF, bedName, power } from '../engine/engine';
  * Steps marked `pause` stop the clock, so nothing bad happens while learning.
  */
 export interface CoachState { game: GameState | null; picked: string | null; subject?: string }
-export type CoachTarget = 'oxygen' | 'crew' | 'assign-oxygen' | 'assign-hab' | 'explore' | 'pod' | 'spot' | 'site' | 'build-btn' | 'none';
+export type CoachTarget = 'oxygen' | 'crew' | 'assign-oxygen' | 'assign-hab' | 'explore' | 'pod' | 'spot' | 'site' | 'build-btn' | 'edit' | 'none';
 export interface CoachStep {
   say: (s: CoachState) => string;
   target: CoachTarget;
@@ -43,7 +43,7 @@ export const LESSONS: Lesson[] = [
         done: (_s, ms) => ms > 8500 },
       { say: () => 'Earth will send cargo landers full of building plans, but you have to earn them. Drag the ground sideways to explore the crater!', target: 'explore', pause: true,
         done: () => pannedBy() > 260 },
-      { say: () => 'See something sparkle? Tap it to investigate. Every discovery brings the next lander closer.', target: 'none', pause: false,
+      { say: () => 'See something sparkle? Tap it and you will walk out there to investigate. Every discovery brings the next lander closer.', target: 'none', pause: false,
         done: (s) => (s.game?.stats.finds ?? 0) > 0 },
     ],
   },
@@ -66,6 +66,34 @@ export const LESSONS: Lesson[] = [
     steps: [
       { say: () => 'You built it! New modules start switched off. Tap it to switch it on. Every module uses power, and power is never quite enough.', target: 'none', pause: false,
         done: (s, ms) => ms > 9000 || !!s.game?.modules.find((m) => m.id === s.subject)?.on },
+    ],
+  },
+  {
+    id: 'dig', when: (s) => !!s.game && habReady(s.game) && s.game.materials < 15 && s.game.deposits.some((d) => d.left > 0),
+    steps: [
+      { say: () => 'See the rock piles out in the crater? Mars dirt (regolith) makes building bricks! Tap a rock pile, or drag an astronaut onto it. They will walk out, dig, and carry the bricks home.', target: 'none', pause: false,
+        done: (s, ms) => ms > 12000 || !!s.game?.crew.some((c) => c.trip?.job.kind === 'mine') },
+    ],
+  },
+  {
+    id: 'upgrade', when: (s) => !!s.game && s.game.materials >= 30 && habReady(s.game),
+    steps: [
+      { say: () => 'You have enough bricks to upgrade! Tap the arrow on the Hab. A bigger Hab lets every other module level up too. Upgrades switch a module off until a builder finishes, so pick a calm moment.', target: 'none', pause: false,
+        done: (s, ms) => ms > 12000 || !!s.game?.modules.some((m) => m.upgrading) },
+    ],
+  },
+  {
+    id: 'zone', when: (s) => !!s.game?.modules.some((m) => m.kind === 'dome' && m.buildLeft <= 0),
+    steps: [
+      { say: () => 'Your Shield Dome only protects crew inside its blue zone: its own column and the ones next to it. Press Edit layout to move modules where they are safe. Anyone outside in the crater gets no shield at all!', target: 'edit', pause: false,
+        done: (_s, ms) => ms > 12000 },
+    ],
+  },
+  {
+    id: 'rover', when: (s) => !!s.game?.rover,
+    steps: [
+      { say: () => 'Your rover is ready! Now when you tap a discovery or a rock pile, the rover goes instead of an astronaut. It never gets tired, and radiation does not bother it.', target: 'none', pause: false,
+        done: (_s, ms) => ms > 9000 },
     ],
   },
   {

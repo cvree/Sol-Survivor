@@ -1,8 +1,10 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { Hammer, Plus, Wrench } from 'lucide-react';
-import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, habReady, isNight, isPatched, power, staffing, stormDose, workersIn } from '../engine/engine';
+import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, MAX_LEVEL, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS } from '../engine/constants';
+import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
+import { Deposits, Walkers } from './World';
+import { LevelDeco, LevelStars } from './LevelDeco';
 import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Rover, type Act } from './art';
@@ -14,10 +16,12 @@ import { canDrop, startCrewDrag, useDrag, wasDragged } from '../lib/crewDrag';
 import { EdgeArrows, MiniMap } from './Explore';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
 import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
-import { CloudLightning, Rocket, Star } from 'lucide-react';
+import { ArrowUpCircle, Check, CloudLightning, LayoutGrid, Move, Package, Rocket, Star } from 'lucide-react';
 
 export const MODULE_JOB: Record<ModuleKind, string> = {
   pod: `Warm, cramped, +3 power`,
+  miner: 'Digs bricks into a bin. Tap to collect',
+  rover: 'A rover that fetches finds and digs, no tiring',
   hab: 'Heat and beds',
   solar: `+${SOLAR_OUTPUT} power from sun`,
   battery: `+${BATTERY_OUTPUT} power, dust-proof`,
@@ -93,6 +97,25 @@ function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?:
 
 function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState; fresh: boolean; partying: boolean }) {
   const toggle = useGame((s) => s.toggle);
+  const open = useGame((s) => s.open);
+  const editing = useGame((s) => s.editing);
+  const moving = useGame((s) => s.moving);
+  const pickToMove = useGame((s) => s.pickToMove);
+  const move = useGame((s) => s.move);
+  const total = m.buildTotal || BUILD_SOLS;
+  // In the layout editor: press a module and drag it to a glowing spot (or tap it, then tap a spot).
+  const startMove = (e: React.PointerEvent) => {
+    if (!editing || e.button !== 0) return;
+    pickToMove(m.id);
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointerup', up);
+      for (const el of document.elementsFromPoint(ev.clientX, ev.clientY)) {
+        const slot = (el as HTMLElement).closest?.('[data-cell]') as HTMLElement | null;
+        if (slot) { move(m.id, Number(slot.dataset.cell)); return; }
+      }
+    };
+    window.addEventListener('pointerup', up);
+  };
   const coached = useGame((s) => {
     const t = stepOf(s.coach)?.target;
     if (t === 'site') return m.buildLeft > 0;
@@ -114,10 +137,11 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
   const below = row === 0 && game.modules.some((x) => x.cell === m.cell + GRID_COLS);
   const patched = isPatched(game, m);
   const canPatch = !building && !m.on && PATCHABLE.includes(m.kind) && game.spareParts > 0 && cost > power(game).free;
-  const status = building ? `Building, ${Math.round((1 - m.buildLeft / BUILD_SOLS) * 100)}% done` : patched ? 'Patched and running' : m.on ? 'On' : 'Off';
+  const status = building ? `${m.upgrading ? 'Upgrading' : 'Building'}, ${Math.round((1 - m.buildLeft / total) * 100)}% done` : patched ? 'Patched and running' : m.on ? 'On' : 'Off';
   return (
     <motion.div
-      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''} ${dropCan ? 'drop-can' : ''} ${hovered}`}
+      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''} ${dropCan ? 'drop-can' : ''} ${hovered} ${editing ? 'editable' : ''} ${moving === m.id ? 'moving' : ''} lvl-${m.level}`}
+      onPointerDown={startMove}
       style={place(m.cell)}
       data-mod={m.id}
       initial={{ scale: 0.2, y: row ? 0 : 60, opacity: 0 }}
@@ -132,12 +156,14 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
         whileTap={building ? undefined : { scale: 0.95 }}
         whileHover={building ? undefined : { scale: 1.03 }}
         transition={{ type: 'spring', stiffness: 500, damping: 14 }}
-        onClick={() => toggle(m.id)}
-        disabled={building}
+        onClick={(e) => { if (!editing) toggle(m.id); else if (e.detail === 0) pickToMove(moving === m.id ? null : m.id); /* pointer presses pick it up on pointerdown */ }}
+        disabled={building && !editing}
         aria-pressed={m.on}
         aria-label={`${MODULE_NAME[m.kind]}. ${status}. ${MODULE_JOB[m.kind]}.${building ? '' : ` Uses ${cost} power. Press to switch ${m.on ? 'off' : 'on'}.`}`}
       >
-        <ModuleArt kind={m.kind} on={m.on} building={building} />
+        <ModuleArt kind={m.kind} on={m.on} building={building && !m.upgrading} />
+        <LevelDeco level={m.level} under={row === 1} />
+        {m.upgrading && <span className="upgrade-scaffold" aria-hidden="true" />}
         {patched && (
           <svg viewBox="0 0 240 150" className="tape" aria-hidden="true">
             <path d="M150 20l58 34" stroke="#d9d3c5" strokeWidth="16" strokeLinecap="round" /><path d="M150 20l58 34" stroke="#1d1033" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" />
@@ -150,15 +176,20 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
         <span className="plate-icon">{building ? <Hammer /> : <Icon />}</span>
         <span className="plate-name">{MODULE_NAME[m.kind]}</span>
         {building ? (
-          <span className="build-bar"><i style={{ width: `${(1 - m.buildLeft / BUILD_SOLS) * 100}%` }} /></span>
+          <span className="build-bar"><i style={{ width: `${(1 - m.buildLeft / total) * 100}%` }} /></span>
         ) : (
           <>
+            <LevelStars level={m.level} />
             <span className="plate-cost">{Array.from({ length: cost }, (_, i) => <i key={i} />)}</span>
             <span className="switch"><motion.i layout transition={{ type: 'spring', stiffness: 500, damping: 28 }} /></span>
           </>
         )}
       </div>
-      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? `Building... ${Math.round((1 - m.buildLeft / BUILD_SOLS) * 100)}%` : 'Drag an astronaut here to build!'}</span>}
+      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? `${m.upgrading ? 'Upgrading' : 'Building'}... ${Math.round((1 - m.buildLeft / total) * 100)}%` : m.upgrading ? `Drag a builder here: level ${m.level + 1}` : 'Drag an astronaut here to build!'}</span>}
+      {!building && !editing && m.level < MAX_LEVEL && (
+        <motion.button className="up-btn no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.12 }}
+          aria-label={`Upgrade the ${MODULE_NAME[m.kind]} (level ${m.level})`} title="Upgrade"><ArrowUpCircle /></motion.button>
+      )}
       {patched
         ? <span className="tag patch-tag"><Wrench /> Patched! {Math.max(0, m.patchedUntil - game.time).toFixed(1)} sols left</span>
         : !building && (empty || boosted) && <span className={`tag ${boosted ? 'good' : ''}`}>{boosted ? `${SPECIALIST[m.kind]} boost!` : 'Needs a worker'}</span>}
@@ -200,6 +231,9 @@ function Pod({ game, intro }: { game: GameState; intro: boolean }) {
 /** Gear out in the yard. A building site waits for an astronaut to come and build it. */
 function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameState; lit: boolean; index: number; fresh: boolean }) {
   const toggle = useGame((s) => s.toggle);
+  const open = useGame((s) => s.open);
+  const emptyBin = useGame((s) => s.emptyBin);
+  const total = m.buildTotal || BUILD_SOLS;
   const coached = useGame((s) => stepOf(s.coach)?.target === 'site' && m.buildLeft > 0);
   const carrying = useDrag((d) => d.id);
   const hovered = useDrag((d) => (d.id && d.over === m.id ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
@@ -212,13 +246,19 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
     <motion.div className={`prop-wrap ${building ? 'building' : ''} ${dropCan ? 'drop-can' : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={m.id}
       initial={{ y: -90, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 12, delay: fresh ? 0.5 + index * 0.1 : 0 }}>
       <motion.button className={`prop k-${m.kind} ${on ? 'on' : 'off'} ${building ? 'building' : ''}`}
-        disabled={m.kind !== 'comms' || building} onClick={() => toggle(m.id)} aria-label={label} aria-pressed={m.kind === 'comms' ? m.on : undefined} title={MODULE_NAME[m.kind]}
+        disabled={!['comms', 'miner', 'rover'].includes(m.kind) || building} onClick={() => toggle(m.id)} aria-label={label} aria-pressed={m.kind === 'comms' ? m.on : undefined} title={MODULE_NAME[m.kind]}
         whileTap={m.kind === 'comms' ? { scale: 0.9 } : undefined}>
         <ModuleArt kind={m.kind} on={on} building={building} />
-        {m.kind === 'comms' && !building && <span className="prop-switch"><span className="switch"><i /></span></span>}
+        {['comms', 'miner', 'rover'].includes(m.kind) && !building && <span className="prop-switch"><span className="switch"><i /></span></span>}
+        {m.kind === 'rover' && !building && game.rover && !game.rover.trip && <span className="parked"><Rover size={64} /></span>}
       </motion.button>
-      {building && <span className="build-bar prop-bar"><i style={{ width: `${(1 - m.buildLeft / BUILD_SOLS) * 100}%` }} /></span>}
-      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? 'Building...' : `Build the ${MODULE_NAME[m.kind]}`}</span>}
+      {m.kind === 'miner' && !building && m.bin >= 1 && (
+        <motion.button className={`bin-bubble no-drag ${m.bin >= 20 * m.level - 0.5 ? 'full' : ''}`} onClick={() => emptyBin(m.id)} initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.85 }}
+          aria-label={`Collect ${Math.floor(m.bin)} bricks from the miner`}><Package /> +{Math.floor(m.bin)}</motion.button>
+      )}
+      {!building && <span className="prop-level"><LevelStars level={m.level} />{m.level < MAX_LEVEL && <button className="up-btn small no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} aria-label={`Upgrade the ${MODULE_NAME[m.kind]}`}><ArrowUpCircle /></button>}</span>}
+      {building && <span className="build-bar prop-bar"><i style={{ width: `${(1 - m.buildLeft / total) * 100}%` }} /></span>}
+      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : m.upgrading ? 'Needs a builder' : `Build the ${MODULE_NAME[m.kind]}`}</span>}
       <div className="prop-floor">{here.map((c, i) => <Sprite key={c.id} c={c} index={i} act="wrench" />)}</div>
     </motion.div>
   );
@@ -234,9 +274,10 @@ const px = (f: number, extra: CSSProperties = {}) => ({ '--f': f, ...extra } as 
 export function Diorama({ game }: { game: GameState }) {
   const ref = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const { tour, open, slowmo, moment, party, tunedAt } = useGame();
+  const { tour, open, slowmo, moment, party, tunedAt, editing, moving, setEditing, move } = useGame();
   const coachTarget = useGame((s) => stepOf(s.coach)?.target ?? null);
   const night = isNight(game) && tour !== 0;
+  const warnedNow = game.events.some((e) => e.kind !== 'dust' && e.phase === 'warned');
   const vw = useCamera((s) => s.vw);
   const W = useCamera((s) => s.W);
   const hl = (W - vw) / 2;
@@ -338,6 +379,8 @@ export function Diorama({ game }: { game: GameState }) {
           ))}
         </div>
         <Finds />
+        <Deposits game={game} />
+        <Walkers game={game} />
         {/* Night falls over the whole crater; the base keeps its lights on. */}
         <div className="night-shade world-shade" aria-hidden="true" />
 
@@ -370,8 +413,17 @@ export function Diorama({ game }: { game: GameState }) {
 
             <div className="base">
               <motion.div className="dome-glow" aria-hidden="true" animate={{ opacity: game.shield / 100 }} />
+              {/* Each dome's protection zone. Only crew inside a blue zone are shielded. */}
+              {(editing || warnedNow || storm) && game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0).map((m) => {
+                const [a, b] = domeZone(m);
+                return <i key={`zone-${m.id}`} className={`cover-zone ${m.on ? 'on' : 'off'}`} style={{ gridColumn: `${a + 1} / ${b + 2}`, gridRow: '1 / 3' }} aria-hidden="true" />;
+              })}
+              {editing && moving && moveTargets(game, moving).map((cell) => (
+                <motion.button key={`slot-${cell}`} className="slot" data-cell={cell} style={place(cell)} onClick={() => move(moving, cell)}
+                  initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} aria-label="Move it here"><Move /> Move here</motion.button>
+              ))}
               {!intro && placed.map((m) => <Module key={m.id} m={m} game={game} fresh={tour === 1} partying={partying} />)}
-              {!intro && spots.map((cell) => (
+              {!intro && !editing && spots.map((cell) => (
                 <motion.button key={`spot-${cell}`} className={`spot ready ${coachTarget === 'spot' ? 'coach-target' : ''}`} style={place(cell)} whileTap={{ scale: 0.92 }}
                   initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}
                   onClick={() => open({ type: 'build', cell })} aria-label={cell < GRID_COLS ? 'Build on the surface here' : 'Dig a room here'}>
@@ -389,6 +441,11 @@ export function Diorama({ game }: { game: GameState }) {
       <div className="letterbox" aria-hidden="true" />
       <div className={coachTarget === 'explore' ? 'coach-explore' : ''}><EdgeArrows targets={targets} hidden={tour !== null} /></div>
       <MiniMap targets={targets} hidden={tour !== null} />
+      {tour === null && (
+        <motion.button className={`edit-btn no-drag ${editing ? 'on' : ''} ${coachTarget === 'edit' ? 'coach-target' : ''}`} onClick={() => setEditing(!editing)} whileTap={{ scale: 0.9 }}
+          aria-pressed={editing}>{editing ? <><Check /> Done</> : <><LayoutGrid /> Edit layout</>}</motion.button>
+      )}
+      {editing && <div className="edit-banner" role="status">Layout editor: drag a module to a glowing spot (or tap it, then a spot). The clock is stopped. Blue zones show where Shield Domes protect.</div>}
     </div>
   );
 }

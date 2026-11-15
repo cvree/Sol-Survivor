@@ -57,6 +57,8 @@ function RecordCard({ r }: { r: RealRecord }) {
 /** The real science behind each module, shown when it is offered and in the Science Log. */
 export const MODULE_SCIENCE: Record<ModuleKind, { text: string; study?: string }> = {
   pod: { text: 'Landing capsules keep their crew alive for only a short time. They are a ride, not a home.' },
+  miner: { text: 'Mars dirt is called regolith. NASA ran a 3D-Printed Habitat Challenge to test building shelters out of materials like it.' },
+  rover: { text: 'NASA\'s Curiosity and Perseverance rovers are about the size of a car and can drive themselves around rocks.' },
   hab: { text: 'Mars averages about minus 80°F. A habitat has to make its own warmth.' },
   solar: { text: 'Mars gets less than half the sunlight Earth does, and dust can block most of it. In 2018 the Opportunity rover\'s solar power fell from 645 to 22 watt-hours a day.' },
   battery: { text: 'Rovers and landers on Mars store power in batteries to get through nights and dust storms.' },
@@ -68,11 +70,11 @@ export const MODULE_SCIENCE: Record<ModuleKind, { text: string; study?: string }
   comms: { text: 'A radio message between Mars and Earth takes 4 to 24 minutes each way. A better antenna means NASA\'s storm forecasts reach you sooner.' },
 };
 const STRAIN: Record<ModuleKind, string> = {
-  pod: '', hab: 'Needs 1 power. Warm beds for proper sleep, and heat for the whole base.', solar: 'More power, but dust storms block every Solar Field at once.',
+  pod: '', miner: 'Needs 1 power. Its bin fills up: tap it to collect the bricks.', rover: 'Needs 1 power. The rover goes out instead of an astronaut: no tiring, no radiation worries.', hab: 'Needs 1 power. Warm beds for proper sleep, and heat for the whole base.', solar: 'More power, but dust storms block every Solar Field at once.',
   battery: 'Steady power in any weather, but only a little.',
   oxygen: `Needs ${POWER_COST.oxygen} power and someone to run it.`,
   hydro: `Needs ${POWER_COST.hydro} power and someone to run it. Fresh food keeps long-stay crew healthier.`,
-  dome: `Needs ${POWER_COST.dome} power, more than anything else. One dome covers ${DOME_COVERS} astronauts.`,
+  dome: `Needs ${POWER_COST.dome} power, more than anything else. It only protects crew in its blue zone: its own column and the ones beside it.`,
   medbay: `Needs ${POWER_COST.medbay} power. Astronauts inside cannot work.`,
   lab: `Needs ${POWER_COST.lab} power and a worker, and makes nothing you can breathe or eat.`,
   comms: `Needs ${POWER_COST.comms} power all the time to listen.`,

@@ -1,11 +1,11 @@
 import { motion } from 'motion/react';
-import { Rocket, BatteryCharging, FlaskConical, HeartPulse, Home, SatelliteDish, ShieldHalf, Sprout, Sun, Wind, type LucideIcon } from 'lucide-react';
+import { Pickaxe, Truck, Rocket, BatteryCharging, FlaskConical, HeartPulse, Home, SatelliteDish, ShieldHalf, Sprout, Sun, Wind, type LucideIcon } from 'lucide-react';
 import type { ModuleKind, Triage } from '../engine/types';
 
 export const INK = '#1d1033';
 
 export const MODULE_ICON: Record<ModuleKind, LucideIcon> = {
-  pod: Rocket, hab: Home, solar: Sun, battery: BatteryCharging, oxygen: Wind, hydro: Sprout, dome: ShieldHalf, medbay: HeartPulse, lab: FlaskConical, comms: SatelliteDish,
+  pod: Rocket, miner: Pickaxe, rover: Truck, hab: Home, solar: Sun, battery: BatteryCharging, oxygen: Wind, hydro: Sprout, dome: ShieldHalf, medbay: HeartPulse, lab: FlaskConical, comms: SatelliteDish,
 };
 
 export interface Look {
