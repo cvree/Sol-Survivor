@@ -29,4 +29,5 @@ export const FACTS: string[] = [
   'Astronaut Frank Rubio spent 371 days in a row in space. That is the longest single trip by a NASA astronaut.',
   'The Perseverance rover carries microphones. It recorded the sound of wind blowing on Mars.',
   'From Mars, Earth looks like a bright star in the sky. The Curiosity rover took a photo of it.',
+  'Space Station crews are scheduled for about eight and a half hours of sleep a day. They sleep in sleeping bags tied to the wall so they do not float away.',
 ];

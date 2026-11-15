@@ -2,18 +2,19 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { Hammer, Plus, Wrench } from 'lucide-react';
 import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, HAB_CELL, LAYER, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, isPatched, power, staffing, stormDose, workersIn } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, isNight, isPatched, power, staffing, stormDose, workersIn } from '../engine/engine';
 import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Rover, type Act } from './art';
 import { lookOf } from './crewLook';
 import { ModuleArt } from './moduleArt';
 import { nearness } from './StormFuse';
-import { COACH } from './coach';
+import { stepOf } from './coach';
+import { canDrop, startCrewDrag, useDrag, wasDragged } from '../lib/crewDrag';
 import { EdgeArrows, MiniMap } from './Explore';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
 import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
-import { Star } from 'lucide-react';
+import { CloudLightning, Star } from 'lucide-react';
 
 export const MODULE_JOB: Record<ModuleKind, string> = {
   hab: 'Heat and beds',
@@ -31,8 +32,10 @@ const place = (cell: number) => ({ gridColumn: (cell % GRID_COLS) + 1, gridRow: 
 
 /** What this astronaut is busy with: their job in this room, or a little human moment. */
 function actFor(c: CrewState, m: ModuleState | undefined, game: GameState, mates: number, index: number, partying: boolean): Act {
+  if (c.exhausted) return c.at === 'hab' ? 'sleep' : 'collapse';
   if (partying) return 'jump';
   if (!m) return 'idle';
+  if (m.kind === 'hab' && (c.energy < 97 || isNight(game))) return 'sleep';
   const t = game.time;
   // Two people in one room say hello now and then.
   if (mates > 1 && (t * 0.55 + m.cell * 0.37 + index * 0.08) % 1 < 0.13) return 'wave';
@@ -41,7 +44,7 @@ function actFor(c: CrewState, m: ModuleState | undefined, game: GameState, mates
     case 'lab': return 'type';
     case 'hydro': return 'water';
     case 'oxygen': return 'wrench';
-    case 'medbay': return c.role === 'Medic' && c.health > 70 ? 'check' : 'sleep';
+    case 'medbay': return c.role === 'Medic' ? 'check' : 'sleep';
     case 'hab': {
       const phase = Math.floor(t * 0.4 + index * 1.7) % 4;
       return phase === 1 ? 'sip' : phase === 3 && index % 2 === 1 ? 'sleep' : 'idle';
@@ -52,20 +55,22 @@ function actFor(c: CrewState, m: ModuleState | undefined, game: GameState, mates
 
 function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?: Act }) {
   const { pick, picked } = useGame();
-  const coach = useGame((s) => (s.coach !== null ? COACH[s.coach]?.target : null));
+  const coach = useGame((s) => (stepOf(s.coach)?.target === 'crew' ? s.coach?.subject : null));
+  const carried = useDrag((d) => d.id === c.id);
   const bubble = useGame((s) => s.bubble);
   const look = lookOf(c);
   const chat = bubble && bubble.crewId === c.id && bubble.until > Date.now() ? bubble.text : null;
   const say = c.say ?? (chat ? { text: chat, mood: 'chat' } : null);
-  const still = look.fainted || look.shiver || (act !== 'idle' && act !== 'sip');
+  const still = look.fainted || look.shiver || c.exhausted || (act !== 'idle' && act !== 'sip');
   return (
     <motion.button
       layoutId={`crew-${c.id}`}
-      className={`sprite ${picked === c.id ? 'picked' : ''} ${coach === 'crew' && c.commander ? 'coach-target' : ''}`}
-      onClick={() => pick(picked === c.id ? null : c.id)}
+      className={`sprite no-drag ${picked === c.id ? 'picked' : ''} ${coach === c.id ? 'coach-target' : ''} ${carried ? 'carried' : ''} ${c.energy < 30 && !c.exhausted ? 'tired' : ''}`}
+      onPointerDown={(e) => startCrewDrag(e, c.id)}
+      onClick={() => { if (!wasDragged()) pick(picked === c.id ? null : c.id); }}
       whileTap={{ scale: 0.88 }}
       transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-      aria-label={`${c.name}, ${c.role}${c.commander ? ', your commander' : ''}. Open vitals.`}
+      aria-label={`${c.name}, ${c.role}${c.commander ? ', your commander' : ''}. Energy ${Math.round(c.energy)}%${c.mood < 35 ? ', unhappy' : ''}${c.exhausted ? ', collapsed asleep' : ''}. Press to open their card, or drag to a module.`}
     >
       {c.commander && <span className="sprite-star" aria-hidden="true"><Star /></span>}
       <AnimatePresence>
@@ -75,16 +80,21 @@ function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?:
       </AnimatePresence>
       {/* Healthy crew with nothing to do wander about. Busy, sick or fainted crew stay put. */}
       <span className={still ? '' : `pace pace-${index % 3}`}>
-        <span className={still ? '' : 'waddle'}><Astronaut who={c} look={look} size={30} act={act} /></span>
+        <span className={still ? '' : 'waddle'}><Astronaut who={c} look={look} size={38} act={act} /></span>
       </span>
       <span className={`sprite-dot t-${look.triage}`} />
+      {c.mood < 35 && <span className="grump" aria-hidden="true"><CloudLightning /></span>}
+      <span className={`energy ${c.energy < 30 ? 'low' : c.energy < 55 ? 'mid' : ''}`} aria-hidden="true"><i style={{ width: `${Math.max(4, c.energy)}%` }} /></span>
     </motion.button>
   );
 }
 
 function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState; fresh: boolean; partying: boolean }) {
   const toggle = useGame((s) => s.toggle);
-  const coached = useGame((s) => s.coach !== null && COACH[s.coach]?.target === m.kind && game.modules.find((x) => x.kind === m.kind)?.id === m.id);
+  const coached = useGame((s) => stepOf(s.coach)?.target === m.kind && game.modules.find((x) => x.kind === m.kind)?.id === m.id);
+  const carrying = useDrag((d) => d.id);
+  const hovered = useDrag((d) => (d.id && d.over === m.id ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
+  const dropCan = !!carrying && m.buildLeft <= 0 && canDrop(carrying, m.id);
   const patch = useGame((s) => s.patch);
   const Icon = MODULE_ICON[m.kind];
   const building = m.buildLeft > 0;
@@ -101,7 +111,7 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
   const status = building ? `Building, ${Math.round((1 - m.buildLeft / BUILD_SOLS) * 100)}% done` : patched ? 'Patched and running' : m.on ? 'On' : 'Off';
   return (
     <motion.div
-      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''}`}
+      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''} ${dropCan ? 'drop-can' : ''} ${hovered}`}
       style={place(m.cell)}
       data-mod={m.id}
       initial={{ scale: 0.2, y: row ? 0 : 60, opacity: 0 }}
@@ -167,7 +177,8 @@ export function Diorama({ game }: { game: GameState }) {
   const ref = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const { tour, setTour, open, toggle, slowmo, moment, party, tunedAt } = useGame();
-  const coachTarget = useGame((s) => (s.coach !== null ? COACH[s.coach]?.target : null));
+  const coachTarget = useGame((s) => stepOf(s.coach)?.target ?? null);
+  const night = isNight(game) && tour !== 0;
   const vw = useCamera((s) => s.vw);
   const W = useCamera((s) => s.W);
   const hl = (W - vw) / 2;
@@ -229,7 +240,7 @@ export function Diorama({ game }: { game: GameState }) {
   const landerNo = game.offer?.number ?? game.landers;
 
   return (
-    <div ref={ref} className={`scene ${dust ? 'dusty' : ''} ${storm ? 'stormy' : ''} ${slowmo ? 'slowmo' : ''} ${tuned ? 'tuned' : ''} ${swell > 0 ? 'sun-angry' : ''} ${intro ? 'locked' : ''}`}
+    <div ref={ref} className={`scene ${dust ? 'dusty' : ''} ${storm ? 'stormy' : ''} ${slowmo ? 'slowmo' : ''} ${tuned ? 'tuned' : ''} ${swell > 0 ? 'sun-angry' : ''} ${intro ? 'locked' : ''} ${night ? 'night' : ''}`}
       style={{ '--swell': swell, '--wall': wall, '--W': `${W}px`, '--vw': `${vw}px`, '--hl': `${hl}px` } as CSSProperties}>
       <div ref={worldRef} className="world">
         <div className="sky" aria-hidden="true">
@@ -245,6 +256,7 @@ export function Diorama({ game }: { game: GameState }) {
             <div className="sun" />
           </div>
           <div className="hills hills-back px" style={px(0.6)} />
+          <div className="night-shade" />
         </div>
         <div className="sky sky-front">
           <div className="hills hills-far px" style={px(0.4)} aria-hidden="true" />
@@ -265,6 +277,8 @@ export function Diorama({ game }: { game: GameState }) {
           ))}
         </div>
         <Finds />
+        {/* Night falls over the whole crater; the base keeps its lights on. */}
+        <div className="night-shade world-shade" aria-hidden="true" />
 
         <div className="home">
           <LayoutGroup>

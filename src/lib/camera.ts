@@ -158,3 +158,6 @@ export function attachDrag(el: HTMLElement, locked: () => boolean) {
     window.removeEventListener('keydown', onKey);
   };
 }
+
+/** Nudge the camera directly, for edge-scrolling while carrying an astronaut. */
+export function panBy(dx: number) { stop(); set({ x: clamp(get().x + dx) }); }

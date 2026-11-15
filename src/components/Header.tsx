@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
-import { FlaskConical, Rocket, ShieldHalf, Sparkles, Wind, Wrench, Zap } from 'lucide-react';
+import { FlaskConical, Moon, Rocket, Sun, ShieldHalf, Sparkles, Wind, Wrench, Zap } from 'lucide-react';
 import { CARGO_SOLS, DOME_COVERS, MAX_SPARE_PARTS, MISSION_SOLS } from '../engine/constants';
-import { alive, isOn, lifeFlow, power, shieldBlock, stormDose } from '../engine/engine';
+import { alive, isNight, isOn, lifeFlow, power, shieldBlock, stormDose } from '../engine/engine';
 import type { GameState } from '../engine/types';
 import { Term } from './Term';
 
@@ -24,7 +24,7 @@ export function Header({ game }: { game: GameState }) {
   return (
     <header className="header">
       <div className="sol-badge" aria-label={`Sol ${sol} of ${MISSION_SOLS}`}>
-        <span className="sol-word"><Term k="sol">Sol</Term></span>
+        <span className="sol-word"><Term k="sol">Sol</Term> {isNight(game) ? <Moon className="daynight night" aria-label="Night" /> : <Sun className="daynight" aria-label="Day" />}</span>
         <span className="sol-num">{sol}<small>/{MISSION_SOLS}</small></span>
         <span className="sol-track"><motion.i animate={{ width: `${(game.time - Math.floor(game.time)) * 100}%` }} transition={{ duration: 0.1 }} /></span>
       </div>

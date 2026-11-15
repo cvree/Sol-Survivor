@@ -3,12 +3,12 @@ import { catalog } from '../data/records';
 import { SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
 import { acceptCargo, activeEvents, assign, build, collectFind, createGame, grantReward, patch, power, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
-import { COACH } from '../components/coach';
+import { LESSONS, lessonOf, stepOf, type CoachRun } from '../components/coach';
 import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
 import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
-import { combo, setMood, setMuted, sfx } from '../lib/sound';
+import { setMood, setMuted, sfx } from '../lib/sound';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
@@ -43,16 +43,17 @@ interface Store {
   screen: 'title' | 'pick' | 'brief' | 'game';
   /** The astronaut the player chose to be. */
   commander: string;
-  /** Step of M.A.R.V.'s hands-on coaching after the first dome, or null. */
-  coach: number | null;
+  /** The lesson M.A.R.V. is teaching right now, or null. */
+  coach: CoachRun | null;
   coachAt: number;
+  /** Lessons already taught, so each one runs only once. */
+  lessonsSeen: string[];
   findsOrder: string[];
   findsActive: string[];
   findsGot: string[];
   /** Every discovery ever made, kept between missions. */
   album: string[];
   albumSeen: number;
-  comboPop: { n: number; at: number } | null;
   game: GameState | null;
   paused: boolean;
   speed: 1 | 2;
@@ -88,7 +89,7 @@ interface Store {
   begin: () => void;
   chooseCommander: (id: string) => void;
   collect: (id: string) => void;
-  setCoach: (n: number | null) => void;
+  setCoach: (run: CoachRun | null) => void;
   /** Straight back in after a loss: no intro, and the first mini-mission practises what went wrong. */
   retry: () => void;
   patch: (id: string) => void;
@@ -112,12 +113,12 @@ export const useGame = create<Store>((set, get) => ({
   commander: 'ada',
   coach: null,
   coachAt: 0,
+  lessonsSeen: [],
   findsOrder: [],
   findsActive: [],
   findsGot: [],
   album: loadAlbum(),
   albumSeen: loadAlbum().length,
-  comboPop: null,
   game: null,
   paused: false,
   speed: 1,
@@ -155,7 +156,7 @@ export const useGame = create<Store>((set, get) => ({
     resetPanned();
     const order = findOrder(seed, album);
     set({
-      coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], comboPop: null,
+      coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [],
       screen: 'game', game: createGame(seed, catalog, sun.activity, difficulty, commander),
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
       tour: 0, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
@@ -184,14 +185,27 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) return;
     if (game.status !== 'playing' || tour !== null) setMood(game.status === 'playing' ? 'calm' : 'off');
     else setMood(stormDose(game) > 0 ? 'storm' : activeEvents(game, 'dust').length ? 'dust' : game.events.some((e) => e.phase === 'warned') ? 'tension' : 'calm');
-    // M.A.R.V.'s coaching moves on as soon as the player has done the thing it asked.
-    const { coach } = get();
-    if (coach !== null) {
-      const c = COACH[coach];
-      if (c && c.done(get(), Date.now() - get().coachAt)) { sfx.reward(); get().setCoach(coach + 1 < COACH.length ? coach + 1 : null); }
+    // M.A.R.V.'s lessons move on as soon as the player has done the thing asked,
+    // and a new lesson starts the first time it is needed.
+    const { coach, lessonsSeen, picked } = get();
+    if (coach) {
+      const step = stepOf(coach);
+      const steps = lessonOf(coach.lesson)?.steps.length ?? 0;
+      if (step && step.done({ game, picked, subject: coach.subject }, Date.now() - get().coachAt)) {
+        if (step.pause) sfx.reward();
+        get().setCoach(coach.step + 1 < steps ? { ...coach, step: coach.step + 1 } : null);
+      }
+    } else if (tour === null && game.status === 'playing' && !moment && !panel) {
+      const cs = { game, picked };
+      const next = LESSONS.find((l) => !lessonsSeen.includes(l.id) && l.when(cs));
+      if (next) {
+        sfx.ping();
+        set({ lessonsSeen: [...lessonsSeen, next.id] });
+        get().setCoach({ lesson: next.id, step: 0, subject: next.subject?.(cs) });
+      }
     }
-    // The clock waits while the commander is learning the controls.
-    const learning = coach !== null && COACH[coach]?.pause;
+    // The clock waits while the commander is learning.
+    const learning = !!stepOf(get().coach)?.pause;
     if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning) return;
 
     // The fuse: the nearest warned storm ticks faster and higher as it closes in, then time slows.
@@ -297,7 +311,6 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) return;
     const r = toggleModule(game, id);
     if (r.ok) (r.state.modules.find((m) => m.id === id)?.on ? sfx.on : sfx.off)();
-    if (r.ok && combo() >= 2) set({ comboPop: { n: combo(), at: Date.now() } });
     else if (r.reason) sfx.denied();
     set({ game: r.state, notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice });
   },
@@ -325,7 +338,12 @@ export const useGame = create<Store>((set, get) => ({
     sfx.build();
     set({ game: build(game, kind, cell), panel: null });
   },
-  assign: (crewId, moduleId) => { const { game } = get(); if (game) { sfx.assign(); set({ game: assign(game, crewId, moduleId), comboPop: combo() >= 2 ? { n: combo(), at: Date.now() } : get().comboPop }); } },
+  assign: (crewId, moduleId) => { const { game } = get(); if (game) {
+    const next = assign(game, crewId, moduleId);
+    if (next === game) { sfx.denied(); set({ notice: { text: 'There is no room to work there.', at: Date.now() } }); return; }
+    sfx.assign();
+    set({ game: next });
+  } },
   unpack: (picks) => {
     const { game } = get();
     if (!game) return;
@@ -336,7 +354,10 @@ export const useGame = create<Store>((set, get) => ({
   setTour: (tour) => {
     sfx.build();
     // After the first dome, M.A.R.V. coaches one thing at a time, by doing.
-    if (tour === null && get().tour === 1) set({ tour, coach: 0, coachAt: Date.now() });
+    if (tour === null && get().tour === 1) {
+      const lead = get().game?.crew.find((c) => c.commander)?.id;
+      set({ tour, coach: { lesson: 'start', step: 0, subject: lead }, coachAt: Date.now(), lessonsSeen: [...new Set([...get().lessonsSeen, 'start'])] });
+    }
     else set({ tour });
   },
   setPaused: (paused) => set({ paused }),

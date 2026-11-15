@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
-import { Compass, FastForward, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
+import { BatteryMedium, Compass, FastForward, Smile, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
 import { FACTS } from '../data/facts';
 import { CAREER_LIMIT, POWER_COST, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workersIn } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workRate, workersIn } from '../engine/engine';
 import type { CrewState, GameState } from '../engine/types';
 import { TRIAGE_LABEL, maxHealth, triage } from '../engine/vitals';
 import { useGame } from '../store/game';
@@ -11,7 +11,7 @@ import { Astronaut, Marv, type Mood } from './art';
 import { feeling, lookOf } from './crewLook';
 import { Term } from './Term';
 import { TOUR } from './tour';
-import { COACH } from './coach';
+import { lessonOf, stepOf } from './coach';
 import { useOpenFinds } from './Finds';
 import { FINDS } from '../data/discoveries';
 
@@ -42,9 +42,15 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   const med = game.modules.find((m) => m.kind === 'medbay' && m.buildLeft <= 0);
   const sick = game.crew.find((c) => c.sick > 0.25 && c.at !== med?.id);
   if (sick && med) return { text: `${sick.name} has radiation sickness. Click ${sick.name} and send them to the Med Bay.`, mood: 'worried' };
+  const fell = alive(game).find((c) => c.exhausted);
+  if (fell) return { text: `${fell.name} collapsed from overwork and fell asleep on the spot! Drag ${fell.name} to the Hab to sleep properly.`, mood: 'worried' };
+  const tired = alive(game).find((c) => c.at !== 'hab' && c.energy < 35);
+  if (tired) return { text: `${tired.name} is tired and working slower. Drag ${tired.name} to the Hab for some sleep.`, mood: 'worried' };
+  const sad = alive(game).find((c) => c.mood < 30);
+  if (sad) return { text: `${sad.name} is unhappy. Rest, warmth, fresh food and company help. Very unhappy crew stop working!`, mood: 'worried' };
   const idle = game.modules.find((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(game, m.id).length === 0);
-  const resting = alive(game).find((c) => c.at === 'hab' && triage(c) !== 'red');
-  if (idle && resting) return { text: `Nobody is working in the ${MODULE_NAME[idle.kind]}. Click ${resting.name} and send them there.`, mood: 'happy' };
+  const resting = alive(game).find((c) => c.at === 'hab' && triage(c) !== 'red' && c.energy > 75);
+  if (idle && resting) return { text: `${resting.name} is rested. Drag ${resting.name} into the ${MODULE_NAME[idle.kind]} to get it working.`, mood: 'happy' };
   if (game.griefUntil > game.time) { const gone = game.crew.filter((c) => c.out).slice(-1)[0]; if (gone) return { text: `We lost ${gone.name}. The crew is sad and working slower. Look after the ones still with us.`, mood: 'worried' }; }
   if (finds > 0 && Math.floor(game.time) % 3 !== 1) return { text: `My scanner sees ${finds} thing${finds > 1 ? 's' : ''} to discover out there! Drag the ground or press an arrow to explore.`, mood: 'happy' };
   const off = game.modules.find((m) => !m.on && m.buildLeft <= 0 && m.kind !== 'dome' && m.kind !== 'solar' && m.kind !== 'battery');
@@ -71,7 +77,7 @@ const MOOD = (c: CrewState) => {
 
 function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
   const { pick, assign } = useGame();
-  const coachAssign = useGame((s) => s.coach !== null && COACH[s.coach]?.target === 'assign-oxygen');
+  const coachAssign = useGame((s) => stepOf(s.coach)?.target === 'assign-oxygen');
   const t = triage(c);
   const cap = maxHealth(c.dose, CAREER_LIMIT);
   const sols = Math.max(0, Math.floor(game.time - c.arrived));
@@ -104,6 +110,25 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
           <Thermometer /><span>Body temp</span><b>{c.temp.toFixed(1)}°F</b>
         </div>
       </div>
+      <div className="needs">
+        <div className={`need ${c.exhausted || c.energy < 30 ? 'bad' : c.energy < 50 ? 'warn' : ''}`}>
+          <BatteryMedium /><span>Energy</span>
+          <span className="need-bar"><motion.i animate={{ width: `${c.energy}%` }} /></span>
+          <b>{c.exhausted ? 'Collapsed' : c.energy >= 70 ? 'Rested' : c.energy >= 50 ? 'OK' : c.energy >= 30 ? 'Tired' : 'Worn out'}</b>
+        </div>
+        <div className={`need mood ${c.mood < 15 ? 'bad' : c.mood < 40 ? 'warn' : ''}`}>
+          <Smile /><span>Mood</span>
+          <span className="need-bar"><motion.i animate={{ width: `${c.mood}%` }} /></span>
+          <b>{c.mood >= 70 ? 'Happy' : c.mood >= 40 ? 'OK' : c.mood >= 15 ? 'Grumpy' : 'Upset'}</b>
+        </div>
+        <p className="need-tip">{
+          c.exhausted ? `${c.name} collapsed from overwork and is asleep where they fell. Drag them to the Hab to sleep properly.`
+            : c.at === 'hab' ? `Sleeping in the Hab. Energy is filling up${game.time - Math.floor(game.time) >= 0.72 ? ' fast, because it is night' : ''}.`
+            : c.energy < 50 ? `Tired, so working ${Math.round((1 - workRate(c)) * 100)}% slower. Send them to the Hab to sleep.`
+            : c.mood < 40 ? 'Unhappy, so working slower. If mood gets too low they will stop working.'
+            : 'Working hard. Working uses energy, so plan a sleep soon.'
+        }</p>
+      </div>
       <div className="dose-row">
         <Radiation />
         <span><Term k="radiation">Radiation</Term> soaked up, for good</span>
@@ -128,7 +153,7 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
             return (
               <motion.button key={m.id} className={`btn assign-btn ${here ? 'here' : ''} ${coachAssign && m.kind === 'oxygen' && !here ? 'coach-target' : ''}`} whileTap={{ scale: 0.94 }} disabled={full || here} onClick={() => assign(c.id, m.id)}
                 aria-label={`Send ${c.name} to the ${MODULE_NAME[m.kind]}${best ? `. Best job for a ${c.role}` : ''}${here ? '. Already here' : full ? '. Full' : ''}`}>
-                {best && <Star />}{m.kind === 'hab' ? 'Hab (rest)' : MODULE_NAME[m.kind]}
+                {best && <Star />}{m.kind === 'hab' ? 'Hab (sleep)' : MODULE_NAME[m.kind]}
               </motion.button>
             );
           })}
@@ -141,14 +166,15 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
 export function BottomBar({ game }: { game: GameState }) {
   const { tour, setTour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
   const openFinds = useOpenFinds().length;
-  const lesson = coach !== null ? COACH[coach] : null;
+  const lesson = stepOf(coach);
+  const lessonSteps = coach ? lessonOf(coach.lesson)?.steps.length ?? 0 : 0;
   const [roster, setRoster] = useState(false);
   const step = tour !== null ? TOUR[tour] : null;
   const partying = Date.now() - party < 4500;
   const fresh = notice && Date.now() - notice.at < 2600;
   const talk = step
     ? { text: step.say, mood: (tour === 1 ? 'party' : 'happy') as Mood }
-    : lesson ? { text: lesson.say({ game, picked }), mood: 'happy' as Mood }
+    : lesson ? { text: lesson.say({ game, picked, subject: coach?.subject }), mood: 'happy' as Mood }
     : fresh ? { text: notice.text, mood: 'worried' as Mood } : advice(game, partying, openFinds);
   const chosen = game.crew.find((c) => c.id === picked && !c.out);
   const trouble = game.crew.filter((c) => !c.out && triage(c) !== 'green').length;
@@ -160,9 +186,9 @@ export function BottomBar({ game }: { game: GameState }) {
         <AnimatePresence mode="wait">
           <motion.div key={talk.text} className="marv-say" role="status"
             initial={{ opacity: 0, x: -12, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 26 }}>
-            {lesson && <span className="marv-step">Training {coach! + 1} of {COACH.length}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
+            {lesson && <span className="marv-step">{coach?.lesson === 'start' ? `Training ${coach.step + 1} of ${lessonSteps}` : 'New lesson'}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
             <p>{talk.text}{tour === 1 ? ' 👍' : ''}</p>
-            {lesson && <button className="linklike skip-coach" onClick={() => useGame.getState().setCoach(null)}>Skip training</button>}
+            {lesson && lesson.pause && <button className="linklike skip-coach" onClick={() => useGame.getState().setCoach(null)}>Skip this lesson</button>}
             {tour === 1 && <motion.button className="btn btn-go" whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.05 }} onClick={() => setTour(null)} autoFocus>Let's go!</motion.button>}
           </motion.div>
         </AnimatePresence>
@@ -197,6 +223,7 @@ export function BottomBar({ game }: { game: GameState }) {
                     <span className="portrait-name">{c.name}</span>
                     <span className="portrait-feel">{feeling(c)}</span>
                     <span className="health mini"><motion.i className="health-fill" animate={{ width: `${c.health}%` }} /></span>
+                    <span className="health mini energy-mini"><motion.i className="health-fill" animate={{ width: `${c.energy}%` }} /></span>
                   </motion.button>
                 );
               })}

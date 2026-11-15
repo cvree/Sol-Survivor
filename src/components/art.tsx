@@ -20,15 +20,15 @@ export interface Look {
 }
 
 /** What an astronaut is busy doing. Drawn with their arms and a small prop, so the job is clear without words. */
-export type Act = 'idle' | 'type' | 'water' | 'wrench' | 'check' | 'sleep' | 'wave' | 'jump' | 'cold' | 'sip';
+export type Act = 'idle' | 'type' | 'water' | 'wrench' | 'check' | 'sleep' | 'collapse' | 'wave' | 'jump' | 'cold' | 'sip';
 
 /** A crew member. `bust` crops to the helmet for portraits. The face is the health display. */
 export function Astronaut({ who, look, bust, size = 48, act = 'idle' }: { who: { skin: string; suit: string }; look: Look; bust?: boolean; size?: number; act?: Act }) {
   const lip = look.blueLips ? '#3f6fe0' : INK;
   const skin = look.blueLips ? '#b9a7c9' : who.skin;
   const doing: Act = bust || look.fainted ? 'idle' : look.shiver ? 'cold' : act;
-  const asleep = doing === 'sleep';
-  const down = look.fainted;
+  const asleep = doing === 'sleep' || doing === 'collapse';
+  const down = look.fainted || doing === 'collapse';
   return (
     <motion.svg
       viewBox={bust ? '2 0 44 40' : '-8 -6 64 68'}

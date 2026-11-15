@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, buildableCells, collectFind, createGame, grantReward, lifeFlow, patch, power, shieldCover, step, toggleModule, wear } from './engine';
+import { acceptCargo, assign, build, buildableCells, collectFind, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
@@ -67,10 +67,11 @@ describe('growth has a cost', () => {
   });
 
   it('a staffed module out-produces an empty one, and a specialist does best', () => {
-    const s = createGame(5, catalog);
-    const oxygen = s.modules.find((m) => m.kind === 'oxygen')!;
+    const s = createGame(5, catalog, 1, 'hard', 'ada');
+    const m = createGame(5, catalog, 1, 'hard', 'mei');
+    const oxygen = s.modules.find((x) => x.kind === 'oxygen')!;
     const empty = lifeFlow(s).made;
-    const medic = lifeFlow(assign(s, 'mei', oxygen.id)).made;
+    const medic = lifeFlow(assign(m, 'mei', oxygen.id)).made;
     const engineer = lifeFlow(assign(s, 'ada', oxygen.id)).made;
     expect(medic).toBeGreaterThan(empty);
     expect(engineer).toBeGreaterThan(medic);
@@ -171,7 +172,10 @@ describe('simulation rules', () => {
 
   it('a crewmate can die and the base carries on, but losing the commander ends the mission', () => {
     let s = createGame(5, catalog, 1, 'easy', 'kofi');
+    expect(s.crew.length).toBe(1);
     expect(s.crew[0].commander).toBe(true);
+    while (!s.offer) s = step(s, 0.05);
+    s = acceptCargo(s, []);
     s.crew[1].noAir = 9;
     s.crew[1].hurtBy.air = 50;
     s = step(s, 0.05);
@@ -194,5 +198,36 @@ describe('simulation rules', () => {
     expect(collectFind(s, 'science', 'Test').cargoProgress).toBeGreaterThan(s.cargoProgress);
     expect(collectFind(s, 'supplies', 'Test').life).toBeGreaterThan(s.life);
     expect(collectFind(s, 'part', 'Test').stats.finds).toBe(1);
+  });
+
+  it('work tires astronauts out, tired ones work slower, and sleep in the Hab brings them back', () => {
+    let s = createGame(5, catalog, 1, 'easy', 'ada');
+    const oxy = s.modules.find((m) => m.kind === 'oxygen')!;
+    s = assign(s, s.crew[0].id, oxy.id);
+    const fresh = staffing(s, s.modules.find((m) => m.id === oxy.id)!);
+    for (let i = 0; i < 60; i++) s = step(s, 0.05);
+    expect(s.crew[0].energy).toBeLessThan(70);
+    s.crew[0].energy = 10;
+    expect(workRate(s.crew[0])).toBeLessThan(1);
+    expect(staffing(s, s.modules.find((m) => m.id === oxy.id)!)).toBeLessThan(fresh);
+    s = assign(s, s.crew[0].id, 'hab');
+    for (let i = 0; i < 40; i++) s = step(s, 0.05);
+    expect(s.crew[0].energy).toBeGreaterThan(50);
+  });
+
+  it('an overworked astronaut collapses, and a very unhappy one walks off the job', () => {
+    let s = createGame(5, catalog, 1, 'easy', 'ada');
+    s = assign(s, s.crew[0].id, s.modules.find((m) => m.kind === 'oxygen')!.id);
+    s.crew[0].energy = 0.5;
+    s = step(s, 0.05);
+    expect(s.crew[0].exhausted).toBe(true);
+    expect(s.stats.collapses).toBe(1);
+    expect(workRate(s.crew[0])).toBe(0);
+    s.crew[0].exhausted = false;
+    s.crew[0].energy = 60;
+    s.crew[0].mood = 10;
+    s = step(s, 0.05);
+    expect(s.crew[0].at).toBe('hab');
+    expect(s.stats.strikes).toBe(1);
   });
 });

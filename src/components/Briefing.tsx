@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, Rocket, ShieldHalf, Sparkles, Sun, Wind, Zap, Home } from 'lucide-react';
+import { ArrowRight, BedDouble, Rocket, ShieldHalf, Sparkles, Sun, Wind, Zap, Home } from 'lucide-react';
 import { COMMANDERS } from '../engine/engine';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, Marv, Rover } from './art';
@@ -18,12 +18,12 @@ export function Briefing() {
     {
       kicker: 'Mission briefing 1 of 4', title: `Welcome to Mars, Commander ${lead.name}!`,
       art: <div className="brief-art"><Lander size={90} /><Astronaut who={lead} look={HAPPY} size={56} act="wave" /></div>,
-      lines: ['You and one crewmate just landed in Gale Crater, a real place on Mars.', 'Your job: keep your crew alive for 30 sols. A sol is one day on Mars.', 'Earth is so far away that a message takes up to 24 minutes. You make the calls.'],
+      lines: ['You just landed in Gale Crater, a real place on Mars. You are on your own, for now.', 'Cargo landers will bring more crew, one at a time. Keep everyone alive for 30 sols. A sol is one day on Mars.', 'Earth is so far away that a message takes up to 24 minutes. You make the calls.'],
     },
     {
-      kicker: 'Mission briefing 2 of 4', title: 'Three things keep you alive',
-      art: <div className="brief-art icons"><span className="bi volt"><Zap /></span><span className="bi go"><Wind /></span><span className="bi orange"><Home /></span></div>,
-      lines: ['Power runs everything, and there is never quite enough. Tap a module to switch it on or off.', 'Air and food come from the Oxygen Maker and Hydroponics. They work best with an astronaut inside.', 'Heat comes from the Hab. If it is off, the crew get cold.'],
+      kicker: 'Mission briefing 2 of 4', title: 'Look after your astronauts',
+      art: <div className="brief-art icons"><span className="bi volt"><Zap /></span><span className="bi go"><Wind /></span><span className="bi orange"><Home /></span><span className="bi cyan"><BedDouble /></span></div>,
+      lines: ['Power runs everything, and there is never quite enough. Tap a module to switch it on or off.', 'Drag an astronaut into the Oxygen Maker or Hydroponics to make air and food. Heat comes from the Hab.', 'Work makes astronauts tired. Tired ones work slower, get grumpy, and can collapse. Drag them to the Hab to sleep.'],
     },
     {
       kicker: 'Mission briefing 3 of 4', title: 'Watch the Sun',

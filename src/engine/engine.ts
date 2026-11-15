@@ -46,12 +46,16 @@ const LINES = {
   well: ['Back to 100%!', 'Feeling much better!'],
   hello: ['Reporting for duty!', 'Wow, Mars!'],
   grief: ['I miss them already.', 'We keep going. For them.', 'This one is for our friend.'],
+  tired: ['I am so tired...', 'Need... sleep...', 'Can I take a nap soon?'],
+  collapse: ['Zzz...'],
+  rested: ['Ah, that nap was great!', 'Fully charged!'],
+  strike: ['I need a break!', 'I have been working forever!'],
 };
 
 function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
   const { perk: _perk, ...rest } = r as Recruit & { perk?: string };
   return {
-    ...rest, arrived: time, at, tolerance, commander, diedAt: null,
+    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false,
     spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
     hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
   };
@@ -63,7 +67,6 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
   const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0, patchedUntil: 0 });
   const life = K.START_LIFE + level.life;
   const lead = COMMANDERS.find((c) => c.id === commanderId) ?? COMMANDERS[0];
-  const partner = COMMANDERS.find((c) => c.id === (lead.role === 'Medic' ? 'ada' : 'mei'))!;
   return {
     seed,
     time: 1,
@@ -71,7 +74,8 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     difficulty,
     lostCause: null,
     modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.YARD_CELL, false), mod('m2', 'oxygen', K.HAB_CELL + K.GRID_COLS, true)],
-    crew: [newCrew(lead, 1, 'hab', rng.range(0.9, 1.1), true), newCrew(partner, 1, 'hab', rng.range(0.9, 1.1))],
+    // You land alone. Cargo landers bring the rest of the crew, one at a time.
+    crew: [newCrew(lead, 1, 'hab', rng.range(0.9, 1.1), true)],
     life,
     shield: 0,
     events: planEvents(rng, catalog, activity, level.ease, level.warning),
@@ -82,8 +86,8 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     science: 0,
     spareParts: K.START_SPARE_PARTS + (lead.role === 'Engineer' ? K.ENGINEER_EXTRA_PARTS : 0),
     griefUntil: 0,
-    log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} is in charge. Keep the crew alive for 30 sols.` }],
-    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0 },
+    log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} has landed alone. More crew will come by cargo lander.` }],
+    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0, collapses: 0, strikes: 0 },
     pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0, died: 0 },
     nextId: 3,
   };
@@ -123,12 +127,25 @@ export const alive = (s: GameState) => s.crew.filter((c) => !c.out);
 export const leadIs = (s: GameState, role: Role) => s.crew.some((c) => c.commander && !c.out && c.role === role);
 export const workersIn = (s: GameState, moduleId: string) => s.crew.filter((c) => c.at === moduleId && !c.out);
 
-/** How well a module is working: half with nobody inside, best with the right specialist. */
+/** Is it night on Mars right now? The last part of every sol. */
+export const isNight = (s: GameState) => s.time - Math.floor(s.time) >= K.NIGHT_FROM;
+
+/** How fast this astronaut works right now: slower when tired or unhappy, not at all when collapsed. */
+export function workRate(c: CrewState): number {
+  if (c.exhausted || c.out) return 0;
+  const e = c.energy >= K.TIRED_AT ? 1 : K.TIRED_MIN + (1 - K.TIRED_MIN) * (c.energy / K.TIRED_AT);
+  const m = c.mood >= K.GRUMPY_AT ? 1 : K.GRUMPY_MIN + (1 - K.GRUMPY_MIN) * (c.mood / K.GRUMPY_AT);
+  return e * m;
+}
+
+/** How well a module is working: half with nobody inside, best with a rested, happy specialist. */
 export function staffing(s: GameState, m: ModuleState): number {
-  const able = workersIn(s, m.id).filter((c) => !isFainted(c));
+  const able = workersIn(s, m.id).filter((c) => !isFainted(c) && !c.exhausted);
   const grief = s.griefUntil > s.time ? K.GRIEF_WORK : 1;
   if (!able.length) return K.UNSTAFFED * grief;
-  return (1 + (able.some((c) => c.role === SPECIALIST[m.kind]) ? K.SPECIALIST_BONUS : 0)) * grief;
+  const best = Math.max(...able.map(workRate));
+  const skill = 1 + (able.some((c) => c.role === SPECIALIST[m.kind]) ? K.SPECIALIST_BONUS : 0);
+  return Math.max(K.UNSTAFFED, skill * best) * grief;
 }
 
 /** Share of the crew the powered Shield Domes are big enough to cover. */
@@ -445,6 +462,48 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     if (c.sick > 0.05) hurt(c, 'radiation', 9 * c.sick * dt);
     if (c.sick > 0.25 && !wasSick) speak(s, c, 'rad', 'bad');
 
+    // Energy: work uses it, sleep fills it. Night makes both stronger.
+    const night = isNight(s);
+    const room = s.modules.find((m) => m.id === c.at);
+    const resting = c.exhausted || c.at === 'hab' || (inBed && c.role !== 'Medic');
+    const wasTired = c.energy < 30;
+    if (resting) {
+      const gain = c.exhausted && c.at !== 'hab' ? K.COLLAPSE_GAIN : c.at === 'hab' && heat ? K.SLEEP_GAIN : K.REST_GAIN;
+      c.energy = Math.min(100, c.energy + gain * (night ? K.NIGHT_SLEEP : 1) * dt);
+    } else {
+      const drain = room?.on ? K.WORK_DRAIN : K.IDLE_DRAIN;
+      c.energy = Math.max(0, c.energy - drain * (night ? K.NIGHT_WORK : 1) * dt);
+    }
+    if (!resting && !wasTired && c.energy < 30) speak(s, c, 'tired', 'bad');
+    if (!c.exhausted && c.energy <= 0) {
+      c.exhausted = true;
+      c.mood = Math.max(0, c.mood - 15);
+      s.stats.collapses++;
+      log(s, 'bad', `${c.name} collapsed from exhaustion! Overworked astronauts fall asleep wherever they are.`);
+      c.lastSaid = '';
+      speak(s, c, 'collapse', 'bad');
+    } else if (c.exhausted && c.energy >= K.WAKE_AT) {
+      c.exhausted = false;
+      speak(s, c, 'rested', 'good');
+    }
+
+    // Mood: tired, cold, overworked or sad crew get unhappy. Rest, warmth, fresh food and company help.
+    let dm = resting ? 8 : 1.5;
+    if (c.exhausted) dm -= 20;
+    else if (!resting && c.energy < K.TIRED_AT) dm -= 14 * (1 - c.energy / K.TIRED_AT);
+    if (c.temp < K.HYPOTHERMIA_TEMP) dm -= 15;
+    if (s.griefUntil > s.time) dm -= 8;
+    if (s.modules.some((m) => m.kind === 'hydro' && m.on)) dm += 2;
+    if (s.crew.some((o) => o !== c && !o.out && o.at === c.at)) dm += 3;
+    c.mood = Math.max(0, Math.min(100, c.mood + dm * dt));
+    if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && c.at !== 'hab') {
+      c.at = 'hab';
+      s.stats.strikes++;
+      log(s, 'warn', `${c.name} is too unhappy to work and went to the Hab for a break.`);
+      c.lastSaid = '';
+      speak(s, c, 'strike', 'bad');
+    }
+
     // Recovery, up to a ceiling that radiation lowers for good.
     const cap = maxHealth(c.dose, K.CAREER_LIMIT);
     const stable = stage === 0 && !cold && c.sick < 0.15;
@@ -485,9 +544,12 @@ export function step(prev: GameState, dt: number): GameState {
 
   stepEvents(s);
 
+  // Building goes as fast as the fittest astronaut can work. Tired crew build slowly.
+  const builders = alive(s).filter((c) => !c.exhausted).map(workRate);
+  const buildRate = Math.max(K.BUILD_MIN, ...builders);
   for (const m of s.modules) {
     if (m.buildLeft > 0) {
-      m.buildLeft = Math.max(0, m.buildLeft - dt);
+      m.buildLeft = Math.max(0, m.buildLeft - dt * buildRate);
       if (m.buildLeft === 0) {
         s.pulse.built++;
         log(s, 'good', `${MODULE_NAME[m.kind]} is ready${GENERATOR(m.kind) ? '. More power!' : '. Switch it on when you have power'}.`);

@@ -290,6 +290,7 @@ export function DataPanel({ recordId }: { recordId?: string }) {
           <li>The crew's names, jokes and habits are made up to make them feel like people.</li>
           <li>The discoveries around your base are real things the Curiosity rover has seen in Gale Crater, typed in by hand from NASA pages. Where they sit next to your base is made up.</li>
           <li>Water ice under Gale Crater is a game choice. Most ice found under Mars so far is much farther from the equator.</li>
+          <li>Energy, sleep and mood are made much simpler and faster than in real life. Real Space Station crews are scheduled for about eight and a half hours of sleep a day.</li>
           <li>Real Mars missions plan very hard so that nobody dies. In the game it can happen, so every choice matters.</li>
           <li>Crew vitals follow an EMT's field notes for low oxygen, cold and radiation sickness, simplified for young players.</li>
         </ul>

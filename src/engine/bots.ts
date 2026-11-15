@@ -46,7 +46,10 @@ export const carefulBot: Bot = (s0) => {
     const needsBed = c.sick > 0.15 || c.health < 55;
     if (med && needsBed && c.at !== med.id && workersIn(s, med.id).length < 2) { s = assign(s, c.id, med.id); continue; }
     if (med && c.at === med.id && !needsBed && c.health > 85) s = assign(s, c.id, 'hab');
+    // Tired or unhappy crew go to bed; rested crew go back to work.
+    if (c.at !== 'hab' && c.at !== med?.id && (c.energy < 28 || c.mood < 30)) { s = assign(s, c.id, 'hab'); continue; }
     if (c.at !== 'hab') continue;
+    if (c.energy < 85 || c.exhausted) continue;
     const jobs = s.modules.filter((m) => m.on && WORK_SLOTS[m.kind] && m.kind !== 'medbay' && workersIn(s, m.id).length === 0);
     const job = jobs.find((m) => SPECIALIST[m.kind] === c.role) ?? jobs[0];
     if (job && !needsBed) s = assign(s, c.id, job.id);

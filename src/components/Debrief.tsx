@@ -37,6 +37,7 @@ function wins(game: GameState, sols: number, blocked: number | null): string[] {
   if (game.stats.patches > 0) out.push(`You jury-rigged ${n(game.stats.patches, 'fix', 'fixes')} with spare parts. The Apollo 13 crew would be proud.`);
   if (game.stats.finds > 0) out.push(`You made ${n(game.stats.finds, 'discovery', 'discoveries')} out in the crater.`);
   if (game.stats.lost === 0 && sols >= 10) out.push('You did not lose a single crewmate.');
+  if (game.stats.collapses === 0 && sols >= 8) out.push('Nobody collapsed from overwork. You made sure the crew slept.');
   if (game.modules.length >= 6) out.push(`You grew the base to ${game.modules.length} modules.`);
   if (game.science >= 5) out.push(`Your lab sent ${Math.floor(game.science)} points of science back to Earth.`);
   if (game.stats.brownouts === 0 && sols >= 8) out.push('Not one brownout. You balanced the power yourself.');
@@ -47,6 +48,8 @@ function wins(game: GameState, sols: number, blocked: number | null): string[] {
 /** One or two things to try, said as a next step and never as a telling-off. */
 function nextTime(game: GameState, cause: Cause, won: boolean): string[] {
   const out: string[] = [];
+  if (game.stats.collapses > 0) out.push(`Crew collapsed from overwork ${game.stats.collapses} time${game.stats.collapses > 1 ? 's' : ''}. Take turns: one astronaut works while another sleeps in the Hab.`);
+  if (game.stats.strikes > 0) out.push('Someone got so unhappy they stopped working. Rest, warmth, fresh food and company keep spirits up.');
   if (game.stats.brownouts >= 2) out.push(`The power tripped ${game.stats.brownouts} times. Before a dust storm, switch something off yourself, so you choose what goes dark.`);
   const empty = game.modules.some((m) => (m.kind === 'oxygen' || m.kind === 'hydro') && !game.crew.some((c) => c.at === m.id));
   if (empty) out.push('A module with an astronaut inside makes twice as much. Try to keep the Oxygen Maker and Hydroponics staffed.');
@@ -143,6 +146,7 @@ export function Debrief({ game }: { game: GameState }) {
               <li><span>Patches used</span><b>{game.stats.patches}</b></li>
               <li><span>Discoveries</span><b>{game.stats.finds}</b></li>
               <li><span>Crew lost</span><b>{game.stats.lost}</b></li>
+              <li><span>Collapsed from overwork</span><b>{game.stats.collapses}</b></li>
               <li><span>Time with no air</span><b>{game.stats.airOutSols.toFixed(1)} sols</b></li>
               <li><span>Time with no heat</span><b>{game.stats.coldSols.toFixed(1)} sols</b></li>
             </ul>

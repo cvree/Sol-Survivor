@@ -43,7 +43,14 @@ Built in the second pass (explore and stakes):
 - Twelve discoveries, all real things Curiosity has seen in Gale Crater, collected into an album that keeps between missions (`data/discoveries.ts`, `Finds.tsx`, `Album.tsx`).
 - Choose your commander (one of each specialist, each with a perk), a four-card briefing, and hands-on coaching that waits for the player to do each step (`CommanderPick.tsx`, `Briefing.tsx`, `coach.ts`).
 - Crew can die. A gentle "did not survive" card says what would have saved them, a memorial appears in the yard, and the crew grieve for 2 sols.
-- Combo pop-ups where you click.
+
+Third pass (crew as people):
+
+- Combos removed entirely, both the pop-ups and the rising-pitch combo sound. Connor: "this feels terrible".
+- You land alone; cargo landers bring the rest of the crew one at a time.
+- Energy, sleep, night and mood: work drains energy, the Hab refills it (faster at night), tired crew work and build slower, an overworked astronaut collapses where they stand, and a very unhappy one walks off the job (`engine.ts` `workRate()`, constants under "Energy, sleep and mood").
+- Drag astronauts onto modules to give them jobs; tapping and picking from their card still works.
+- Lessons now start the first time they are needed: tired crew, night, grumpy crew, a second crewmate (`coach.ts`).
 
 Known gaps:
 
@@ -51,10 +58,10 @@ Known gaps:
 |---|---|
 | DONKI data missing | The NASA key saved on the cloud environment is rejected as invalid, so `src/data/donki-events.json` does not exist and storms are labelled "practice storms". Fix the key, then run `npm run fetch-nasa`. |
 | Dust storm numbers unverified | Three records in `src/data/records.ts` were typed from memory. Check against NASA pages. |
-| Too easy for a good player | The simulated careful player wins 40 of 40 on every level. Not yet tested with real children. |
 | Nothing to come back for | No progress survives a mission. No goals inside a mission beyond "survive". |
 | Quiet moments are flat | Between storms and landers, nothing rewards the player for a well-run base. |
 | Art rule relaxed | Section 6 says no blur. The perfect-power cyan glow uses a soft drop-shadow, at Connor's request. |
+| Too easy for the careful bot | Even with energy and one starting astronaut, the simulated careful player wins 30 of 30 on every level. |
 | New numbers untested with children | Spare parts (start 2, +1 per lander, patch lasts 1 sol) and mini-mission rewards are first guesses in `constants.ts`. |
 
 ## 2. North star
@@ -114,9 +121,8 @@ interrupts play to sell something. A missed day costs nothing.
 2. **The storm as a fuse.** Replace the alert pill with a sky event: the Sun swells
    and pulses, a fuse bar crawls across the top of the scene with sparks, the tick
    sound climbs. When it lands, 300 ms of slow motion, then the hit.
-3. **Sound pass.** Three-pitch variants for on/off, assign and reward. A looping
-   base ambience, a tension layer and a storm bed (still synthesised, no files).
-   A combo counter raises pitch for each good action inside 3 seconds.
+3. **Sound pass.** A looping base ambience, a tension layer and a storm bed
+   (still synthesised, no files). The combo counter was built and then removed at Connor's request.
 4. **Crew that act.** Per-module idle actions (typing in the lab, watering in
    Hydroponics, wrench in the Oxygen Maker, sleeping in the Hab), a wave when two
    crew share a room, a celebration jump after a storm, arms crossed when cold.
@@ -166,7 +172,7 @@ Blocked by: the DONKI snapshot (item 8 and 10 need real records).
 - **Type:** Fredoka for everything friendly; Space Mono only for data, numbers and NASA records.
 - **Motion:** spring in (stiffness about 300, damping 13 to 20), press down on tap, overshoot on arrival. Every state change animates. Respect reduced motion.
 - **Words:** one instruction at a time from M.A.R.V. Sentences a seven-year-old can read. Science words get a tooltip from `src/data/glossary.ts`.
-- **Input:** click first. Dragging the ground to look around is an extra (added at Connor's request); every place can also be reached with the edge arrows, the mini-map or the arrow keys. No drag and drop of items.
+- **Input:** click first. Dragging the ground to look around is an extra (added at Connor's request); every place can also be reached with the edge arrows, the mini-map or the arrow keys. Astronauts can be dragged onto modules (also at Connor's request); tapping an astronaut and choosing from their card does the same thing.
 - **Honesty:** anything simplified is listed in the Science Log under "What we changed to make it a game". Never present saved data as live.
 
 ## 7. Goal drafts

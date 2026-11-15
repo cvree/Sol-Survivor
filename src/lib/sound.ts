@@ -1,9 +1,7 @@
 /**
  * All sound is synthesised here. No audio files, so nothing to download.
  *
- * Three ideas borrowed from SpellBomb:
- *  - every repeated action comes in rising pitches, so repeats sound like progress;
- *  - a combo counter lifts the pitch for each good action inside 3 seconds;
+ * Ideas borrowed from SpellBomb:
  *  - the room's mood (calm, tension, storm, dust) is a looping bed that changes before you read anything.
  */
 let ctx: AudioContext | null = null;
@@ -87,21 +85,6 @@ function noise(dur: number, gain: number, from: number, to: number, delay = 0, q
   src.start(t);
   src.stop(t + dur + 0.05);
 }
-
-// ---------- combo ----------
-
-let comboLevel = 0;
-let comboAt = 0;
-const COMBO_WINDOW = 3000;
-
-/** Call for every good action. Returns how many good actions have landed inside the window. */
-function bumpCombo(): number {
-  const now = performance.now();
-  comboLevel = now - comboAt < COMBO_WINDOW ? Math.min(comboLevel + 1, 8) : 0;
-  comboAt = now;
-  return comboLevel;
-}
-export const combo = () => (performance.now() - comboAt < COMBO_WINDOW ? comboLevel + 1 : 0);
 
 // ---------- looping beds ----------
 
@@ -222,14 +205,10 @@ export function setMood(next: Mood) {
 
 // ---------- effects ----------
 
-/** Low, middle or high version of a sound, picked by the combo. */
-const step3 = (level: number) => (level <= 0 ? 0 : level <= 2 ? 1 : 2);
-
 export const sfx = {
-  /** Switch on: a rising blip that climbs the scale with the combo. */
+  /** Switch on: a bright rising blip. */
   on: () => {
-    const n = bumpCombo();
-    const f = SCALE[Math.min(n + 3, SCALE.length - 2)];
+    const f = SCALE[4];
     tone(f, 0.1, 'triangle', 0.08, f * 1.5);
     tone(f * 2, 0.16, 'sine', 0.03, undefined, 0.05);
     noise(0.05, 0.05, 2400, 900);
@@ -237,8 +216,7 @@ export const sfx = {
   off: () => { tone(392, 0.11, 'triangle', 0.06, 220); noise(0.06, 0.04, 900, 200); },
   /** An astronaut heads to a new job. */
   assign: () => {
-    const v = step3(bumpCombo());
-    const f = [330, 392, 494][v];
+    const f = 392;
     tone(f, 0.08, 'triangle', 0.07);
     tone(f * 1.25, 0.08, 'triangle', 0.07, undefined, 0.07);
     tone(f * 1.5, 0.14, 'triangle', 0.07, undefined, 0.14);
@@ -249,10 +227,9 @@ export const sfx = {
     const f = SCALE[5 + ((beat + (Math.random() * 3 | 0)) % 5)];
     tone(f, 0.07, 'sine', 0.03);
   },
-  /** A mini-mission or reward: three rising notes, higher with the combo. */
+  /** A mini-mission or reward: rising notes. */
   reward: () => {
-    const v = step3(bumpCombo());
-    const base = [523, 659, 784][v];
+    const base = 523;
     [1, 1.25, 1.5, 2].forEach((m, i) => tone(base * m, 0.2, 'triangle', 0.07, undefined, i * 0.08));
     tone(base * 3, 0.5, 'sine', 0.03, undefined, 0.32);
   },
@@ -279,7 +256,6 @@ export const sfx = {
   descent: () => { noise(2.1, 0.22, 500, 1800, 0, 1.5); tone(70, 2.1, 'sawtooth', 0.06, 120); noise(0.3, 0.35, 600, 50, 2.1); tone(90, 0.3, 'sine', 0.3, 40, 2.1); },
   /** A discovery: a sparkly run up the scale and a shimmer. */
   discover: () => {
-    bumpCombo();
     [0, 2, 4, 5, 7, 9].forEach((n, i) => tone(SCALE[n + 2], 0.18, 'triangle', 0.06, undefined, i * 0.06));
     tone(SCALE[12], 0.9, 'sine', 0.035, undefined, 0.36);
     noise(0.5, 0.03, 9000, 3000, 0.3, 4);

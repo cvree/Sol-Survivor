@@ -33,8 +33,8 @@ export function TitleScreen() {
         </div>
         <h1 className="logo">Sol Survivor</h1>
         <p className="title-lede">
-          Pick your commander, land on Mars and build a base. Explore the crater, survive solar storms and keep your crew alive
-          for {MISSION_SOLS} <Term k="sol">sols</Term>. Astronauts can really die, so think fast!
+          Pick your commander and land on Mars alone. Build a base, welcome new crew, make sure everyone sleeps, and survive solar storms
+          for {MISSION_SOLS} <Term k="sol">sols</Term>. Astronauts can really die, so look after them!
         </p>
 
         <fieldset className="levels">

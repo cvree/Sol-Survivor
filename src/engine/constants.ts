@@ -122,3 +122,31 @@ export const FIND_EVERY_SOLS = 2;
 export const FIND_CARGO_BOOST = 0.08;
 export const FIND_SCIENCE = 4;
 export const FIND_SUPPLIES = 5;
+
+// Energy, sleep and mood. GAME VALUES, squeezed into game time.
+/** Energy used per sol while working in a module that is on. */
+export const WORK_DRAIN = 30;
+/** Energy used per sol while standing in a module that is off. */
+export const IDLE_DRAIN = 8;
+/** Energy gained per sol sleeping in a warm Hab. */
+export const SLEEP_GAIN = 55;
+/** Energy gained per sol resting anywhere else (a Med Bay bed, a cold Hab). */
+export const REST_GAIN = 30;
+/** Energy gained per sol after collapsing on the spot. */
+export const COLLAPSE_GAIN = 22;
+/** Last part of each sol is night: sleep is better and work is harder. */
+export const NIGHT_FROM = 0.72;
+export const NIGHT_SLEEP = 1.5;
+export const NIGHT_WORK = 1.4;
+/** Below this energy an astronaut works slower. At 0 energy they work this fast. */
+export const TIRED_AT = 50;
+export const TIRED_MIN = 0.4;
+/** A collapsed astronaut wakes up once they have this much energy. */
+export const WAKE_AT = 40;
+/** Below this mood an astronaut works slower. At 0 mood they work this fast. */
+export const GRUMPY_AT = 40;
+export const GRUMPY_MIN = 0.7;
+/** Below this mood an astronaut stops working and goes to the Hab for a break. */
+export const STRIKE_AT = 15;
+/** Building goes this fast when nobody is fit to build. */
+export const BUILD_MIN = 0.35;

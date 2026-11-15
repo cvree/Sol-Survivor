@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useGame } from '../store/game';
 import { AlbumPanel } from './Album';
 import { BottomBar } from './BottomBar';
-import { ComboPop } from './ComboPop';
+import { CrewGhost } from './CrewGhost';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
 import { Diorama } from './Diorama';
@@ -62,7 +62,7 @@ export function GameScreen() {
       <Ticker />
       <Pops />
       <Moments />
-      <ComboPop />
+      <CrewGhost />
       {over && !panel && <Debrief game={game} />}
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'cargo' && <CargoPanel game={game} />}

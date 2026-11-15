@@ -48,6 +48,12 @@ export interface CrewState {
   hurtBy: Record<Cause, number>;
   /** Did not survive. Death is permanent: the crew carries on without them. */
   out: boolean;
+  /** 0-100. Working uses it up, sleeping in the Hab fills it. Tired astronauts work slower. */
+  energy: number;
+  /** 0-100. Tired, cold, overworked or sad astronauts get unhappy, and very unhappy ones stop working. */
+  mood: number;
+  /** Ran out of energy and fell asleep where they stood. They wake once rested enough. */
+  exhausted: boolean;
   /** The player's own astronaut. If the commander dies, the mission is over. */
   commander: boolean;
   /** Game time of death, or null. */
@@ -102,6 +108,10 @@ export interface Stats {
   finds: number;
   /** Crew who did not survive. */
   lost: number;
+  /** Times someone collapsed from overwork. */
+  collapses: number;
+  /** Times someone was too unhappy to keep working. */
+  strikes: number;
 }
 
 export interface GameState {

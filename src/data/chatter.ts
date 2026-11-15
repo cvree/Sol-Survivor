@@ -99,6 +99,10 @@ export function tickerLine(game: GameState, n: number): Line {
   if (cold) return crewTurn ? say(CREW_COLD, 'bad') : pick(COLD, n);
   if (warned) return pick(warned.kind === 'dust' ? WARNED_DUST : WARNED, n);
   if (dust) return crewTurn ? say(CREW_DUST, 'warn') : pick(DUST, n);
+  if (crewTurn && speaker!.exhausted) return { who: speaker!.name, crewId: speaker!.id, text: 'Zzz... five more minutes...', tone: 'warn' };
+  if (crewTurn && speaker!.energy < 30) return say(['I can barely keep my eyes open.', 'Is it bedtime yet?', 'Everything takes sooo long when I am tired.'], 'warn');
+  if (crewTurn && speaker!.mood < 35) return say(['I have been working forever.', 'Nobody asked if I wanted a break.', 'Grumble grumble.'], 'warn');
+  if (crewTurn && speaker!.at === 'hab' && game.time - Math.floor(game.time) >= 0.72) return say(['Good night, Mars.', 'Best sleep ever.', 'Sleeping bags are cozy.'], 'calm');
   if (crewTurn) {
     const room = game.modules.find((x) => x.id === speaker!.at);
     const lines = room && room.on ? AT_WORK[room.kind] : undefined;
