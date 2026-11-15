@@ -7,9 +7,16 @@ export const MISSION_SOLS = 30;
 export const SOL_SECONDS = 8;
 
 // The site map.
+/** The base is a side-view cutaway: domes on the surface, rooms dug in below, gear out in the yard. */
 export const GRID_COLS = 5;
-export const GRID_ROWS = 3;
-export const HAB_CELL = 7;
+export const HAB_CELL = 2;
+export const YARD_CELL = 100;
+export type Layer = 'surface' | 'under' | 'yard';
+export const LAYER: Record<ModuleKind, Layer> = {
+  hab: 'surface', hydro: 'surface', dome: 'surface',
+  oxygen: 'under', medbay: 'under', lab: 'under',
+  solar: 'yard', battery: 'yard', comms: 'yard',
+};
 
 /** Power each module draws when it is on. Generators draw nothing. */
 export const POWER_COST: Record<ModuleKind, number> = {

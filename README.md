@@ -10,13 +10,16 @@ You command a Mars outpost at Gale Crater and must keep four astronauts alive fo
 
 ## How it plays
 
-1. **Land small.** Sol 1 is one Hab, one Solar Field, one Oxygen Maker and two
-   astronauts. M.A.R.V., the base robot, runs a hands-on training with the clock stopped.
-2. **Cargo landers grow the base.** Every few sols a lander brings a new astronaut
-   with a specialty (Engineer, Botanist, Medic, Scientist) and four blueprints, of
-   which you may unpack two. A working Science Lab makes landers arrive sooner.
-3. **Build outward.** Blueprints go on any glowing spot next to the base. A power
-   cable links each new module back toward the Hab.
+1. **Land and build.** The game opens on bare Mars with a lander and two astronauts.
+   M.A.R.V., the base robot, says one thing: "Build a Dome, Commander!" One click
+   and the Hab thumps into place, the crew walk in, and the base is online.
+2. **A living cutaway.** Glass domes sit on the surface, rooms are dug in below,
+   and solar fields, batteries and the comms dish stand in the yard. Astronauts
+   wander inside their modules. Lights go dark and a red lamp blinks when a module
+   loses power.
+3. **Cargo landers grow the base.** Every few sols a lander brings a new specialist
+   (Engineer, Botanist, Medic, Scientist) and four blueprints, of which you may
+   unpack two. A working Science Lab makes landers arrive sooner.
 4. **Staff the modules.** Click an astronaut to see vitals and send them to work.
    An empty module works at half strength; the right specialist gives a boost.
 5. **Growth has a cost.** Every astronaut uses air and food, long-stay crew need
@@ -27,6 +30,8 @@ You command a Mars outpost at Gale Crater and must keep four astronauts alive fo
    clock and shows the real record.
 7. **NASA Science Log** shows the real data behind whatever is happening on the
    base right now. The **mission debrief** explains how the base's growth led to the result.
+
+Three difficulty levels: Easy, Normal and Hard.
 
 ## NASA data used
 

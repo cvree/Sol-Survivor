@@ -27,7 +27,7 @@ describe('no perfect equilibrium', () => {
 
   it('refuses to switch on a module the power budget cannot cover', () => {
     let s = acceptCargo(toFirstLander(1), ['dome', 'hydro']);
-    s = build(s, 'dome', buildableCells(s)[0]);
+    s = build(s, 'dome');
     s = step(s, 1.1);
     const r = toggleModule(s, s.modules.find((m) => m.kind === 'dome')!.id);
     expect(r.ok).toBe(false);
@@ -84,10 +84,14 @@ describe('growth has a cost', () => {
     expect(wear(withFood, s.crew[0])).toBeLessThan(wear(s, s.crew[0]));
   });
 
-  it('modules can only be built next to the base', () => {
+  it('domes go on the surface next to the base, rooms go underground, gear goes in the yard', () => {
     const s = acceptCargo(toFirstLander(2), ['solar', 'hydro']);
-    expect(build(s, 'solar', 0)).toBe(s);
-    expect(build(s, 'solar', buildableCells(s)[0]).modules.length).toBe(s.modules.length + 1);
+    expect(build(s, 'hydro', 0)).toBe(s); // not next to anything yet
+    expect(buildableCells(s, 'hydro')).toEqual([1, 3]);
+    expect(buildableCells(s, 'solar')[0]).toBeGreaterThanOrEqual(100);
+    const built = build(build(s, 'hydro'), 'solar');
+    expect(built.modules.length).toBe(s.modules.length + 2);
+    expect(buildableCells(s, 'oxygen').every((c) => c >= 5 && c <= 9)).toBe(true);
   });
 });
 

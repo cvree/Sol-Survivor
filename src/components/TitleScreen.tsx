@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { GraduationCap, Rocket, Satellite } from 'lucide-react';
+import { Rocket, Satellite } from 'lucide-react';
 import { hasDonki } from '../data/records';
 import { MISSION_SOLS } from '../engine/constants';
 import { useGame } from '../store/game';
@@ -36,15 +36,13 @@ export function TitleScreen() {
         </p>
 
         <fieldset className="levels">
-          <legend>Pick your mission</legend>
-          <label className={difficulty === 'cadet' ? 'picked' : ''}>
-            <input type="radio" name="level" checked={difficulty === 'cadet'} onChange={() => setDifficulty('cadet')} />
-            <b><GraduationCap /> Cadet</b><span>Gentler storms and more warning.</span>
-          </label>
-          <label className={difficulty === 'commander' ? 'picked' : ''}>
-            <input type="radio" name="level" checked={difficulty === 'commander'} onChange={() => setDifficulty('commander')} />
-            <b><Rocket /> Commander</b><span>Storms at full strength.</span>
-          </label>
+          <legend>How tough is the Sun today?</legend>
+          {([['easy', 'Easy', 'Gentle storms, lots of warning.'], ['normal', 'Normal', 'Stronger storms, less warning.'], ['hard', 'Hard', 'Fierce storms. For experts.']] as const).map(([id, name, blurb]) => (
+            <label key={id} className={difficulty === id ? 'picked' : ''}>
+              <input type="radio" name="level" checked={difficulty === id} onChange={() => setDifficulty(id)} />
+              <b>{name}</b><span>{blurb}</span>
+            </label>
+          ))}
         </fieldset>
 
         <div className="title-actions">

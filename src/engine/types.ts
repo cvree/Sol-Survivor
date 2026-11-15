@@ -4,10 +4,8 @@ export type Role = 'Engineer' | 'Botanist' | 'Medic' | 'Scientist';
 export interface ModuleState {
   id: string;
   kind: ModuleKind;
-  /** Position on the site map: column + row * GRID_COLS. */
+  /** 0-4 are surface plots, 5-9 are dug-in rooms below them, 100+ is the yard. */
   cell: number;
-  /** The module this one is cabled to. Power runs from the Hab outward. */
-  parent: string | null;
   on: boolean;
   /** Sols of building work left. 0 means ready. */
   buildLeft: number;
@@ -94,7 +92,7 @@ export interface GameState {
   /** Game clock in sols. Starts at 1.0, so Math.floor(time) is the sol number. */
   time: number;
   status: 'playing' | 'won' | 'lost';
-  difficulty: 'cadet' | 'commander';
+  difficulty: 'easy' | 'normal' | 'hard';
   lostCause: Cause | null;
   modules: ModuleState[];
   crew: CrewState[];

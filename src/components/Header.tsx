@@ -3,13 +3,11 @@ import { FlaskConical, Rocket, ShieldHalf, Wind, Zap } from 'lucide-react';
 import { CARGO_SOLS, DOME_COVERS, MISSION_SOLS } from '../engine/constants';
 import { alive, isOn, lifeFlow, power, shieldBlock, stormDose } from '../engine/engine';
 import type { GameState } from '../engine/types';
-import { useGame } from '../store/game';
 import { Term } from './Term';
 
 const spring = { type: 'spring', stiffness: 120, damping: 20 } as const;
 
 export function Header({ game }: { game: GameState }) {
-  const tour = useGame((s) => s.tour);
   const sol = Math.min(MISSION_SOLS, Math.floor(game.time));
   const p = power(game);
   const flow = lifeFlow(game);
@@ -30,7 +28,7 @@ export function Header({ game }: { game: GameState }) {
         <span className="sol-track"><motion.i animate={{ width: `${(game.time - Math.floor(game.time)) * 100}%` }} transition={{ duration: 0.1 }} /></span>
       </div>
 
-      <div className={`res res-power ${tour === 1 ? 'tour-target' : ''}`}>
+      <div className={`res res-power`}>
         <span className="res-icon"><Zap /></span>
         <div className="res-body">
           <div className="res-head"><span>Power</span><b>{p.used}/{p.supply}</b></div>
@@ -41,7 +39,7 @@ export function Header({ game }: { game: GameState }) {
         </div>
       </div>
 
-      <div className={`res res-life ${lowLife ? 'alarm' : ''} ${tour === 3 ? 'tour-target' : ''}`}>
+      <div className={`res res-life ${lowLife ? 'alarm' : ''}`}>
         <span className="res-icon"><Wind /></span>
         <div className="res-body">
           <div className="res-head"><span><Term k="lifesupport">Life support</Term></span><b>{Math.round(game.life)}%</b></div>
@@ -62,7 +60,7 @@ export function Header({ game }: { game: GameState }) {
         </div>
       </div>
 
-      <div className={`cargo-chip ${tour === 5 ? 'tour-target' : ''}`} aria-label={`Next cargo lander in ${eta.toFixed(1)} sols`}>
+      <div className={`cargo-chip`} aria-label={`Next cargo lander in ${eta.toFixed(1)} sols`}>
         <Rocket />
         <span>Next lander</span>
         <span className="sol-track"><motion.i animate={{ width: `${game.cargoProgress * 100}%` }} transition={{ duration: 0.2 }} /></span>

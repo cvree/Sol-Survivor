@@ -1,5 +1,5 @@
 import { POWER_COST, WORK_SLOTS } from './constants';
-import { SPECIALIST, acceptCargo, assign, build, buildableCells, power, step, toggleModule, workersIn } from './engine';
+import { SPECIALIST, acceptCargo, assign, build, power, step, toggleModule, workersIn } from './engine';
 import type { GameState, ModuleKind } from './types';
 
 /**
@@ -38,7 +38,7 @@ export const carefulBot: Bot = (s0) => {
     for (const k of order) if (s.offer.options.includes(k as ModuleKind) && !picks.includes(k as ModuleKind) && picks.length < s.offer.picks) picks.push(k as ModuleKind);
     s = acceptCargo(s, picks);
   }
-  while (s.blueprints.length && buildableCells(s).length) s = build(s, s.blueprints[0], buildableCells(s)[0]);
+  for (let i = 0; i < 4 && s.blueprints.length; i++) s = build(s, s.blueprints[0]);
 
   // Staff the working modules, specialists first, and send the sick to the Med Bay.
   const med = s.modules.find((m) => m.kind === 'medbay' && m.on);

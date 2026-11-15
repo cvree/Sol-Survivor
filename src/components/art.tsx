@@ -42,7 +42,7 @@ export function Astronaut({ who, look, bust, size = 48 }: { who: { skin: string;
       )}
       <circle cx="24" cy="20" r="17" fill={who.suit} stroke={INK} strokeWidth="3" />
       <circle cx="24" cy="21" r="12" fill={skin} stroke={INK} strokeWidth="2.5" />
-      {look.flushed && <circle cx="24" cy="21" r="10.7" fill="#ff2e4d" opacity=".45" />}
+      {look.flushed && <circle cx="24" cy="21" r="10.7" fill="#7ed957" opacity=".5" />}
       {look.fainted ? (
         <path d="M16.5 18l5 3m-5 0l5-3M26.5 18l5 3m-5 0l5-3" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
       ) : look.dizzy ? (

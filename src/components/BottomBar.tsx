@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { FastForward, Heart, Hourglass, Pause, Play, Radiation, Satellite, Star, Thermometer, Volume2, VolumeX, Wind, X } from 'lucide-react';
+import { useState } from 'react';
+import { FastForward, Hammer, Heart, Hourglass, Pause, Play, Radiation, Satellite, ScrollText, Star, Thermometer, Users, Volume2, VolumeX, Wind, X } from 'lucide-react';
 import { FACTS } from '../data/facts';
 import { CAREER_LIMIT, WORK_SLOTS } from '../engine/constants';
 import { MODULE_NAME, SPECIALIST, alive, isOn, power, shieldCover, stormDose, wear, workersIn } from '../engine/engine';
@@ -20,7 +21,7 @@ function advice(game: GameState, party: boolean): { text: string; mood: Mood } {
   if (storm && game.shield < 50) return { text: 'Radiation is getting in! Switch on a Shield Dome!', mood: 'alert' };
   if (storm && shieldCover(game) < 1) return { text: `The domes only cover part of the crew. ${domes.some((m) => !m.on) ? 'Switch on the other dome!' : 'We need a second Shield Dome.'}`, mood: 'alert' };
   if (storm) return { text: 'The shield is holding! Hang on until the storm passes.', mood: 'worried' };
-  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Click a glowing spot on the map to build it.`, mood: 'happy' };
+  if (game.blueprints.length) return { text: `You have a ${MODULE_NAME[game.blueprints[0]]} blueprint. Press Build to put it up.`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
   if (coming && coming.kind !== 'dust' && domes.length && !isOn(game, 'dome')) return { text: 'Storm on the way! Free up 4 power, then switch on the Shield Dome.', mood: 'alert' };
   if (coming && coming.kind === 'dust') return { text: 'Dust storm on the way. Solar power is about to drop.', mood: 'worried' };
@@ -53,6 +54,11 @@ function Ecg({ hr }: { hr: number }) {
   );
 }
 
+const MOOD = (c: CrewState) => {
+  const f = feeling(c);
+  return f.startsWith('Fainted') ? '😵' : f.startsWith('Can barely') ? '😰' : f.startsWith('Dizzy') ? '😵‍💫' : f.startsWith('Freezing') ? '🥶' : f.startsWith('Radiation') ? '🤢' : f.startsWith('Worn') ? '😓' : '😀';
+};
+
 function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
   const { pick, assign } = useGame();
   const t = triage(c);
@@ -70,7 +76,7 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
       <header>
         <Astronaut who={c} look={lookOf(c)} bust size={54} />
         <div>
-          <h3>{c.name} <small>{c.role}</small></h3>
+          <h3>{c.name} <small>{c.role}</small> <span className="mood" aria-hidden="true">{MOOD(c)}</span></h3>
           <p className={`chip t-${t}`}><Term k="triage">{TRIAGE_LABEL[t]}</Term>: {feeling(c)}</p>
         </div>
         <button className="icon-btn" onClick={() => pick(null)} aria-label="Close"><X /></button>
@@ -122,58 +128,69 @@ function VitalsCard({ c, game }: { c: CrewState; game: GameState }) {
 
 export function BottomBar({ game }: { game: GameState }) {
   const { tour, setTour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open } = useGame();
+  const [roster, setRoster] = useState(false);
   const step = tour !== null ? TOUR[tour] : null;
   const partying = Date.now() - party < 4500;
   const fresh = notice && Date.now() - notice.at < 2600;
   const talk = step
-    ? { text: step.say(game), mood: 'happy' as Mood }
+    ? { text: step.say, mood: (tour === 1 ? 'party' : 'happy') as Mood }
     : fresh ? { text: notice.text, mood: 'worried' as Mood } : advice(game, partying);
-  const last = tour === TOUR.length - 1;
   const chosen = game.crew.find((c) => c.id === picked);
+  const trouble = game.crew.filter((c) => triage(c) !== 'green').length;
 
   return (
-    <footer className="bottom">
+    <footer className="drawer">
       <div className={`marv ${step ? 'teaching' : ''} mood-${talk.mood}`}>
-        <Marv mood={talk.mood} size={78} />
+        <Marv mood={talk.mood} size={74} />
         <AnimatePresence mode="wait">
           <motion.div key={talk.text} className="marv-say" role="status"
-            initial={{ opacity: 0, x: -12, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
-            {step && <span className="marv-step">Training {tour! + 1} of {TOUR.length}</span>}
-            <p>{talk.text}</p>
-            {step && (
-              <span className="marv-actions">
-                {!step.done && <motion.button className="btn btn-go" whileTap={{ scale: 0.95 }} onClick={() => setTour(last ? null : tour! + 1)} autoFocus>{last ? 'Start the mission' : 'Next'}</motion.button>}
-                {step.done && <span className="marv-wait">Your turn!</span>}
-                {!last && <button className="btn btn-ghost" onClick={() => setTour(null)}>Skip training</button>}
-              </span>
-            )}
+            initial={{ opacity: 0, x: -12, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 26 }}>
+            <p>{talk.text}{tour === 1 ? ' 👍' : ''}</p>
+            {tour === 1 && <motion.button className="btn btn-go" whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.05 }} onClick={() => setTour(null)} autoFocus>Let's go!</motion.button>}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      <div className="crew-row">
-        {game.crew.map((c) => {
-          const look = lookOf(c);
-          return (
-            <motion.button key={c.id} className={`portrait t-${look.triage} ${picked === c.id ? 'picked' : ''} ${game.crew.length > 4 ? 'small' : ''}`} whileTap={{ scale: 0.94 }} whileHover={{ y: -3 }}
-              onClick={() => pick(picked === c.id ? null : c.id)} aria-pressed={picked === c.id}
-              aria-label={`${c.name}. ${TRIAGE_LABEL[look.triage]}. ${feeling(c)}. Open vitals.`}>
-              <Astronaut who={c} look={look} bust size={game.crew.length > 4 ? 38 : 46} />
-              <span className="portrait-name">{c.name}</span>
-              <span className="portrait-feel">{feeling(c)}</span>
-              <span className="health mini"><motion.i className="health-fill" animate={{ width: `${c.health}%` }} /></span>
-            </motion.button>
-          );
-        })}
-        <AnimatePresence>{chosen && <VitalsCard key={chosen.id} c={chosen} game={game} />}</AnimatePresence>
-      </div>
+      <nav className="dock" aria-label="Base actions">
+        <motion.button className="dock-btn build" whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }} disabled={!game.blueprints.length || tour !== null} onClick={() => open({ type: 'build' })}>
+          <Hammer /><span>Build</span>{game.blueprints.length > 0 && <b className="count">{game.blueprints.length}</b>}
+        </motion.button>
+        <motion.button className="dock-btn crew" whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }} aria-expanded={roster} onClick={() => setRoster(!roster)}>
+          <Users /><span>Crew</span>{trouble > 0 && <b className="count alarm">{trouble}</b>}
+        </motion.button>
+        <motion.button className="dock-btn science" whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }} onClick={() => open({ type: 'data' })}>
+          <Satellite /><span>NASA Log</span>
+        </motion.button>
+        <motion.button className="dock-btn log" whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }} onClick={() => open({ type: 'log' })}>
+          <ScrollText /><span>Mission</span>
+        </motion.button>
+        <AnimatePresence>
+          {roster && (
+            <motion.div className="roster" initial={{ y: 20, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0 }} transition={{ type: 'spring', stiffness: 340, damping: 22 }}>
+              {game.crew.map((c) => {
+                const look = lookOf(c);
+                return (
+                  <motion.button key={c.id} className={`portrait t-${look.triage} ${picked === c.id ? 'picked' : ''}`} whileTap={{ scale: 0.92 }} whileHover={{ y: -3 }}
+                    onClick={() => pick(picked === c.id ? null : c.id)} aria-pressed={picked === c.id}
+                    aria-label={`${c.name}, ${c.role}. ${TRIAGE_LABEL[look.triage]}. ${feeling(c)}. Open vitals.`}>
+                    <Astronaut who={c} look={look} bust size={42} />
+                    <span className="portrait-name">{c.name}</span>
+                    <span className="portrait-feel">{feeling(c)}</span>
+                    <span className="health mini"><motion.i className="health-fill" animate={{ width: `${c.health}%` }} /></span>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
 
       <div className="controls">
         <motion.button className="icon-btn big" whileTap={{ scale: 0.9 }} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? 'Play' : 'Pause'} title={paused ? 'Play (P)' : 'Pause (P)'}>{paused ? <Play /> : <Pause />}</motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={() => setSpeed(speed === 1 ? 2 : 1)} aria-pressed={speed === 2} aria-label="Double speed" title="Double speed"><FastForward /></motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={toggleMute} aria-pressed={muted} aria-label={muted ? 'Sound is off' : 'Sound is on'} title="Sound">{muted ? <VolumeX /> : <Volume2 />}</motion.button>
-        <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
       </div>
+      <AnimatePresence>{chosen && <VitalsCard key={chosen.id} c={chosen} game={game} />}</AnimatePresence>
     </footer>
   );
 }

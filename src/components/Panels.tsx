@@ -3,12 +3,12 @@ import { motion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { donki, hasDonki, osdrFetchedAt, osdrStudies, recordById, type RealRecord } from '../data/records';
 import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, alive } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, alive, buildableCells } from '../engine/engine';
 import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Marv } from './art';
 import { HAPPY } from './crewLook';
-import { MODULE_JOB } from './SiteMap';
+import { MODULE_JOB } from './Diorama';
 
 export const EVENT_TITLE: Record<EventKind, string> = { cme: 'Solar storm', flare: 'Solar flare', dust: 'Dust storm' };
 
@@ -132,23 +132,34 @@ export function CargoPanel({ game }: { game: GameState }) {
   );
 }
 
-export function BuildPanel({ game, cell }: { game: GameState; cell: number }) {
+export function BuildPanel({ game, cell }: { game: GameState; cell?: number }) {
   const { open, build } = useGame();
-  const kinds = [...new Set(game.blueprints)];
+  const kinds = [...new Set(game.blueprints)].filter((k) => cell === undefined || buildableCells(game, k).includes(cell));
   return (
-    <Modal title="Build here" onClose={() => open(null)}>
-      <p className="lede">Which blueprint goes on this spot? Building takes 1 sol, and a power cable links it to the base.</p>
+    <Modal title="Build" onClose={() => open(null)}>
+      <p className="lede">Pick a blueprint to put up. Building takes 1 sol.</p>
       <div className="offer-list one">
         {kinds.map((k) => {
           const Icon = MODULE_ICON[k];
           return (
-            <motion.button key={k} className={`offer k-${k}`} onClick={() => build(k, cell)} whileTap={{ scale: 0.96 }}>
+            <motion.button key={k} className={`offer k-${k}`} onClick={() => build(k, cell)} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}>
               <span className="badge"><Icon /></span>
               <span className="offer-text"><strong>{MODULE_NAME[k]}</strong><span>{MODULE_JOB[k]}.</span><span className="strain">{STRAIN[k]}</span></span>
             </motion.button>
           );
         })}
       </div>
+    </Modal>
+  );
+}
+
+export function LogPanel({ game }: { game: GameState }) {
+  const open = useGame((s) => s.open);
+  return (
+    <Modal title="Mission log" onClose={() => open(null)}>
+      <ol className="terminal">
+        {game.log.slice().reverse().map((l, i) => (<li key={i} className={`log-${l.tone}`}><span>SOL {String(Math.floor(l.t)).padStart(2, '0')}</span>{l.text}</li>))}
+      </ol>
     </Modal>
   );
 }

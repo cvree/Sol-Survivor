@@ -4,7 +4,13 @@ import { makeRng } from './rng';
 import type { CargoOffer, Cause, CrewState, GameEvent, GameState, ModuleKind, ModuleState, PowerInfo, Role } from './types';
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
-export type Difficulty = 'cadet' | 'commander';
+export type Difficulty = 'easy' | 'normal' | 'hard';
+/** Easy: gentler storms, more warning, a fuller tank. Hard: storms at the strength of the real records. */
+export const LEVEL: Record<Difficulty, { ease: number; warning: number; life: number }> = {
+  easy: { ease: 0.72, warning: 0.6, life: 15 },
+  normal: { ease: 0.88, warning: 0.3, life: 8 },
+  hard: { ease: 1.15, warning: 0, life: -8 },
+};
 type Recruit = NonNullable<CargoOffer['crew']>;
 
 const FIRST_CREW: Recruit[] = [
@@ -47,22 +53,22 @@ function newCrew(r: Recruit, time: number, at: string, tolerance: number): CrewS
   };
 }
 
-export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'commander'): GameState {
-  const cadet = difficulty === 'cadet';
+export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'hard'): GameState {
+  const level = LEVEL[difficulty];
   const rng = makeRng(seed);
-  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, parent: kind === 'hab' ? null : 'hab', on, buildLeft: 0, onSince: 0 });
-  const life = K.START_LIFE + (cadet ? 15 : 0);
+  const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0 });
+  const life = K.START_LIFE + level.life;
   return {
     seed,
     time: 1,
     status: 'playing',
     difficulty,
     lostCause: null,
-    modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.HAB_CELL - K.GRID_COLS, false), mod('m2', 'oxygen', K.HAB_CELL + 1, true)],
+    modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.YARD_CELL, false), mod('m2', 'oxygen', K.HAB_CELL + K.GRID_COLS, true)],
     crew: FIRST_CREW.map((c) => newCrew(c, 1, 'hab', rng.range(0.9, 1.1))),
     life,
     shield: 0,
-    events: planEvents(rng, catalog, activity, cadet),
+    events: planEvents(rng, catalog, activity, level.ease, level.warning),
     blueprints: [],
     cargoProgress: 0.15,
     landers: 0,
@@ -147,21 +153,25 @@ export function lifeFlow(s: GameState) {
   return { made, used, net: made - used };
 }
 
-const neighbours = (cell: number) => {
-  const col = cell % K.GRID_COLS;
-  const out: number[] = [];
-  if (col > 0) out.push(cell - 1);
-  if (col < K.GRID_COLS - 1) out.push(cell + 1);
-  if (cell - K.GRID_COLS >= 0) out.push(cell - K.GRID_COLS);
-  if (cell + K.GRID_COLS < K.GRID_COLS * K.GRID_ROWS) out.push(cell + K.GRID_COLS);
-  return out;
-};
-/** Empty spots next to the base where something could be built. */
-export function buildableCells(s: GameState): number[] {
+/**
+ * Where a module of this kind could go. Domes sit side by side on the surface,
+ * rooms are dug next to each other below, and yard gear just needs open ground.
+ */
+export function buildableCells(s: GameState, kind: ModuleKind): number[] {
+  const layer = K.LAYER[kind];
+  if (layer === 'yard') return [K.YARD_CELL + s.modules.filter((m) => K.LAYER[m.kind] === 'yard').length];
   const taken = new Set(s.modules.map((m) => m.cell));
-  const out = new Set<number>();
-  for (const m of s.modules) for (const n of neighbours(m.cell)) if (!taken.has(n)) out.add(n);
-  return [...out].sort((a, b) => a - b);
+  const from = layer === 'surface' ? 0 : K.GRID_COLS;
+  const out: number[] = [];
+  for (let c = from; c < from + K.GRID_COLS; c++) {
+    if (taken.has(c)) continue;
+    const beside = (c > from && taken.has(c - 1)) || (c < from + K.GRID_COLS - 1 && taken.has(c + 1));
+    const underHab = layer === 'under' && c === K.HAB_CELL + K.GRID_COLS;
+    if (beside || underHab) out.push(c);
+  }
+  // Fill outward from the Hab so the base grows from its heart.
+  const mid = from + K.HAB_CELL;
+  return out.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
 }
 
 // ---------- player actions (each returns a new state) ----------
@@ -197,17 +207,17 @@ export function toggleModule(prev: GameState, id: string): ToggleResult {
 
 export function canBuild(s: GameState, kind: ModuleKind, cell: number): string | null {
   if (!s.blueprints.includes(kind)) return 'You do not have that blueprint.';
-  if (!buildableCells(s).includes(cell)) return 'Build next to a module you already have.';
+  if (!buildableCells(s, kind).includes(cell)) return 'That will not fit there.';
   return null;
 }
 
-export function build(prev: GameState, kind: ModuleKind, cell: number): GameState {
-  if (prev.status !== 'playing' || canBuild(prev, kind, cell)) return prev;
+/** Build a blueprint. With no cell given it goes in the nearest free spot of the right kind. */
+export function build(prev: GameState, kind: ModuleKind, at?: number): GameState {
+  const cell = at ?? buildableCells(prev, kind)[0];
+  if (prev.status !== 'playing' || cell === undefined || canBuild(prev, kind, cell)) return prev;
   const s = clone(prev);
   s.blueprints.splice(s.blueprints.indexOf(kind), 1);
-  const next = s.modules.filter((m) => neighbours(cell).includes(m.cell));
-  const parent = next.find((m) => m.kind === 'hab') ?? next.find((m) => !GENERATOR(m.kind)) ?? next[0];
-  s.modules.push({ id: `m${s.nextId++}`, kind, cell, parent: parent.id, on: false, buildLeft: K.BUILD_SOLS, onSince: 0 });
+  s.modules.push({ id: `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0 });
   s.stats.built++;
   log(s, 'info', `Building a ${MODULE_NAME[kind]}.`);
   return s;

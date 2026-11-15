@@ -10,11 +10,9 @@ export type Panel =
   | { type: 'data'; recordId?: string }
   | { type: 'event'; eventId: string }
   | { type: 'cargo' }
-  | { type: 'build'; cell: number }
+  | { type: 'build'; cell?: number }
+  | { type: 'log' }
   | null;
-
-const TRAINED = 'sol-survivor-trained-v2';
-const wasTrained = () => { try { return localStorage.getItem(TRAINED) === '1'; } catch { return false; } };
 
 interface Store {
   screen: 'title' | 'game';
@@ -34,11 +32,11 @@ interface Store {
   difficulty: Difficulty;
   setSun: (s: LiveSun) => void;
   setDifficulty: (d: Difficulty) => void;
-  start: (train?: boolean) => void;
+  start: () => void;
   quit: () => void;
   tick: (realSeconds: number) => void;
   toggle: (id: string) => void;
-  build: (kind: ModuleKind, cell: number) => void;
+  build: (kind: ModuleKind, cell?: number) => void;
   assign: (crewId: string, moduleId: string) => void;
   unpack: (picks: ModuleKind[]) => void;
   pick: (crewId: string | null) => void;
@@ -62,19 +60,19 @@ export const useGame = create<Store>((set, get) => ({
   seenKinds: [],
   muted: false,
   sun: { status: 'loading', activity: 1 },
-  difficulty: 'cadet',
+  difficulty: 'easy',
 
   setSun: (sun) => set({ sun }),
   setDifficulty: (difficulty) => set({ difficulty }),
 
-  start: (train) => {
+  start: () => {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const { sun, difficulty } = get();
     sfx.build();
     set({
       screen: 'game', game: createGame(seed, catalog, sun.activity, difficulty),
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
-      tour: train ?? !wasTrained() ? 0 : null,
+      tour: 0,
     });
   },
   quit: () => set({ screen: 'title', game: null, panel: null, tour: null, picked: null }),
@@ -133,10 +131,7 @@ export const useGame = create<Store>((set, get) => ({
     set({ game: acceptCargo(game, picks), panel: null });
   },
   pick: (picked) => set({ picked }),
-  setTour: (tour) => {
-    if (tour === null) { try { localStorage.setItem(TRAINED, '1'); } catch { /* private mode */ } }
-    set({ tour });
-  },
+  setTour: (tour) => { sfx.build(); set({ tour }); },
   setPaused: (paused) => set({ paused }),
   setSpeed: (speed) => set({ speed }),
   open: (panel) => {

@@ -1,15 +1,13 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { recordById } from '../data/records';
-import { MODULE_NAME } from '../engine/engine';
 import { useGame } from '../store/game';
 import { BottomBar } from './BottomBar';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
 import { Header } from './Header';
-import { BuildPanel, CargoPanel, DataPanel, EventCard, EVENT_TITLE } from './Panels';
-import { SiteMap } from './SiteMap';
-import { TOUR } from './tour';
+import { BuildPanel, CargoPanel, DataPanel, EventCard, EVENT_TITLE, LogPanel } from './Panels';
+import { Diorama } from './Diorama';
 
 export function GameScreen() {
   const game = useGame((s) => s.game);
@@ -40,16 +38,7 @@ export function GameScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [setPaused]);
 
-  // Training steps that wait for the player move on by themselves once the thing is done.
   const tour = useGame((s) => s.tour);
-  const picked = useGame((s) => s.picked);
-  const setTour = useGame((s) => s.setTour);
-  const stepDone = !!game && tour !== null && !!TOUR[tour].done?.(game, picked);
-  useEffect(() => {
-    if (!stepDone || tour === null) return;
-    const t = setTimeout(() => setTour(tour + 1), 900);
-    return () => clearTimeout(t);
-  }, [stepDone, tour, setTour]);
 
   if (!game) return null;
   const over = game.status !== 'playing';
@@ -57,13 +46,10 @@ export function GameScreen() {
   const live = game.events.filter((e) => e.phase === 'warned' || e.phase === 'active');
 
   return (
-    <div className={`game ${critical && !over ? 'critical' : ''}`}>
+    <div className={`game ${critical && !over ? 'critical' : ''} ${tour === 0 ? 'intro' : ''}`}>
       <Header game={game} />
       <main className="stage">
-        <SiteMap game={game} />
-        {game.blueprints.length > 0 && (
-          <div className="blueprints">Blueprints ready: {game.blueprints.map((k, i) => <b key={i}>{MODULE_NAME[k]}</b>)}</div>
-        )}
+        <Diorama game={game} />
         <div className="alerts" role="alert">
           <AnimatePresence>
             {live.map((e) => {
@@ -89,6 +75,7 @@ export function GameScreen() {
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'cargo' && <CargoPanel game={game} />}
       {panel?.type === 'build' && <BuildPanel game={game} cell={panel.cell} />}
+      {panel?.type === 'log' && <LogPanel game={game} />}
       {panel?.type === 'data' && <DataPanel recordId={panel.recordId} />}
     </div>
   );

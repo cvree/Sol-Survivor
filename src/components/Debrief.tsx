@@ -106,7 +106,7 @@ export function Debrief({ game }: { game: GameState }) {
         </div>
 
         <div className="modal-actions">
-          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} onClick={() => start(false)} autoFocus><Rocket /> Land a new mission</motion.button>
+          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} onClick={() => start()} autoFocus><Rocket /> Land a new mission</motion.button>
           <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
           <button className="btn btn-ghost" onClick={quit}>Main menu</button>
         </div>
