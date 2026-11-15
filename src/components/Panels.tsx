@@ -12,7 +12,7 @@ import { MODULE_JOB } from './Diorama';
 
 export const EVENT_TITLE: Record<EventKind, string> = { cme: 'Solar storm', flare: 'Solar flare', dust: 'Dust storm' };
 
-function Modal({ title, children, onClose, wide, tone, locked }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; tone?: 'alarm' | 'good'; locked?: boolean }) {
+export function Modal({ title, children, onClose, wide, tone, locked }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; tone?: 'alarm' | 'good'; locked?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -288,6 +288,9 @@ export function DataPanel({ recordId }: { recordId?: string }) {
           <li>Cargo landers every few sols are much faster than real life. A real trip from Earth takes about seven months.</li>
           <li>Spare parts and the Patch button are made up. Fixing things with what you have is very real: the Apollo 13 crew built an air filter from a plastic bag, a hose, cardboard and tape.</li>
           <li>The crew's names, jokes and habits are made up to make them feel like people.</li>
+          <li>The discoveries around your base are real things the Curiosity rover has seen in Gale Crater, typed in by hand from NASA pages. Where they sit next to your base is made up.</li>
+          <li>Water ice under Gale Crater is a game choice. Most ice found under Mars so far is much farther from the equator.</li>
+          <li>Real Mars missions plan very hard so that nobody dies. In the game it can happen, so every choice matters.</li>
           <li>Crew vitals follow an EMT's field notes for low oxygen, cold and radiation sickness, simplified for young players.</li>
         </ul>
       </section>

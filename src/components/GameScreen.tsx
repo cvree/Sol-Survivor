@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useGame } from '../store/game';
+import { AlbumPanel } from './Album';
 import { BottomBar } from './BottomBar';
+import { ComboPop } from './ComboPop';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
 import { Diorama } from './Diorama';
@@ -44,7 +46,7 @@ export function GameScreen() {
 
   if (!game) return null;
   const over = game.status !== 'playing';
-  const critical = game.crew.some((c) => c.spo2 < 86 || c.health < 30);
+  const critical = game.crew.some((c) => !c.out && (c.spo2 < 86 || c.health < 30));
 
   return (
     <div className={`game ${critical && !over ? 'critical' : ''} ${tour === 0 ? 'intro' : ''}`}>
@@ -60,12 +62,14 @@ export function GameScreen() {
       <Ticker />
       <Pops />
       <Moments />
+      <ComboPop />
       {over && !panel && <Debrief game={game} />}
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'cargo' && <CargoPanel game={game} />}
       {panel?.type === 'build' && <BuildPanel game={game} cell={panel.cell} />}
       {panel?.type === 'log' && <LogPanel game={game} />}
       {panel?.type === 'data' && <DataPanel recordId={panel.recordId} />}
+      {panel?.type === 'finds' && <AlbumPanel />}
     </div>
   );
 }

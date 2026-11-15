@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { MotionConfig } from 'motion/react';
+import { Briefing } from './components/Briefing';
+import { CommanderPick } from './components/CommanderPick';
 import { GameScreen } from './components/GameScreen';
 import { TitleScreen } from './components/TitleScreen';
 import { fetchLiveSun } from './lib/liveSun';
@@ -14,6 +16,8 @@ export function App() {
   return (
     <MotionConfig reducedMotion="user">
       {screen === 'title' && <TitleScreen />}
+      {screen === 'pick' && <CommanderPick />}
+      {screen === 'brief' && <Briefing />}
       {screen === 'game' && <GameScreen />}
     </MotionConfig>
   );

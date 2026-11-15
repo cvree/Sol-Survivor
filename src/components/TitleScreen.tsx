@@ -1,5 +1,7 @@
 import { motion } from 'motion/react';
-import { Rocket, Satellite } from 'lucide-react';
+import { Compass, Rocket, Satellite } from 'lucide-react';
+import { FINDS } from '../data/discoveries';
+import { AlbumPanel } from './Album';
 import { hasDonki } from '../data/records';
 import { MISSION_SOLS } from '../engine/constants';
 import { useGame } from '../store/game';
@@ -11,7 +13,7 @@ import { Term } from './Term';
 const CREW = [{ skin: '#9a6240', suit: '#ffd23f' }, { skin: '#f3cfa6', suit: '#ff8fb1' }, { skin: '#6a432c', suit: '#5ee6a0' }, { skin: '#cf9668', suit: '#4fd8ff' }];
 
 export function TitleScreen() {
-  const { start, sun, difficulty, setDifficulty, open, panel } = useGame();
+  const { begin, sun, difficulty, setDifficulty, open, panel, album } = useGame();
   return (
     <div className="title">
       <div className="sky" aria-hidden="true">
@@ -31,8 +33,8 @@ export function TitleScreen() {
         </div>
         <h1 className="logo">Sol Survivor</h1>
         <p className="title-lede">
-          Land on Mars with two astronauts and build a base. Cargo landers bring more crew and new modules.
-          Keep everyone alive for {MISSION_SOLS} <Term k="sol">sols</Term>.
+          Pick your commander, land on Mars and build a base. Explore the crater, survive solar storms and keep your crew alive
+          for {MISSION_SOLS} <Term k="sol">sols</Term>. Astronauts can really die, so think fast!
         </p>
 
         <fieldset className="levels">
@@ -46,8 +48,9 @@ export function TitleScreen() {
         </fieldset>
 
         <div className="title-actions">
-          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => start()}><Rocket /> Play</motion.button>
+          <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => begin()}><Rocket /> Play</motion.button>
           <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
+          <motion.button className="btn btn-finds" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'finds' })}><Compass /> Discoveries {album.length}/{FINDS.length}</motion.button>
         </div>
 
         <p className="sun-report" aria-live="polite">
@@ -60,6 +63,7 @@ export function TitleScreen() {
         </p>
       </motion.div>
       {panel?.type === 'data' && <DataPanel />}
+      {panel?.type === 'finds' && <AlbumPanel />}
     </div>
   );
 }

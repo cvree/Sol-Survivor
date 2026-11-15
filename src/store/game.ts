@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { SOL_SECONDS } from '../engine/constants';
-import { acceptCargo, activeEvents, assign, build, createGame, grantReward, patch, power, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
+import { acceptCargo, activeEvents, assign, build, collectFind, createGame, grantReward, patch, power, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { COACH } from '../components/coach';
+import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
 import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
-import { setMood, setMuted, sfx } from '../lib/sound';
+import { combo, setMood, setMuted, sfx } from '../lib/sound';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
@@ -17,7 +20,9 @@ export const HOLD_LANDER = 2400;
 /** A moment that stops the clock and takes the whole screen for a couple of seconds. */
 export type Moment =
   | { type: 'survived'; eventId: string; recordId: string; kind: 'flare' | 'cme'; blocked: number; stars: number; at: number }
-  | { type: 'lander'; number: number; at: number };
+  | { type: 'lander'; number: number; at: number }
+  | { type: 'find'; id: string; isNew: boolean; at: number }
+  | { type: 'died'; crewId: string; at: number };
 
 let lastTick = 0;
 let lastTuned = 0;
@@ -30,10 +35,24 @@ export type Panel =
   | { type: 'cargo' }
   | { type: 'build'; cell?: number }
   | { type: 'log' }
+  | { type: 'finds' }
   | null;
 
 interface Store {
-  screen: 'title' | 'game';
+  /** title, then pick your commander, then a short briefing, then the game. */
+  screen: 'title' | 'pick' | 'brief' | 'game';
+  /** The astronaut the player chose to be. */
+  commander: string;
+  /** Step of M.A.R.V.'s hands-on coaching after the first dome, or null. */
+  coach: number | null;
+  coachAt: number;
+  findsOrder: string[];
+  findsActive: string[];
+  findsGot: string[];
+  /** Every discovery ever made, kept between missions. */
+  album: string[];
+  albumSeen: number;
+  comboPop: { n: number; at: number } | null;
   game: GameState | null;
   paused: boolean;
   speed: 1 | 2;
@@ -65,6 +84,11 @@ interface Store {
   setSun: (s: LiveSun) => void;
   setDifficulty: (d: Difficulty) => void;
   start: () => void;
+  /** Go from the title to choosing a commander. */
+  begin: () => void;
+  chooseCommander: (id: string) => void;
+  collect: (id: string) => void;
+  setCoach: (n: number | null) => void;
   /** Straight back in after a loss: no intro, and the first mini-mission practises what went wrong. */
   retry: () => void;
   patch: (id: string) => void;
@@ -85,6 +109,15 @@ interface Store {
 
 export const useGame = create<Store>((set, get) => ({
   screen: 'title',
+  commander: 'ada',
+  coach: null,
+  coachAt: 0,
+  findsOrder: [],
+  findsActive: [],
+  findsGot: [],
+  album: loadAlbum(),
+  albumSeen: loadAlbum().length,
+  comboPop: null,
   game: null,
   paused: false,
   speed: 1,
@@ -109,14 +142,21 @@ export const useGame = create<Store>((set, get) => ({
   setSun: (sun) => set({ sun }),
   setDifficulty: (difficulty) => set({ difficulty }),
 
+  begin: () => { sfx.build(); set({ screen: 'pick', panel: null }); },
+  chooseCommander: (commander) => { sfx.reward(); set({ commander, screen: 'brief' }); },
+  setCoach: (coach) => set({ coach, coachAt: Date.now() }),
+
   start: () => {
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const { sun, difficulty } = get();
+    const { sun, difficulty, commander, album } = get();
     sfx.build();
     landerShown = -1;
     clearTimeout(holdTimer);
+    resetPanned();
+    const order = findOrder(seed, album);
     set({
-      screen: 'game', game: createGame(seed, catalog, sun.activity, difficulty),
+      coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], comboPop: null,
+      screen: 'game', game: createGame(seed, catalog, sun.activity, difficulty, commander),
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
       tour: 0, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
     });
@@ -126,15 +166,16 @@ export const useGame = create<Store>((set, get) => ({
     const cause = game?.lostCause;
     get().start();
     sfx.thump();
-    set({ tour: null, tip: cause ? TIP_GOAL[cause] : null });
+    set({ tour: null, coach: null, tip: cause ? TIP_GOAL[cause] : null });
   },
-  quit: () => { setMood('off'); clearTimeout(holdTimer); set({ screen: 'title', game: null, panel: null, tour: null, picked: null, moment: null, slowmo: false }); },
+  quit: () => { setMood('off'); set({ coach: null }); clearTimeout(holdTimer); set({ screen: 'title', game: null, panel: null, tour: null, picked: null, moment: null, slowmo: false }); },
 
   endMoment: () => {
     const { moment, game } = get();
     if (!moment) return;
     clearTimeout(holdTimer);
     if (moment.type === 'lander' && game?.offer) set({ moment: null, panel: { type: 'cargo' }, picked: null });
+    else if (moment.type === 'died') { glideTo(homeX()); set({ moment: null }); }
     else set({ moment: null });
   },
 
@@ -143,7 +184,15 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) return;
     if (game.status !== 'playing' || tour !== null) setMood(game.status === 'playing' ? 'calm' : 'off');
     else setMood(stormDose(game) > 0 ? 'storm' : activeEvents(game, 'dust').length ? 'dust' : game.events.some((e) => e.phase === 'warned') ? 'tension' : 'calm');
-    if (game.status !== 'playing' || paused || panel || tour !== null || moment) return;
+    // M.A.R.V.'s coaching moves on as soon as the player has done the thing it asked.
+    const { coach } = get();
+    if (coach !== null) {
+      const c = COACH[coach];
+      if (c && c.done(get(), Date.now() - get().coachAt)) { sfx.reward(); get().setCoach(coach + 1 < COACH.length ? coach + 1 : null); }
+    }
+    // The clock waits while the commander is learning the controls.
+    const learning = coach !== null && COACH[coach]?.pause;
+    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning) return;
 
     // The fuse: the nearest warned storm ticks faster and higher as it closes in, then time slows.
     const now = performance.now();
@@ -198,6 +247,21 @@ export const useGame = create<Store>((set, get) => ({
       if (current !== goal) patch.goal = current;
     }
 
+    // New things to discover turn up as the sols go by.
+    const nowActive = activeFinds(get().findsOrder, s.time);
+    if (nowActive.length !== get().findsActive.length) patch.findsActive = nowActive;
+
+    // A crewmate died: stop and let it land. If it was the commander, the debrief takes over.
+    const dead = s.crew.find((c) => c.out && !game.crew.find((x) => x.id === c.id)?.out);
+    if (dead && s.status === 'playing') {
+      sfx.mourn();
+      clearTimeout(holdTimer);
+      patch.moment = { type: 'died', crewId: dead.id, at: Date.now() };
+      patch.picked = null;
+      set(patch);
+      return;
+    }
+
     // A radiation storm just ended: hold the screen and show how it went.
     const ended = s.events.find((e) => e.kind !== 'dust' && e.phase === 'done' && game.events.find((x) => x.id === e.id)?.phase === 'active');
     // Warnings and cargo landers stop the clock, so a young commander has time to think.
@@ -233,8 +297,20 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) return;
     const r = toggleModule(game, id);
     if (r.ok) (r.state.modules.find((m) => m.id === id)?.on ? sfx.on : sfx.off)();
+    if (r.ok && combo() >= 2) set({ comboPop: { n: combo(), at: Date.now() } });
     else if (r.reason) sfx.denied();
     set({ game: r.state, notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice });
+  },
+  collect: (id) => {
+    const { game, findsActive, findsGot, album, moment, panel } = get();
+    const f = findById(id);
+    if (!game || !f || game.status !== 'playing' || moment || panel || !findsActive.includes(id) || findsGot.includes(id)) return;
+    const isNew = !album.includes(id);
+    const nextAlbum = isNew ? [...album, id] : album;
+    if (isNew) saveAlbum(nextAlbum);
+    sfx.discover();
+    clearTimeout(holdTimer);
+    set({ game: collectFind(game, f.reward, f.title), findsGot: [...findsGot, id], album: nextAlbum, moment: { type: 'find', id, isNew, at: Date.now() }, picked: null });
   },
   patch: (id) => {
     const { game } = get();
@@ -249,7 +325,7 @@ export const useGame = create<Store>((set, get) => ({
     sfx.build();
     set({ game: build(game, kind, cell), panel: null });
   },
-  assign: (crewId, moduleId) => { const { game } = get(); if (game) { sfx.assign(); set({ game: assign(game, crewId, moduleId) }); } },
+  assign: (crewId, moduleId) => { const { game } = get(); if (game) { sfx.assign(); set({ game: assign(game, crewId, moduleId), comboPop: combo() >= 2 ? { n: combo(), at: Date.now() } : get().comboPop }); } },
   unpack: (picks) => {
     const { game } = get();
     if (!game) return;
@@ -257,11 +333,17 @@ export const useGame = create<Store>((set, get) => ({
     set({ game: acceptCargo(game, picks), panel: null });
   },
   pick: (picked) => set({ picked }),
-  setTour: (tour) => { sfx.build(); set({ tour }); },
+  setTour: (tour) => {
+    sfx.build();
+    // After the first dome, M.A.R.V. coaches one thing at a time, by doing.
+    if (tour === null && get().tour === 1) set({ tour, coach: 0, coachAt: Date.now() });
+    else set({ tour });
+  },
   setPaused: (paused) => set({ paused }),
   setSpeed: (speed) => set({ speed }),
   open: (panel) => {
-    if (panel?.type === 'data' || panel?.type === 'log') sfx.ping();
+    if (panel?.type === 'data' || panel?.type === 'log' || panel?.type === 'finds') sfx.ping();
+    if (panel?.type === 'finds') set({ albumSeen: get().album.length });
     const { panel: was, seenKinds, game } = get();
     if (was?.type === 'cargo' && game?.offer) return; // the lander must be unpacked first
     if (!panel && was?.type === 'event' && game) {

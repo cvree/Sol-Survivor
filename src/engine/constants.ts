@@ -105,3 +105,20 @@ export const PATCHABLE: ModuleKind[] = ['hab', 'oxygen', 'hydro', 'medbay'];
 export const PATCH_SOLS = 1;
 /** Life support a finished mini-mission can send as a thank-you crate from Earth. */
 export const GOAL_SUPPLIES = 5;
+
+// Losing crew. Death is permanent, and the base carries on short-handed.
+/** After a crewmate dies, everyone works a little slower for a while. GAME VALUES. */
+export const GRIEF_SOLS = 2;
+export const GRIEF_WORK = 0.85;
+
+// The commander you pick. Each specialist brings one perk. GAME VALUES.
+export const ENGINEER_EXTRA_PARTS = 2;
+export const MEDIC_HEAL_BOOST = 1.5;
+export const SCIENTIST_CARGO_BOOST = 1.25;
+
+// Discoveries around the base. GAME VALUES; the facts on each card are real.
+export const FIND_FIRST = 4;
+export const FIND_EVERY_SOLS = 2;
+export const FIND_CARGO_BOOST = 0.08;
+export const FIND_SCIENCE = 4;
+export const FIND_SUPPLIES = 5;

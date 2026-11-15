@@ -92,6 +92,8 @@ export function tickerLine(game: GameState, n: number): Line {
   const p = power(game);
   const flow = lifeFlow(game);
 
+  const gone = game.crew.filter((c) => c.out).slice(-1)[0];
+  if (gone && game.griefUntil > game.time) return crewTurn ? say([`I keep thinking about ${gone.name}.`, `${gone.name} would want us to keep going.`, `This one is for ${gone.name}.`], 'warn') : { who: MARV, text: `Crew morale is low after losing ${gone.name}. Small wins will help.`, tone: 'warn' };
   if (storm) return crewTurn ? say(CREW_STORM, 'bad') : pick(STORM, n);
   if (game.life < 20) return crewTurn ? say(CREW_AIR, 'bad') : pick(LOW_LIFE, n);
   if (cold) return crewTurn ? say(CREW_COLD, 'bad') : pick(COLD, n);

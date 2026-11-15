@@ -13,16 +13,18 @@ export const LEVEL: Record<Difficulty, { ease: number; warning: number; life: nu
 };
 type Recruit = NonNullable<CargoOffer['crew']>;
 
-const FIRST_CREW: Recruit[] = [
-  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald." },
-  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats." },
+/** The four astronauts a player can pick as their commander, one of each specialist. */
+export const COMMANDERS: (Recruit & { perk: string })[] = [
+  { id: 'ada', name: 'Ada', role: 'Engineer', skin: '#9a6240', suit: '#ffd23f', restHr: 62, quirk: "Names every wrench. Her favourite is Gerald.", perk: `Starts with ${K.ENGINEER_EXTRA_PARTS} extra spare parts for Patches.` },
+  { id: 'mei', name: 'Mei', role: 'Medic', skin: '#f3cfa6', suit: '#ff8fb1', restHr: 60, quirk: "Hums while she checks heartbeats.", perk: 'The whole crew heals faster while Mei is alive.' },
+  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens.", perk: 'Lands with a Hydroponics blueprint, ready to build.' },
+  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks.", perk: 'Cargo landers arrive faster, because Earth loves the data.' },
 ];
 const RECRUITS: Recruit[] = [
-  { id: 'kofi', name: 'Kofi', role: 'Botanist', skin: '#6a432c', suit: '#5ee6a0', restHr: 66, quirk: "Talks to the lettuce. Says it listens." },
+  ...COMMANDERS.map(({ perk: _perk, ...r }) => r),
   { id: 'luis', name: 'Luis', role: 'Scientist', skin: '#cf9668', suit: '#4fd8ff', restHr: 68, quirk: "Hates space-dried coffee. Drinks it anyway." },
   { id: 'zara', name: 'Zara', role: 'Engineer', skin: '#b87a4f', suit: '#ff9a4d', restHr: 64, quirk: "Can fix anything with tape. Packed a lot of tape." },
   { id: 'omar', name: 'Omar', role: 'Botanist', skin: '#e0b088', suit: '#b6f04f', restHr: 67, quirk: "Brought 40 kinds of seeds and one sock." },
-  { id: 'yuki', name: 'Yuki', role: 'Scientist', skin: '#f6d9b8', suit: '#c9a6ff', restHr: 61, quirk: "Collects cool rocks. So many rocks." },
   { id: 'tala', name: 'Tala', role: 'Medic', skin: '#8a5a3c', suit: '#ff6f91', restHr: 65, quirk: "Tells terrible space jokes on purpose." },
 ];
 
@@ -43,21 +45,25 @@ const LINES = {
   warm: ['Warming up now, thanks Commander!'],
   well: ['Back to 100%!', 'Feeling much better!'],
   hello: ['Reporting for duty!', 'Wow, Mars!'],
+  grief: ['I miss them already.', 'We keep going. For them.', 'This one is for our friend.'],
 };
 
-function newCrew(r: Recruit, time: number, at: string, tolerance: number): CrewState {
+function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
+  const { perk: _perk, ...rest } = r as Recruit & { perk?: string };
   return {
-    ...r, arrived: time, at, tolerance,
+    ...rest, arrived: time, at, tolerance, commander, diedAt: null,
     spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
     hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
   };
 }
 
-export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'hard'): GameState {
+export function createGame(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'hard', commanderId = 'ada'): GameState {
   const level = LEVEL[difficulty];
   const rng = makeRng(seed);
   const mod = (id: string, kind: ModuleKind, cell: number, on: boolean): ModuleState => ({ id, kind, cell, on, buildLeft: 0, onSince: 0, patchedUntil: 0 });
   const life = K.START_LIFE + level.life;
+  const lead = COMMANDERS.find((c) => c.id === commanderId) ?? COMMANDERS[0];
+  const partner = COMMANDERS.find((c) => c.id === (lead.role === 'Medic' ? 'ada' : 'mei'))!;
   return {
     seed,
     time: 1,
@@ -65,19 +71,20 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     difficulty,
     lostCause: null,
     modules: [mod('hab', 'hab', K.HAB_CELL, true), mod('m1', 'solar', K.YARD_CELL, false), mod('m2', 'oxygen', K.HAB_CELL + K.GRID_COLS, true)],
-    crew: FIRST_CREW.map((c) => newCrew(c, 1, 'hab', rng.range(0.9, 1.1))),
+    crew: [newCrew(lead, 1, 'hab', rng.range(0.9, 1.1), true), newCrew(partner, 1, 'hab', rng.range(0.9, 1.1))],
     life,
     shield: 0,
     events: planEvents(rng, catalog, activity, level.ease, level.warning),
-    blueprints: [],
+    blueprints: lead.role === 'Botanist' ? ['hydro'] : [],
     cargoProgress: 0.15,
     landers: 0,
     offer: null,
     science: 0,
-    spareParts: K.START_SPARE_PARTS,
-    log: [{ t: 1, tone: 'info', text: 'Touchdown at Gale Crater. Grow the base and keep everyone alive for 30 sols.' }],
-    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0 },
-    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0 },
+    spareParts: K.START_SPARE_PARTS + (lead.role === 'Engineer' ? K.ENGINEER_EXTRA_PARTS : 0),
+    griefUntil: 0,
+    log: [{ t: 1, tone: 'info', text: `Touchdown at Gale Crater. Commander ${lead.name} is in charge. Keep the crew alive for 30 sols.` }],
+    stats: { brownouts: 0, stormsBeaten: 0, airOutSols: 0, coldSols: 0, lowestLife: life, built: 0, goals: 0, patches: 0, finds: 0, lost: 0 },
+    pulse: { brownout: 0, denied: 0, hit: 0, survived: 0, landed: 0, built: 0, patched: 0, died: 0 },
     nextId: 3,
   };
 }
@@ -112,13 +119,16 @@ export function power(s: GameState): PowerInfo {
 export const isOn = (s: GameState, kind: ModuleKind) => s.modules.some((m) => m.kind === kind && m.on);
 export const count = (s: GameState, kind: ModuleKind) => s.modules.filter((m) => m.kind === kind).length + s.blueprints.filter((b) => b === kind).length;
 export const alive = (s: GameState) => s.crew.filter((c) => !c.out);
+/** True while the commander of this role is alive, so their perk keeps working. */
+export const leadIs = (s: GameState, role: Role) => s.crew.some((c) => c.commander && !c.out && c.role === role);
 export const workersIn = (s: GameState, moduleId: string) => s.crew.filter((c) => c.at === moduleId && !c.out);
 
 /** How well a module is working: half with nobody inside, best with the right specialist. */
 export function staffing(s: GameState, m: ModuleState): number {
   const able = workersIn(s, m.id).filter((c) => !isFainted(c));
-  if (!able.length) return K.UNSTAFFED;
-  return 1 + (able.some((c) => c.role === SPECIALIST[m.kind]) ? K.SPECIALIST_BONUS : 0);
+  const grief = s.griefUntil > s.time ? K.GRIEF_WORK : 1;
+  if (!able.length) return K.UNSTAFFED * grief;
+  return (1 + (able.some((c) => c.role === SPECIALIST[m.kind]) ? K.SPECIALIST_BONUS : 0)) * grief;
 }
 
 /** Share of the crew the powered Shield Domes are big enough to cover. */
@@ -229,6 +239,20 @@ export function patch(prev: GameState, id: string): ToggleResult {
   s.pulse.patched++;
   log(s, 'good', `Patched the ${MODULE_NAME[m.kind]} with spare parts. It will run for ${K.PATCH_SOLS} sol with no power.`);
   return { state: s, ok: true };
+}
+
+/** Something real found around the base: data for Earth, a spare part, or supplies. */
+export function collectFind(prev: GameState, reward: 'science' | 'part' | 'supplies', title: string): GameState {
+  if (prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  s.stats.finds++;
+  if (reward === 'part' && s.spareParts < K.MAX_SPARE_PARTS) s.spareParts++;
+  else if (reward === 'science') {
+    s.science += K.FIND_SCIENCE;
+    if (!s.offer) s.cargoProgress = Math.min(0.99, s.cargoProgress + K.FIND_CARGO_BOOST);
+  } else s.life = Math.min(100, s.life + K.FIND_SUPPLIES);
+  log(s, 'good', `Discovery: ${title}!`);
+  return s;
 }
 
 /** Earth says thanks for a finished mini-mission: a spare part, or a small crate of supplies. */
@@ -370,6 +394,14 @@ function stepEvents(s: GameState) {
   }
 }
 
+/** What hurt this astronaut most. */
+export const causeOf = (c: CrewState): Cause => (Object.keys(c.hurtBy) as Cause[]).sort((a, b) => c.hurtBy[b] - c.hurtBy[a])[0];
+export const CAUSE_LINE: Record<Cause, string> = {
+  air: 'The air ran out.',
+  cold: 'It was too cold for too long.',
+  radiation: 'Too much radiation got through.',
+};
+
 function hurt(c: CrewState, cause: Cause, amount: number) {
   c.health -= amount;
   c.hurtBy[cause] += amount;
@@ -417,7 +449,8 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
     const cap = maxHealth(c.dose, K.CAREER_LIMIT);
     const stable = stage === 0 && !cold && c.sick < 0.15;
     const before = c.health;
-    if (stable) c.health += (care ? 12 * care : c.at === 'hab' ? 4.5 : 3) * dt;
+    const medic = leadIs(s, 'Medic') ? K.MEDIC_HEAL_BOOST : 1;
+    if (stable) c.health += (care ? 12 * care : c.at === 'hab' ? 4.5 : 3) * medic * dt;
     if (c.health > cap) {
       if (before > cap) c.hurtBy.radiation += before - cap;
       c.health = cap;
@@ -431,6 +464,12 @@ function stepCrew(s: GameState, dt: number, air: boolean, heat: boolean, rate: n
       c.health = 0;
       c.out = true;
       c.say = null;
+      c.diedAt = s.time;
+      s.stats.lost++;
+      s.pulse.died++;
+      s.griefUntil = s.time + K.GRIEF_SOLS;
+      log(s, 'bad', `${c.name} did not survive. ${CAUSE_LINE[causeOf(c)]}`);
+      for (const mate of s.crew) if (!mate.out) { mate.lastSaid = ''; speak(s, mate, 'grief', 'bad'); }
     }
   }
 }
@@ -469,7 +508,7 @@ export function step(prev: GameState, dt: number): GameState {
   const research = lab && workersIn(s, lab.id).some((c) => !isFainted(c)) ? staffing(s, lab) : 0;
   s.science += K.SCIENCE_PER_SOL * research * dt;
   if (!s.offer && s.time < K.MISSION_SOLS - 1) {
-    s.cargoProgress += (dt / K.CARGO_SOLS) * (1 + K.LAB_CARGO_BOOST * research);
+    s.cargoProgress += (dt / K.CARGO_SOLS) * (1 + K.LAB_CARGO_BOOST * research) * (leadIs(s, 'Scientist') ? K.SCIENTIST_CARGO_BOOST : 1);
     if (s.cargoProgress >= 1) {
       s.cargoProgress = 1;
       s.offer = makeOffer(s);
@@ -502,12 +541,14 @@ export function step(prev: GameState, dt: number): GameState {
 
   stepCrew(s, dt, air, heat, rate);
 
-  const lost = s.crew.find((c) => c.out);
-  if (lost) {
+  // The mission ends if the commander dies, or if nobody is left.
+  const lead = s.crew.find((c) => c.commander);
+  const ended = (lead && lead.out) || s.crew.every((c) => c.out);
+  if (ended) {
     s.status = 'lost';
-    const h = lost.hurtBy;
-    s.lostCause = (Object.keys(h) as Cause[]).sort((a, b) => h[b] - h[a])[0];
-    log(s, 'bad', `${lost.name} had to be rushed to the emergency return ship. Mission over.`);
+    const last = lead && lead.out ? lead : s.crew[s.crew.length - 1];
+    s.lostCause = causeOf(last);
+    log(s, 'bad', lead && lead.out ? `Commander ${lead.name} is gone. Mission over.` : 'No crew left. Mission over.');
   } else if (s.time >= K.MISSION_SOLS + 1) {
     s.status = 'won';
     s.time = K.MISSION_SOLS + 1;

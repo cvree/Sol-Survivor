@@ -277,6 +277,15 @@ export const sfx = {
   patch: () => { noise(0.14, 0.14, 4000, 800, 0, 3); tone(220, 0.05, 'square', 0.06, undefined, 0.16); tone(220, 0.05, 'square', 0.06, undefined, 0.26); tone(587, 0.2, 'triangle', 0.07, 880, 0.38); },
   /** The lander's engines on the way down, then touchdown. */
   descent: () => { noise(2.1, 0.22, 500, 1800, 0, 1.5); tone(70, 2.1, 'sawtooth', 0.06, 120); noise(0.3, 0.35, 600, 50, 2.1); tone(90, 0.3, 'sine', 0.3, 40, 2.1); },
+  /** A discovery: a sparkly run up the scale and a shimmer. */
+  discover: () => {
+    bumpCombo();
+    [0, 2, 4, 5, 7, 9].forEach((n, i) => tone(SCALE[n + 2], 0.18, 'triangle', 0.06, undefined, i * 0.06));
+    tone(SCALE[12], 0.9, 'sine', 0.035, undefined, 0.36);
+    noise(0.5, 0.03, 9000, 3000, 0.3, 4);
+  },
+  /** Losing a crewmate: slow, low, gentle. */
+  mourn: () => [330, 294, 262, 196].forEach((f, i) => tone(f, 0.7, 'sine', 0.07, undefined, i * 0.45)),
   /** Perfect power: a short bright chord, like the base humming in tune. */
   tuned: () => [523, 659, 784].forEach((f) => tone(f, 0.6, 'sine', 0.035)),
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.07, undefined, i * 0.14)),

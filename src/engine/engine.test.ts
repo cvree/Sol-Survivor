@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, START_SPARE_PARTS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, buildableCells, createGame, grantReward, lifeFlow, patch, power, shieldCover, step, toggleModule, wear } from './engine';
+import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
+import { acceptCargo, assign, build, buildableCells, collectFind, createGame, grantReward, lifeFlow, patch, power, shieldCover, step, toggleModule, wear } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
@@ -134,10 +134,11 @@ describe('simulation rules', () => {
     const oxy = s.modules.find((m) => m.kind === 'oxygen')!.id;
     s = toggleModule(s, oxy).state;
     const before = power(s).used;
+    const parts = s.spareParts;
     const r = patch(s, oxy);
     expect(r.ok).toBe(true);
     s = r.state;
-    expect(s.spareParts).toBe(START_SPARE_PARTS - 1);
+    expect(s.spareParts).toBe(parts - 1);
     expect(s.modules.find((m) => m.id === oxy)!.on).toBe(true);
     expect(power(s).used).toBe(before);
     for (let i = 0; i < (PATCH_SOLS + 0.2) / 0.05; i++) s = step(s, 0.05);
@@ -166,5 +167,32 @@ describe('simulation rules', () => {
     expect(s.stats.goals).toBe(1);
     expect(nextGoal(s, GOALS.map((x) => x.id))).toBeNull();
     expect(nextGoal(s, [g.id])).not.toBeNull();
+  });
+
+  it('a crewmate can die and the base carries on, but losing the commander ends the mission', () => {
+    let s = createGame(5, catalog, 1, 'easy', 'kofi');
+    expect(s.crew[0].commander).toBe(true);
+    s.crew[1].noAir = 9;
+    s.crew[1].hurtBy.air = 50;
+    s = step(s, 0.05);
+    expect(s.crew[1].out).toBe(true);
+    expect(s.status).toBe('playing');
+    expect(s.stats.lost).toBe(1);
+    expect(s.griefUntil).toBeGreaterThan(s.time);
+    s.crew[0].noAir = 9;
+    s = step(s, 0.05);
+    expect(s.status).toBe('lost');
+  });
+
+  it('each commander brings their own perk', () => {
+    expect(createGame(5, catalog, 1, 'easy', 'ada').spareParts).toBeGreaterThan(createGame(5, catalog, 1, 'easy', 'mei').spareParts);
+    expect(createGame(5, catalog, 1, 'easy', 'kofi').blueprints).toContain('hydro');
+  });
+
+  it('a discovery pays out', () => {
+    const s = createGame(5, catalog);
+    expect(collectFind(s, 'science', 'Test').cargoProgress).toBeGreaterThan(s.cargoProgress);
+    expect(collectFind(s, 'supplies', 'Test').life).toBeGreaterThan(s.life);
+    expect(collectFind(s, 'part', 'Test').stats.finds).toBe(1);
   });
 });

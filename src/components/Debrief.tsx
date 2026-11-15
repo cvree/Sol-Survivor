@@ -35,6 +35,8 @@ function wins(game: GameState, sols: number, blocked: number | null): string[] {
   else if (blocked !== null && blocked >= 40) out.push(`Your shield blocked ${blocked}% of the storm radiation.`);
   if (game.stats.goals > 0) out.push(`You finished ${n(game.stats.goals, 'mini-mission', 'mini-missions')}.`);
   if (game.stats.patches > 0) out.push(`You jury-rigged ${n(game.stats.patches, 'fix', 'fixes')} with spare parts. The Apollo 13 crew would be proud.`);
+  if (game.stats.finds > 0) out.push(`You made ${n(game.stats.finds, 'discovery', 'discoveries')} out in the crater.`);
+  if (game.stats.lost === 0 && sols >= 10) out.push('You did not lose a single crewmate.');
   if (game.modules.length >= 6) out.push(`You grew the base to ${game.modules.length} modules.`);
   if (game.science >= 5) out.push(`Your lab sent ${Math.floor(game.science)} points of science back to Earth.`);
   if (game.stats.brownouts === 0 && sols >= 8) out.push('Not one brownout. You balanced the power yourself.');
@@ -111,7 +113,7 @@ export function Debrief({ game }: { game: GameState }) {
         <div className="lesson">
           <small>Flight Director's note</small>
           {won && (worst.n < 20 || stars === 3 || (worst.k === 'radiation' && (blocked ?? 0) >= 85)) ? `${game.crew.length} astronauts, ${game.modules.length} modules, ${MISSION_SOLS} sols. Every trade-off you made kept them alive. Outstanding work.` : lesson(game, won ? worst.k : cause, won)}
-          {!won && ' Everyone is safe on the return ship, and every commander learns this way.'}
+          {!won && (game.crew.find((c) => c.commander)?.out ? ` Commander ${game.crew.find((c) => c.commander)!.name} did not survive, so the mission ended. Every commander learns this way. Try again!` : ' Every commander learns this way. Try again!')}
         </div>
 
         <div className="review">
@@ -139,6 +141,8 @@ export function Debrief({ game }: { game: GameState }) {
               <li><span>Mini-missions done</span><b>{game.stats.goals}</b></li>
               {blocked !== null && <li><span>Storm radiation blocked</span><b>{blocked}%</b></li>}
               <li><span>Patches used</span><b>{game.stats.patches}</b></li>
+              <li><span>Discoveries</span><b>{game.stats.finds}</b></li>
+              <li><span>Crew lost</span><b>{game.stats.lost}</b></li>
               <li><span>Time with no air</span><b>{game.stats.airOutSols.toFixed(1)} sols</b></li>
               <li><span>Time with no heat</span><b>{game.stats.coldSols.toFixed(1)} sols</b></li>
             </ul>
@@ -150,7 +154,7 @@ export function Debrief({ game }: { game: GameState }) {
               {game.crew.map((c) => (
                 <li key={c.id}>
                   <Astronaut who={c} look={lookOf(c)} bust size={36} />
-                  <span><b>{c.name}</b>, {c.role} · health {Math.round(c.health)}/{Math.round(maxHealth(c.dose, CAREER_LIMIT))}<small>{Math.round(c.dose)} mSv, {Math.max(0, Math.floor(game.time - c.arrived))} sols on Mars</small></span>
+                  <span><b>{c.name}</b>{c.commander ? ' (commander)' : ''}, {c.role} · {c.out ? <em className="gone-tag">did not survive</em> : <>health</>} {c.out ? '' : ` ${Math.round(c.health)}/${Math.round(maxHealth(c.dose, CAREER_LIMIT))}`}<small>{Math.round(c.dose)} mSv, {Math.max(0, Math.floor(game.time - c.arrived))} sols on Mars</small></span>
                 </li>
               ))}
             </ul>

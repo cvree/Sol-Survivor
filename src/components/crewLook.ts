@@ -19,7 +19,7 @@ export function lookOf(c: CrewState): Look {
 /** One short phrase on how they are, in a child's words. */
 export function feeling(c: CrewState): string {
   const stage = hypoxiaStage(c.noAir);
-  if (c.out) return 'Evacuated';
+  if (c.out) return 'Did not survive';
   if (stage === 3) return 'Fainted: no air';
   if (stage === 2) return 'Can barely breathe';
   if (stage === 1) return 'Dizzy: air is thin';

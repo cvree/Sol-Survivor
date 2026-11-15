@@ -46,7 +46,12 @@ export interface CrewState {
   /** Sols of breathing empty air. Drives the hypoxia stages. */
   noAir: number;
   hurtBy: Record<Cause, number>;
+  /** Did not survive. Death is permanent: the crew carries on without them. */
   out: boolean;
+  /** The player's own astronaut. If the commander dies, the mission is over. */
+  commander: boolean;
+  /** Game time of death, or null. */
+  diedAt: number | null;
   say: { text: string; until: number; mood: 'bad' | 'good' } | null;
   lastSaid: string;
 }
@@ -93,6 +98,10 @@ export interface Stats {
   goals: number;
   /** Jury-rig patches used. */
   patches: number;
+  /** Discoveries collected around the base. */
+  finds: number;
+  /** Crew who did not survive. */
+  lost: number;
 }
 
 export interface GameState {
@@ -118,10 +127,12 @@ export interface GameState {
   science: number;
   /** Spare parts for jury-rig patches. A patch runs a dead module for a short while with no power. */
   spareParts: number;
+  /** Until this game time the crew are grieving a lost crewmate, and work a little slower. */
+  griefUntil: number;
   log: LogEntry[];
   stats: Stats;
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
-  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number };
+  pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number; died: number };
   nextId: number;
 }
 

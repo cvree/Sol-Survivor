@@ -37,6 +37,14 @@ Built since this plan was written (all of P0, see section 5):
 - Mission log ticker with M.A.R.V. and crew one-liners (`data/chatter.ts`, `Ticker.tsx`), crew quirks, and a mission-control debrief.
 - Screens: `docs/drafts/p0-*.png`.
 
+Built in the second pass (explore and stakes):
+
+- A world 2.6 screens wide: drag, fling, scroll or use the edge arrows and mini-map to explore. Parallax hills, Mount Sharp on the horizon (`lib/camera.ts`, `Explore.tsx`).
+- Twelve discoveries, all real things Curiosity has seen in Gale Crater, collected into an album that keeps between missions (`data/discoveries.ts`, `Finds.tsx`, `Album.tsx`).
+- Choose your commander (one of each specialist, each with a perk), a four-card briefing, and hands-on coaching that waits for the player to do each step (`CommanderPick.tsx`, `Briefing.tsx`, `coach.ts`).
+- Crew can die. A gentle "did not survive" card says what would have saved them, a memorial appears in the yard, and the crew grieve for 2 sols.
+- Combo pop-ups where you click.
+
 Known gaps:
 
 | Gap | Detail |
@@ -158,7 +166,7 @@ Blocked by: the DONKI snapshot (item 8 and 10 need real records).
 - **Type:** Fredoka for everything friendly; Space Mono only for data, numbers and NASA records.
 - **Motion:** spring in (stiffness about 300, damping 13 to 20), press down on tap, overshoot on arrival. Every state change animates. Respect reduced motion.
 - **Words:** one instruction at a time from M.A.R.V. Sentences a seven-year-old can read. Science words get a tooltip from `src/data/glossary.ts`.
-- **Input:** click only. No drag and drop.
+- **Input:** click first. Dragging the ground to look around is an extra (added at Connor's request); every place can also be reached with the edge arrows, the mini-map or the arrow keys. No drag and drop of items.
 - **Honesty:** anything simplified is listed in the Science Log under "What we changed to make it a game". Never present saved data as live.
 
 ## 7. Goal drafts
@@ -207,6 +215,6 @@ Suggested opening message for the new chat:
 ## 10. Decisions Connor still needs to make
 
 - Should the 60-second "pack the lander" phase come back as an optional start?
-- Is one evacuated astronaut still the end of the mission, or should the base limp on?
+- ~~Is one evacuated astronaut still the end of the mission?~~ Decided: crew can really die. The base carries on short-handed (with a short spell of grief), and the mission ends only if the commander you picked dies or nobody is left.
 - Are cosmetics worth the build time before the hackathon deadline, or should Storm Cards be the only collectible?
 - What is the submission deadline? P1 and P2 should be cut to fit it.
