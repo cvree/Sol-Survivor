@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Brain, Compass, Rocket, Satellite, Trophy } from 'lucide-react';
 import { DailyCheck } from './DailyCheck';
 import { RecordsPanel } from './Records';
-import { loadDaily } from '../lib/daily';
+import { ALL_WORDS, loadDaily, loadLog } from '../lib/daily';
 import { FINDS } from '../data/discoveries';
 import { AlbumPanel } from './Album';
 import { hasDonki } from '../data/records';
@@ -56,7 +56,7 @@ export function TitleScreen() {
           <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => begin()}><Rocket /> Play</motion.button>
           <motion.button className="btn btn-nasa" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'data' })}><Satellite /> Science Log</motion.button>
           <motion.button className="btn btn-finds" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'finds' })}><Compass /> Discoveries {album.length}/{FINDS.length}</motion.button>
-          <motion.button className={`btn btn-daily ${loadDaily().done ? '' : 'fresh'}`} whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'daily' })}><Brain /> Daily Sol Check{loadDaily().done ? (loadDaily().won ? ' ✓' : '') : '!'}</motion.button>
+          <motion.button className={`btn btn-daily ${loadDaily().done ? '' : 'fresh'}`} whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'daily' })}><Brain /> {loadDaily().done ? <>Word games <small className="btn-count">{loadLog().length}/{ALL_WORDS.length}</small></> : 'Daily Sol Check!'}</motion.button>
           <motion.button className="btn btn-records" whileTap={{ scale: 0.95 }} onClick={() => open({ type: 'records' })}><Trophy /> Records</motion.button>
         </div>
 

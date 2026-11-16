@@ -93,6 +93,7 @@ Eighth pass (Connor's fixes: quieter music, Esc menu, building you can watch, ch
 - Every plan you pick is yours at once: unpacking a lander marks out a building site for each chosen plan (yard gear included; before, a Solar Field or Battery plan had no green spot, so only one choice could be built). When a builder finishes and has energy left, they walk on to the next empty site by themselves ("Builders keep going", on by default).
 - The lander card answers each pick: M.A.R.V. says what it changes, and "Your base after this lander" shows the new modules dropping into a skyline and what changes (power, air, warm beds, storm shield, crew). Tapping a third plan swaps out the oldest pick.
 - Training is now two lessons (start, builder); the "tap the green spot" step is gone because plans place themselves.
+- Word games after the Daily Sol Check (`DailyCheck.tsx`, `lib/daily.ts`): three tabs, Today, Practice and Word Log. Practice words come in three sizes (Cadet 4 letters, Pilot 5, Commander 6), unlimited, preferring words not found yet. Every solved word goes into the Word Log with its fact (82 words in all); locked words show as padlocks. Ranks climb with words found (Word Cadet, Pilot, Explorer, Commander, Wizard, Space Word Legend), plus played, solved and best-tries stats. Only today's word gives the mission head start. No streaks, so missing a day costs nothing. Today's word list is unchanged, so nobody's daily word moved.
 
 Known gaps:
 
