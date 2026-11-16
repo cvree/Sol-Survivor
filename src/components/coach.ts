@@ -93,6 +93,9 @@ export const LESSONS: Lesson[] = [
     id: 'night', when: (s) => !!s.game && s.game.time - Math.floor(s.game.time) >= 0.72 && s.game.time > 1.5,
     steps: [
       { say: () => 'Night is falling. Astronauts sleep best at night, and working in the dark tires them out.', target: 'none', pause: true },
+      // REAL: a sol is 24 h 39 min 35 s, and a Mars year is 687 Earth days (NASA Mars facts).
+      { say: () => 'A day on Mars is called a sol. It is 24 hours and 40 minutes long, a little longer than a day on Earth.', target: 'none', pause: true },
+      { say: () => 'A year on Mars is much longer: 687 Earth days. That is almost two of your birthdays!', target: 'none', pause: true },
     ],
   },
   {

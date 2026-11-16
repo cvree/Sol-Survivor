@@ -5,6 +5,7 @@ import { PICKUP } from '../data/characters';
 import { useGame } from '../store/game';
 import { follow, panBy, useCamera } from './camera';
 import { sfx } from './sound';
+import { carry, pickUp, putDown, shake } from './movement';
 
 /**
  * Moving astronauts around, by hand.
@@ -14,7 +15,9 @@ import { sfx } from './sound';
  *    could go lights up with what they would do there, and letting go sends them.
  *  - Tap, then tap: tap an astronaut to pick them, then tap a glowing place.
  *
- * Either way they then walk there for real (see `CrewWalkers` in Walk.tsx).
+ * Either way they then walk there for real, from where they stand (see lib/movement.ts).
+ * Dragged astronauts are carried by their one real body: let go, and they are set down right
+ * there, then walk to the job.
  */
 interface DragState {
   /** Astronaut being dragged right now. */
@@ -29,8 +32,6 @@ interface DragState {
   ok: boolean;
   /** What they said when picked up. */
   line: string;
-  /** A bad drop: the astronaut flies back home from here. */
-  back: { id: string; x: number; y: number; at: number } | null;
   /** A good drop: a puff of dust where they are heading. */
   landed: { target: string; at: number } | null;
   /** Someone who just shook their head at a bad drop. */
@@ -40,7 +41,7 @@ interface DragState {
   /** While dragging over open crater ground: where they would walk to (screen x). */
   ground: number | null;
 }
-export const useDrag = create<DragState>(() => ({ id: null, sel: null, x: 0, y: 0, vx: 0, over: null, ok: false, line: '', back: null, landed: null, nope: null, cheer: null, ground: null }));
+export const useDrag = create<DragState>(() => ({ id: null, sel: null, x: 0, y: 0, vx: 0, over: null, ok: false, line: '', landed: null, nope: null, cheer: null, ground: null }));
 
 /** The astronaut whose possible places should light up: being dragged, or picked with a tap. */
 export const useHolding = () => useDrag((d) => d.id ?? d.sel);
@@ -175,10 +176,11 @@ export function tapPlace(target: string): boolean {
   return true;
 }
 
-/** Shake their head, say why not. */
-function refuse(crewId: string) {
+/** Shake their head, say why not. A dropped astronaut shakes it once they have landed. */
+function refuse(crewId: string, now = true) {
   const c = useGame.getState().game?.crew.find((x) => x.id === crewId);
   sfx.nope();
+  if (now) shake(crewId);
   useDrag.setState({ nope: { id: crewId, at: Date.now() } });
   if (c) useGame.setState({ notice: { text: c.energy <= 25 && !c.exhausted ? `${c.name} is too tired for that. Let them sleep first.` : `${c.name} cannot go there. Try a glowing place!`, at: Date.now() } });
 }
@@ -239,9 +241,11 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
       useGame.getState().pick(null);
       sfx.pickup();
       useDrag.setState({ sel: null, line: lineFor(crewId) });
+      pickUp(crewId, ev.clientX, ev.clientY);
       raf = requestAnimationFrame(edgePan);
     }
     if (!dragging) return;
+    carry(crewId, ev.clientX, ev.clientY);
     if (ev.cancelable) ev.preventDefault();
     const now = performance.now();
     const vx = (ev.clientX - lastX) / Math.max(8, now - lastT);
@@ -265,12 +269,13 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
     useDrag.setState({ id: null, over: null, ok: false, vx: 0, ground: null });
     justDragged = true;
     setTimeout(() => { justDragged = false; }, 0);
+    carry(crewId, ev.clientX, ev.clientY);
     // Put back where they were: a gentle landing, no fuss.
-    if (sameSpot(crewId, under)) { sfx.land(); return; }
-    if (over && sendTo(crewId, over)) return;
-    // A bad drop: they bounce back home, shaking their head.
-    useDrag.setState({ back: { id: crewId, x: ev.clientX, y: ev.clientY, at: Date.now() } });
-    refuse(crewId);
+    if (sameSpot(crewId, under)) { putDown(crewId, false); sfx.land(); return; }
+    if (ev.type !== 'pointercancel' && over && sendTo(crewId, over)) { putDown(crewId, false); return; }
+    // A bad drop: they are set down here, shake their head, and walk back.
+    putDown(crewId, true);
+    refuse(crewId, false);
   };
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);

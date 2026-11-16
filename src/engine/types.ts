@@ -100,9 +100,9 @@ export interface CrewState {
   diedAt: number | null;
   /** Out in the crater on a job, or null when at the base. */
   trip: Trip | null;
-  /** Sols until they have walked over to the place they were sent. Not working until then. */
+  /** Sols until they have walked over to the place they were sent (above 0 while walking). Not working until then. */
   arriving: number;
-  /** Where they last walked from (a module id, 'hab', or 'out' for the crater), so the screen can draw the walk. */
+  /** Where they last walked from (a module id, 'hab', 'out' for the airlock or 'pad' for a lander). */
   walkFrom: string;
   /** How long that walk takes in total, in sols. */
   walkTotal: number;
@@ -206,6 +206,12 @@ export interface GameState {
   nextId: number;
   /** Builders walk on to the next building site by themselves when they finish one (a player setting; on unless false). */
   autoBuild?: boolean;
+  /**
+   * The screen is moving the astronauts. Walks then end only when the screen says someone got
+   * there (`arrive`, `tripReached`), so the rules never run ahead of what the player sees.
+   * Off for tests and the simulated players, where walks take `walkSols` / `walkTime`.
+   */
+  liveWalk?: boolean;
 }
 
 export interface PowerInfo {

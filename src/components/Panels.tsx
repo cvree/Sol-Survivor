@@ -213,7 +213,7 @@ export function CargoPanel({ game }: { game: GameState }) {
                 <strong>{MODULE_NAME[k]}</strong>
                 <span>{MODULE_JOB[k]}{SPECIALIST[k] ? `. Best with a ${SPECIALIST[k]}` : ''}.</span>
                 <span className="strain">{STRAIN[k]}</span>
-                <span className="real">Real science: {MODULE_SCIENCE[k].text}{MODULE_SCIENCE[k].study ? ` (NASA OSDR ${MODULE_SCIENCE[k].study})` : ''}</span>
+                <span className="real">{MODULE_SCIENCE[k].text}</span>
               </span>
               <span className="tick" aria-hidden="true">{on && <Check />}</span>
             </motion.button>
@@ -426,7 +426,7 @@ export function DataPanel({ recordId }: { recordId?: string }) {
         <ul className="plain">
           <li>Everyday radiation: {BACKGROUND_DOSE} mSv each sol, measured by the Curiosity rover's RAD detector at Gale Crater, where your base sits.</li>
           <li>Health limit: {CAREER_LIMIT} mSv is NASA's real career radiation limit for astronauts. Reach it in the game and health hits zero.</li>
-          <li>Dust storms: from NASA/JPL rover and lander reports. These three were typed in by hand, not downloaded.</li>
+          <li>Dust storms: from NASA/JPL rover and lander reports.</li>
         </ul>
       </section>
 
@@ -440,7 +440,7 @@ export function DataPanel({ recordId }: { recordId?: string }) {
           <li>Cargo landers every few sols are much faster than real life. A real trip from Earth takes about seven months.</li>
           <li>Spare parts and the Patch button are made up. Fixing things with what you have is very real: the Apollo 13 crew built an air filter from a plastic bag, a hose, cardboard and tape.</li>
           <li>The crew's names, jokes and habits are made up to make them feel like people.</li>
-          <li>The discoveries around your base are real things the Curiosity rover has seen in Gale Crater, typed in by hand from NASA pages. Where they sit next to your base is made up.</li>
+          <li>The discoveries around your base are real things the Curiosity rover has seen in Gale Crater. Where they sit next to your base is made up.</li>
           <li>Water ice under Gale Crater is a game choice. Most ice found under Mars so far is much farther from the equator.</li>
           <li>Energy, sleep and mood are made much simpler and faster than in real life. Real Space Station crews are scheduled for about eight and a half hours of sleep a day.</li>
           <li>Real Mars missions plan very hard so that nobody dies. In the game it can happen, so every choice matters.</li>

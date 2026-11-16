@@ -476,27 +476,50 @@ export function cancelSite(prev: GameState, id: string): GameState {
   return s;
 }
 
-/** Where a place sits in the base: a column (the yard is left of column 0) and a row (1 = dug in below). */
-function spotOf(s: GameState, id: string): { col: number; row: number } {
-  if (id === 'out') return { col: K.HAB_CELL, row: 0 };
+/**
+ * Where a place sits, for working out walk times when nothing is drawing: a column (the yard is
+ * left of column 0, the airlock just left of the base, the landing pad right of it), a row
+ * (1 = dug in below) and whether it is outside the airlock.
+ */
+function spotOf(s: GameState, id: string): { col: number; row: number; outside: boolean } {
+  if (id === 'out') return { col: -0.6, row: 0, outside: true };
+  if (id === 'pad') return { col: K.GRID_COLS + 0.6, row: 0, outside: true };
   const m = s.modules.find((x) => x.id === id) ?? (id === 'hab' ? s.modules.find((x) => x.kind === 'pod') : undefined);
-  if (!m) return { col: K.HAB_CELL, row: 0 };
-  if (m.cell >= K.YARD_CELL) return { col: -1 - (m.cell - K.YARD_CELL) * 0.6, row: 0 };
-  return { col: m.cell % K.GRID_COLS, row: m.cell < K.GRID_COLS ? 0 : 1 };
+  if (!m) return { col: K.HAB_CELL, row: 0, outside: false };
+  if (m.cell >= K.YARD_CELL) return { col: -1.2 - (m.cell - K.YARD_CELL) * 0.5, row: 0, outside: true };
+  return { col: m.cell % K.GRID_COLS, row: m.cell < K.GRID_COLS ? 0 : 1, outside: false };
 }
 
-/** How long a walk inside the base takes, in sols: further away, and down a ladder, takes longer. */
+/**
+ * Walking speed on screen, pixels per real second at 1x. Walking runs on the game clock like
+ * everything else, so it is one steady speed all mission long, and brisker on harder settings
+ * where the sols are shorter.
+ */
+export const walkSpeed = (d: Difficulty) => (K.WALK_SPEED * K.SOL_SECONDS.easy) / K.SOL_SECONDS[d];
+export const climbSpeed = (d: Difficulty) => (K.CLIMB_SPEED * K.SOL_SECONDS.easy) / K.SOL_SECONDS[d];
+/** Real seconds of walking (at the Easy pace) to sols. */
+const secondsToSols = (_s: GameState, easySeconds: number) => easySeconds / K.SOL_SECONDS.easy;
+
+/**
+ * How long a walk takes, in sols: the length of the way there (along the floor, through the
+ * airlock door, up and down ladders) at one steady walking speed. The screen moves people at
+ * the same speed, so a short walk and a long walk look the same.
+ */
 export function walkSols(s: GameState, from: string, to: string): number {
   const a = spotOf(s, from);
   const b = spotOf(s, to);
+  const door = -0.6;
+  // Going in or out goes through the airlock door.
+  const across = a.outside === b.outside ? Math.abs(a.col - b.col) : Math.abs(a.col - door) + Math.abs(door - b.col);
   const ladders = a.row === b.row ? (a.row === 1 && a.col !== b.col ? 2 : 0) : 1;
-  return K.WALK_BASE + Math.abs(a.col - b.col) * K.WALK_PER_COL + ladders * K.WALK_LADDER;
+  return secondsToSols(s, (across * K.NOMINAL_COL_PX) / K.WALK_SPEED + (ladders * K.NOMINAL_LADDER_PX) / K.CLIMB_SPEED);
 }
 
 /**
  * Start a walk from where they are to a new place. Work starts when they get there.
  * Sent somewhere new halfway through a walk? They turn round where they stand, so the
- * time is worked out from that spot (the screen draws the walk from there too).
+ * time is worked out from that spot. On screen (`liveWalk`) the walk ends when the screen
+ * says they arrived; the time here is only an estimate then.
  */
 function walk(s: GameState, c: CrewState, to: string, from = c.at) {
   let t = walkSols(s, from, to);
@@ -505,22 +528,32 @@ function walk(s: GameState, c: CrewState, to: string, from = c.at) {
     t = k * t + (1 - k) * walkSols(s, c.walkFrom, to);
   }
   c.walkFrom = from;
-  c.walkTotal = t;
-  c.arriving = t;
+  c.walkTotal = Math.max(t, 1e-3);
+  c.arriving = Math.max(t, 1e-3);
   c.at = to;
+}
+
+/** The screen says this astronaut has walked all the way to where they were sent. Work starts now. */
+export function arrive(prev: GameState, id: string): GameState {
+  const c0 = prev.crew.find((c) => c.id === id);
+  if (!c0 || c0.out || c0.arriving <= 0 || c0.trip || prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  s.crew.find((c) => c.id === id)!.arriving = 0;
+  return s;
 }
 
 // ---------- jobs out in the crater ----------
 
-/** How long it takes to walk from the base to a spot in the crater (0-1 across the world). */
-export const walkTime = (x: number, rover = false, from = 0.5) => (K.WALK_BASE + Math.abs(x - from) * 2 * K.WALK_FAR) / (rover ? K.ROVER_SPEED : 1);
-/** Where a trip is right now, 0-1 across the crater. */
+/** How long it takes to walk (or drive) between two spots in the crater (0-1 across the world), in sols. */
+export const walkTime = (s: GameState, x: number, rover = false, from: number = K.AIRLOCK_X) =>
+  secondsToSols(s, (Math.abs(x - from) * K.NOMINAL_WORLD_PX) / (K.WALK_SPEED * (rover ? K.ROVER_SPEED : 1)));
+/** Where a trip is right now, 0-1 across the crater (the engine's own estimate; the screen knows exactly). */
 export function tripPos(t: Trip): number {
   const k = t.total > 0 ? 1 - Math.max(0, t.left) / t.total : 1;
-  const start = t.from ?? 0.5;
+  const start = t.from ?? K.AIRLOCK_X;
   if (t.phase === 'out') return start + (t.x - start) * k;
   if (t.phase === 'work') return t.x;
-  return t.x + (0.5 - t.x) * k;
+  return t.x + (K.AIRLOCK_X - t.x) * k;
 }
 /** The base sits in the middle of the crater. Anywhere closer than this counts as the base itself. */
 export const BASE_HALF = 0.12;
@@ -541,8 +574,8 @@ export function sendOut(prev: GameState, who: string, job: Trip['job'], x: numbe
   const rover = who === 'rover';
   // Already out in the crater? Change course from wherever they are now.
   const now = rover ? s.rover?.trip : s.crew.find((m) => m.id === who)?.trip;
-  const from = now ? tripPos(now) : 0.5;
-  const t = walkTime(x, rover, from);
+  const from = now ? tripPos(now) : K.AIRLOCK_X;
+  const t = walkTime(s, x, rover, from);
   const trip: Trip = { phase: 'out', left: t, total: t, x, job, carry: now?.carry ?? 0, ...(now ? { from } : {}) };
   if (rover) {
     if (!s.rover || (s.rover.trip && s.rover.trip.phase === 'work' && s.rover.trip.job.kind !== 'go')) return { state: prev, ok: false, reason: 'The rover is busy.' };
@@ -593,7 +626,7 @@ export function recall(prev: GameState, who: string, then?: string): GameState {
   const t = rover ? s.rover!.trip! : s.crew.find((c) => c.id === who)!.trip!;
   const pos = tripPos(t);
   // Turn around: the walk home is drawn from the far spot, so set the clock to start where they stand.
-  const total = walkTime(pos, rover);
+  const total = walkTime(s, pos, rover);
   t.x = pos;
   delete t.from;
   t.phase = 'back';
@@ -722,6 +755,8 @@ export function acceptCargo(prev: GameState, picks: ModuleKind[], crewId?: strin
   const who = crewId === null ? null : offer.crewOptions.find((r) => r.id === crewId) ?? offer.crewOptions[0] ?? null;
   if (who) {
     const c = newCrew(who, s.time, 'hab', makeRng(s.seed + offer.number).range(0.88, 1.12));
+    // They climb out of the lander and walk over to the base.
+    walk(s, c, 'hab', 'pad');
     c.say = { text: (VOICE[c.id]?.hello ?? LINES.hello)[0], until: s.time + 0.9, mood: 'good' };
     s.crew.push(c);
     log(s, 'good', `${c.name} the ${c.role} has landed.`);
@@ -861,7 +896,8 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, stor
     // Energy: work uses it, sleep fills it. Night makes both stronger.
     const night = isNight(s);
     const room = s.modules.find((m) => m.id === c.at);
-    if (c.arriving > 0) c.arriving = Math.max(0, c.arriving - dt);
+    // On screen, a walk ends when the screen says they arrived (`arrive`).
+    if (c.arriving > 0 && !s.liveWalk) c.arriving = Math.max(0, c.arriving - dt);
     const resting = !outside && (c.exhausted || c.at === 'hab' || (inBed && c.role !== 'Medic'));
     const wasTired = c.energy < 30;
     if (resting) {
@@ -951,12 +987,10 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, stor
 /** Move one trip forward: walk out, do the job, walk home. Returns true when it is finished. */
 function stepTrip(s: GameState, t: Trip, dt: number, rate: number, carry: number): boolean {
   if (t.phase === 'out') {
+    // On screen, the walk ends when the screen says they got there (`tripReached`).
+    if (s.liveWalk) return false;
     t.left -= dt;
-    if (t.left <= 0) {
-      t.phase = 'work';
-      delete t.from;
-      t.left = t.total = t.job.kind === 'find' ? K.FIND_WORK_SOLS : t.job.kind === 'mine' ? K.MINE_SOLS : 1;
-    }
+    if (t.left <= 0) startWork(t);
   } else if (t.phase === 'work') {
     // Out exploring a spot: they stay and look around until the commander calls them.
     if (t.job.kind === 'go') return false;
@@ -973,21 +1007,65 @@ function stepTrip(s: GameState, t: Trip, dt: number, rate: number, carry: number
         t.carry = take;
       }
       t.phase = 'back';
-      t.left = t.total = walkTime(t.x, carry === K.ROVER_CARRY);
+      t.left = t.total = walkTime(s, t.x, carry === K.ROVER_CARRY);
     }
   } else {
+    if (s.liveWalk) return false;
     t.left -= dt;
     if (t.left <= 0) {
-      if (t.carry) {
-        s.materials += t.carry;
-        s.stats.mined += t.carry;
-        s.pulse.delivered++;
-        log(s, 'good', `${t.carry} regolith bricks delivered to the base.`);
-      }
+      deliver(s, t);
       return true;
     }
   }
   return false;
+}
+
+/** At the spot: the job starts. */
+function startWork(t: Trip) {
+  t.phase = 'work';
+  delete t.from;
+  t.left = t.total = t.job.kind === 'find' ? K.FIND_WORK_SOLS : t.job.kind === 'mine' ? K.MINE_SOLS : 1;
+}
+
+/** Home from a trip: unload any bricks. */
+function deliver(s: GameState, t: Trip) {
+  if (!t.carry) return;
+  s.materials += t.carry;
+  s.stats.mined += t.carry;
+  s.pulse.delivered++;
+  log(s, 'good', `${t.carry} regolith bricks delivered to the base.`);
+}
+
+/** Back in through the airlock. If the commander picked a place while they were out, they go straight there. */
+function homeAgain(s: GameState, c: CrewState) {
+  const then = c.trip?.then;
+  c.trip = null;
+  if (then && then !== 'hab' && assign(s, c.id, then) !== s) walk(s, c, then, 'out');
+  else walk(s, c, 'hab', 'out');
+}
+
+/**
+ * The screen says a trip reached its next point: out through the airlock, at the spot in the
+ * crater (the job starts), or back home (the trip ends). `who` is a crew id or 'rover'.
+ */
+export function tripReached(prev: GameState, who: string): GameState {
+  if (prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  if (who === 'rover') {
+    const t = s.rover?.trip;
+    if (!t || t.phase === 'work') return prev;
+    if (t.phase === 'out') startWork(t);
+    else { deliver(s, t); s.rover!.trip = null; }
+    return s;
+  }
+  const c = s.crew.find((x) => x.id === who);
+  if (!c || c.out || !c.trip) return prev;
+  // Through the airlock: now the crater walk begins.
+  if (c.arriving > 0) { c.arriving = 0; return s; }
+  if (c.trip.phase === 'out') startWork(c.trip);
+  else if (c.trip.phase === 'back') { deliver(s, c.trip); homeAgain(s, c); }
+  else return prev;
+  return s;
 }
 
 export function step(prev: GameState, dt: number): GameState {
@@ -1008,13 +1086,7 @@ export function step(prev: GameState, dt: number): GameState {
       c.trip = back.crew.find((x) => x.id === c.id)!.trip ?? c.trip;
       c.say = { text: 'Getting tired. Heading home!', until: s.time + 0.6, mood: 'good' };
     }
-    if (stepTrip(s, c.trip, dt, Math.max(0.3, workRate(c)), K.CARRY)) {
-      const then = c.trip.then;
-      c.trip = null;
-      // Home again. If the commander picked a place while they were out, they go straight there.
-      if (then && then !== 'hab' && assign(s, c.id, then) !== s) walk(s, c, then, 'out');
-      else walk(s, c, 'hab', 'out');
-    }
+    if (stepTrip(s, c.trip, dt, Math.max(0.3, workRate(c)), K.CARRY)) homeAgain(s, c);
   }
   if (s.rover?.trip && stepTrip(s, s.rover.trip, dt, 1, K.ROVER_CARRY)) s.rover.trip = null;
 

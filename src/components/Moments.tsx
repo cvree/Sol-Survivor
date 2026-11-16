@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BookOpen, HeartCrack, Rocket, ShieldHalf, Sparkles, Star } from 'lucide-react';
+import { HeartCrack, Rocket, ShieldHalf, Sparkles, Star } from 'lucide-react';
 import { findById, FINDS } from '../data/discoveries';
 import { CAUSE_LINE, causeOf } from '../engine/engine';
 import type { Cause } from '../engine/types';
@@ -89,7 +89,6 @@ export function Moments() {
             <strong className="held-title find-title">{def.title}</strong>
             <span className="held-next">{def.fact}</span>
             <span className="find-reward">{(() => { const R = REWARD_TEXT[def.reward]; return <><R.Icon /> {R.text}</>; })()}</span>
-            <span className="held-real"><BookOpen /> Real Mars science, typed in by hand from NASA pages</span>
             <span className="find-ok">Awesome!</span>
           </motion.span>
         </motion.button>

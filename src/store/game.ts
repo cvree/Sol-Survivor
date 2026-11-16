@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { MODULE_NAME, acceptCargo, activeEvents, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { MODULE_NAME, acceptCargo, activeEvents, arrive, tripReached, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { saveRecord } from '../lib/records';
 import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
@@ -19,6 +19,14 @@ import { markCurio } from '../data/curios';
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SECONDS = 0.3;
 const SLOWMO_RATE = 0.25;
+
+/** Is the game clock running? It waits while the commander is learning, reading, choosing or rearranging. */
+export function clockRunning(st: Pick<Store, "game" | "paused" | "panel" | "tour" | "moment" | "editing" | "settingsOpen" | "coach">): boolean {
+  const { game, paused, panel, tour, moment, editing, settingsOpen, coach } = st;
+  return !!game && game.status === 'playing' && !paused && !panel && tour === null && !moment && !stepOf(coach)?.pause && !editing && !settingsOpen;
+}
+/** How fast the game clock runs right now: 0 when stopped, 2 at double speed, slower in a storm's last moment. */
+export const clockRate = (st: Store) => (clockRunning(st) && !st.game?.offer ? st.speed * (st.slowmo ? SLOWMO_RATE : 1) : 0);
 /** How long the big moments hold the screen, in milliseconds. */
 export const HOLD_SURVIVED = 4800;
 export const HOLD_LANDER = 2400;
@@ -176,6 +184,10 @@ interface Store {
   goTo: (crewId: string, x: number) => void;
   /** Call someone (or 'rover') back from the crater; `then` is a place in the base to go to once home. */
   recall: (who: string, then?: string) => void;
+  /** The screen walked this astronaut all the way to where they were sent (see lib/movement.ts). */
+  arrive: (crewId: string) => void;
+  /** The screen walked someone (or 'rover') through the airlock, to their spot in the crater, or home. */
+  tripReached: (who: string) => void;
   /** Pack up a building site (the plan comes back) or stop an upgrade (the bricks come back). */
   cancelSite: (id: string) => void;
   unpack: (picks: ModuleKind[], crewId?: string | null) => void;
@@ -272,7 +284,8 @@ export const useGame = create<Store>((set, get) => ({
     // Solved today's Sol Check? A sharp mind starts with a few bricks and a spare part.
     const sharp = takeBonus();
     if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
-    fresh = { ...fresh, autoBuild: useSettings.getState().autoBuilders };
+    // On screen, every walk is a real walk: the screen says when each one ends.
+    fresh = { ...fresh, autoBuild: useSettings.getState().autoBuilders, liveWalk: true };
     set({ sharpMind: sharp, editing: false, placing: null, moving: null, lastRank: 0,
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], curios: [],
       screen: 'game', game: fresh,
@@ -299,7 +312,7 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   tick: (realSeconds) => {
-    const { game, paused, panel, speed, tour, moment, goal, goalsDone, tip } = get();
+    const { game, panel, speed, tour, moment, goal, goalsDone, tip } = get();
     if (!game) return;
     if (game.status !== 'playing' || tour !== null) setMood(game.status === 'playing' ? 'calm' : 'off');
     else setMood(stormDose(game) > 0 ? 'storm' : activeEvents(game, 'dust').length ? 'dust' : game.events.some((e) => e.phase === 'warned') ? 'tension' : 'calm');
@@ -331,9 +344,8 @@ export const useGame = create<Store>((set, get) => ({
         get().setCoach({ lesson: next.id, step: 0, subject: next.subject?.(cs) });
       }
     }
-    // The clock waits while the commander is learning.
-    const learning = !!stepOf(get().coach)?.pause;
-    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning || get().editing || get().settingsOpen) return;
+    // The clock waits while the commander is learning, reading, choosing or rearranging.
+    if (!clockRunning(get())) return;
 
     // The fuse: the nearest warned storm ticks faster and higher as it closes in, then time slows.
     const now = performance.now();
@@ -357,8 +369,6 @@ export const useGame = create<Store>((set, get) => ({
     if (s.pulse.hit !== game.pulse.hit) sfx.hit();
     if (s.pulse.brownout !== game.pulse.brownout) sfx.brownout();
     if (s.pulse.built !== game.pulse.built) sfx.built();
-    // Someone got to where they were sent: a little hop.
-    if (s.crew.some((c) => c.arriving <= 0 && (game.crew.find((x) => x.id === c.id)?.arriving ?? 0) > 0 && !c.trip)) sfx.land();
     if (s.status === 'won' && game.status === 'playing') sfx.win();
     if (s.status === 'lost' && game.status === 'playing') sfx.lose();
     if (s.pulse.delivered !== game.pulse.delivered) sfx.reward();
@@ -563,6 +573,24 @@ export const useGame = create<Store>((set, get) => ({
     sfx.off();
     const name = who === 'rover' ? 'The rover' : game.crew.find((c) => c.id === who)?.name ?? 'They';
     set({ game: next, notice: { text: then ? `${name} is heading back, then straight to the new job.` : `${name} is heading back to the base.`, at: Date.now() } });
+    syncFinds();
+  },
+  arrive: (crewId) => {
+    const { game } = get();
+    if (!game) return;
+    const next = arrive(game, crewId);
+    if (next === game) return;
+    // Got there: a soft step.
+    sfx.land();
+    set({ game: next });
+  },
+  tripReached: (who) => {
+    const { game } = get();
+    if (!game) return;
+    const next = tripReached(game, who);
+    if (next === game) return;
+    if (next.pulse.delivered !== game.pulse.delivered) sfx.reward();
+    set({ game: next });
     syncFinds();
   },
   cancelSite: (id) => {

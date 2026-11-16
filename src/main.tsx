@@ -17,7 +17,7 @@ createRoot(document.getElementById('root')!).render(
 
 // Development only: lets test scripts drive the game from the browser console.
 if (import.meta.env.DEV) {
-  void Promise.all([import('./store/game'), import('./engine/engine'), import('./engine/bots')]).then(([store, engine, bots]) => {
-    Object.assign(window, { __game: store.useGame, __engine: engine, __bots: bots });
+  void Promise.all([import('./store/game'), import('./engine/engine'), import('./engine/bots'), import('./lib/movement'), import('./lib/camera'), import('./lib/crewDrag')]).then(([store, engine, bots, movement, camera, crewDrag]) => {
+    Object.assign(window, { __game: store.useGame, __engine: engine, __bots: bots, __movement: movement, __camera: camera, __drag: crewDrag });
   });
 }

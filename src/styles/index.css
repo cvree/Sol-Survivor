@@ -178,7 +178,7 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .pad::after { content: ''; position: absolute; left: -12px; right: -12px; bottom: -6px; height: 12px; border-radius: 6px; background: #5e1d22; z-index: -1; }
 .pad-crew { display: flex; gap: 2px; align-items: flex-end; }
 
-.base { position: absolute; z-index: 2; left: 2.5%; right: 2.5%; top: calc(var(--ground) - var(--row) + 8px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: var(--row) var(--row); gap: 46px 18px; }
+.base { position: absolute; z-index: 2; left: 2.5%; right: 2.5%; top: calc(var(--ground) - var(--row) + 8px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: var(--row) var(--row); --rg: 46px; gap: var(--rg) 18px; }
 .dome-glow { position: absolute; left: -1.5%; right: -1.5%; top: -34px; height: calc(var(--row) + 40px); border: 8px solid var(--color-cyan); border-bottom: 0; border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: rgba(79, 216, 255, 0.16); pointer-events: none; }
 
 .mod { position: relative; min-height: 0; --kind: var(--color-go); }
@@ -193,11 +193,10 @@ svg.lucide { width: 1.25em; height: 1.25em; stroke-width: 2.6; flex: none; }
 .mod-hit:disabled { cursor: default; }
 .mod-art { display: block; width: 100%; height: 100%; overflow: visible; }
 .unlit { filter: grayscale(1) brightness(0.45); }
-/* Chunky pressure tubes link neighbours; a ladder shaft drops from the surface. */
+/* Chunky pressure tubes link neighbours at floor level, so people walk through them. */
 .mod.link-left::before { content: ''; position: absolute; z-index: -1; left: -30px; width: 60px; background: var(--color-clean); border-block: var(--line); }
 .mod.surface.link-left::before { bottom: 9px; height: 30px; }
-.mod.under.link-left::before { top: 44%; height: 34px; }
-.mod.shaft::after { content: ''; position: absolute; z-index: -1; left: calc(50% - 20px); top: calc(100% - 8px); width: 40px; height: 62px; border-inline: var(--line); background: repeating-linear-gradient(var(--color-clean) 0 9px, var(--ink) 9px 13px); }
+.mod.under.link-left::before { bottom: 6%; height: 34px; }
 .mod.off.link-left::before { background: #6b5b98; }
 .thump { position: absolute; left: 50%; bottom: -4px; width: 60%; height: 26px; translate: -50% 0; border-radius: 50%; background: #e7b08a; pointer-events: none; animation: thump 0.7s ease-out 0.15s both; }
 .thump::after { content: ''; position: absolute; inset: -30px -40%; border: 6px solid var(--color-clean); border-radius: 50%; animation: ripple 0.8s ease-out 0.15s both; }
@@ -1057,16 +1056,10 @@ button.find::before { content: ''; position: absolute; inset: -12px; border-radi
 .dep-tag svg.lucide { width: 13px; height: 13px; }
 
 /* People and the rover out in the crater */
-.walker { position: absolute; z-index: 5; display: grid; justify-items: center; padding: 0; border: 0; background: none; cursor: pointer; transition: left 0.12s linear; }
-.walker .face-left { display: block; transform: scaleX(-1); }
-.walker-name { margin-top: -4px; padding: 0 6px; border: 2px solid var(--ink); border-radius: 6px; background: var(--color-clean); color: var(--ink); font-size: 0.7rem; font-weight: 700; }
-.walker.work::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 46px; height: 12px; translate: -50% 0; border-radius: 50%; background: rgba(231, 176, 138, 0.8); animation: blast 0.6s ease-out infinite; z-index: -1; }
-.carry { position: absolute; top: -18px; display: flex; align-items: center; gap: 2px; padding: 1px 6px; border: 2px solid var(--ink); border-radius: 999px; background: #f2c79a; color: var(--ink); font: 700 0.72rem/1 var(--font-mono); }
+.walker-name { position: absolute; left: 50%; bottom: -16px; translate: -50% 0; padding: 0 6px; white-space: nowrap; border: 2px solid var(--ink); border-radius: 6px; background: var(--color-clean); color: var(--ink); font-size: 0.7rem; font-weight: 700; }
+.body.walker.work::after { content: ''; position: absolute; left: 0; top: -6px; width: 46px; height: 12px; translate: -50% 0; border-radius: 50%; background: rgba(231, 176, 138, 0.8); animation: blast 0.6s ease-out infinite; z-index: -1; }
+.carry { position: absolute; left: 50%; top: -18px; translate: -50% 0; display: flex; align-items: center; gap: 2px; padding: 1px 6px; border: 2px solid var(--ink); border-radius: 999px; background: #f2c79a; color: var(--ink); font: 700 0.72rem/1 var(--font-mono); }
 .carry svg.lucide { width: 12px; height: 12px; }
-.rover-walker { cursor: default; }
-.rover-walker .wheel { animation: spin 0.6s linear infinite; }
-.rover-walker.work .wheel { animation: none; }
-.parked { position: absolute; left: 50%; bottom: 0; translate: -50% 0; pointer-events: none; }
 
 /* Regolith Miner bin */
 .bin-bubble { position: absolute; z-index: 6; top: -34px; right: -8px; display: flex; align-items: center; gap: 3px; padding: 4px 10px; cursor: pointer; border: 3px solid var(--ink); border-radius: 999px; background: #f2c79a; color: var(--ink); font: 700 0.9rem/1 var(--font-mono); box-shadow: 0 4px 0 var(--ink); animation: bob 1s ease-in-out infinite; }
@@ -1353,23 +1346,10 @@ button.find::before { display: none; }
 @keyframes hop { to { translate: 0 -8px; } }
 .shake-no { display: block; animation: shake-no 0.5s ease-in-out; }
 @keyframes shake-no { 20% { rotate: -14deg; } 40% { rotate: 12deg; } 60% { rotate: -9deg; } 80% { rotate: 6deg; } }
-.sprite.carried { opacity: 0.2; }
-.land-dust { position: absolute; z-index: -1; left: 50%; bottom: 0; width: 56px; height: 14px; translate: -50% 0; border-radius: 50%; background: #e7b08a; opacity: 0; animation: land-dust 0.5s ease-out; pointer-events: none; }
+.land-dust { position: absolute; z-index: -1; left: 50%; bottom: 0; width: 56px; height: 14px; translate: -50% 0; border-radius: 50%; background: #e7b08a; opacity: 0; pointer-events: none; }
 @keyframes land-dust { 0% { opacity: 0.9; scale: 0.3 1; } 100% { opacity: 0; scale: 1.6 1.2; } }
 
-/* ---------- walking to a new job ---------- */
-.crew-walkers { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-.crew-walker { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
-.cw-body { position: absolute; left: -29px; bottom: 0; display: block; transform-origin: 50% 100%; animation: waddle 0.36s ease-in-out infinite; }
-.crew-walker.face-left .cw-body { scale: -1 1; }
-.crew-walker .leg-l { animation: kick 0.18s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
-.crew-walker .leg-r { animation: kick 0.18s ease-in-out infinite alternate-reverse; transform-box: fill-box; transform-origin: 50% 0; }
-.crew-walker.climb .cw-body { animation: climb 0.3s steps(2) infinite; }
-.crew-walker.climb .arm-l { rotate: 160deg; transform-box: fill-box; transform-origin: 50% 10%; }
-.crew-walker.climb .arm-r { rotate: -160deg; transform-box: fill-box; transform-origin: 50% 10%; }
 @keyframes climb { 50% { translate: 0 -3px; } }
-.cw-dust { position: absolute; left: -10px; bottom: -2px; width: 20px; height: 8px; border-radius: 50%; background: #e7b08a; opacity: 0.8; animation: step-dust 0.36s ease-out infinite; }
-.crew-walker.climb .cw-dust { display: none; }
 @keyframes step-dust { 0% { scale: 0.4; opacity: 0.8; } 100% { scale: 1.6; opacity: 0; translate: 6px -4px; } }
 
 /* ---------- building is one tap ---------- */
@@ -1421,7 +1401,7 @@ button.find::before { display: none; }
   .header .pip { flex: 1 1 0; min-width: 3px; }
   .sol-badge, .cargo-chip, .bricks-chip { min-width: 0; padding: 0.15rem 0.45rem; }
   .scene { --row: 88px; }
-  .base { row-gap: 20px; }
+  .base { --rg: 20px; row-gap: var(--rg); }
   .minimap { display: none; }
   .edit-btn { top: 8px; bottom: auto; right: 64px; font-size: 0.8rem; padding: 0.3rem 0.7rem; }
   .drawer { grid-template-columns: minmax(0, 1fr) auto auto; min-height: 0; padding: 0.25rem 0.5rem 0.35rem; gap: 0.5rem; }
@@ -1772,9 +1752,7 @@ kbd { min-width: 3.2rem; padding: 0.3rem 0.6rem; text-align: center; font: 700 0
 .trip-flag svg.lucide { width: 34px; height: 34px; fill: var(--color-volt); stroke: var(--ink); stroke-width: 2.4; }
 .trip-flag.there { animation: none; opacity: 0.6; }
 @keyframes flag-bob { 50% { translate: 0 -6px; } }
-.walker.carried { opacity: 0.25; }
-.walker.followed .walker-name { background: var(--color-volt); }
-.walker { touch-action: none; }
+.body.followed .walker-name { background: var(--color-volt); }
 
 .trips { position: absolute; z-index: 30; right: 12px; top: 64px; display: grid; gap: 8px; justify-items: end; pointer-events: none; }
 .trip-chip { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.4rem 0.35rem 0.4rem; pointer-events: auto; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); }
@@ -1857,3 +1835,60 @@ kbd { min-width: 3.2rem; padding: 0.3rem 0.6rem; text-align: center; font: 700 0
 .oops-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem; }
 .oops-detail { max-width: 100%; overflow-wrap: anywhere; color: var(--muted); font: 400 0.75rem/1.3 var(--font-mono); }
 @media (max-height: 560px) { .placing-bar { top: auto; bottom: 8px; padding: 0.3rem 0.4rem 0.3rem 0.8rem; font-size: 0.9rem; } }
+
+/* ==================================================================
+   One body per astronaut (Crew.tsx, lib/movement.ts).
+   Each is a point at their feet, moved every frame by the movement code.
+   The pose changes; the element and the position never jump.
+   ================================================================== */
+.crew-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; }
+.body { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.body > .sprite { position: absolute; left: -29px; bottom: -1px; width: 58px; display: block; touch-action: none; }
+.body .swing, .body .shake, .body .face, .body .gait { display: block; transform-origin: 50% 100%; }
+.body.face-left .face { scale: -1 1; }
+/* The walk cycle, only while walking: a waddle, kicking legs and little puffs of dust. */
+.body.moving .gait { animation: waddle 0.34s ease-in-out infinite; }
+.body.moving .leg-l { animation: kick 0.17s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+.body.moving .leg-r { animation: kick 0.17s ease-in-out infinite alternate-reverse; transform-box: fill-box; transform-origin: 50% 0; }
+.step-dust { position: absolute; left: 14px; bottom: 0; width: 18px; height: 8px; border-radius: 50%; background: #e7b08a; opacity: 0; pointer-events: none; }
+.body.moving.outside .step-dust { animation: step-dust 0.34s ease-out infinite; }
+.body.face-left .step-dust { left: auto; right: 14px; }
+/* On a ladder: hand over hand. */
+.body.climb .gait { animation: climb 0.3s steps(2) infinite; }
+.body.climb .arm-l { rotate: 160deg; transform-box: fill-box; transform-origin: 50% 10%; }
+.body.climb .arm-r { rotate: -160deg; transform-box: fill-box; transform-origin: 50% 10%; }
+/* Carried by the helmet: they swing as you move, and kick. */
+.body.carried { z-index: 6; }
+.body.carried .swing { transform-origin: 50% 0; rotate: var(--swing, 0deg); }
+.body.carried .astro { animation: none !important; }
+.body.carried .leg-l { animation: kick 0.22s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+.body.carried .leg-r { animation: kick 0.22s ease-in-out infinite alternate-reverse; transform-box: fill-box; transform-origin: 50% 0; }
+.body.carried .energy, .body.carried .sprite-dot { opacity: 0; }
+.body.carried > .sprite, .body.falling > .sprite { pointer-events: none; }
+.body.falling .swing { rotate: var(--swing, 0deg); transform-origin: 50% 0; }
+/* Set down: a puff of dust and a little squash. */
+.body.landing .land-dust { animation: land-dust 0.45s ease-out; }
+.body.landing .gait { animation: land-squash 0.3s ease-out; }
+@keyframes land-squash { 30% { scale: 1.08 0.9; } 100% { scale: 1 1; } }
+.body.shaking .shake { animation: shake-no 0.55s ease-in-out; }
+/* While someone is carried, the others let taps through to the glowing places behind them. */
+.scene.holding .body:not(.carried) > .sprite { pointer-events: none; }
+.body.followed .sprite::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 52px; height: 14px; translate: -50% 0; border: 3px solid var(--color-volt); border-radius: 50%; }
+/* The rover, parked or driving. */
+.rover-body .rover-art { position: absolute; left: -35px; bottom: -2px; display: block; pointer-events: none; }
+.rover-body.out .wheel, .rover-body.back .wheel { animation: spin 0.6s linear infinite; }
+.rover-body.work::after { content: ''; position: absolute; left: 0; top: -6px; width: 60px; height: 12px; translate: -50% 0; border-radius: 50%; background: rgba(231, 176, 138, 0.8); animation: blast 0.6s ease-out infinite; }
+.rover-body .carry { top: -64px; }
+
+/* The airlock: the one door between inside and outside. */
+.base > .airlock { position: relative; z-index: 1; pointer-events: none; align-self: end; justify-self: start; width: 40px; height: min(64px, calc(var(--row) * 0.62)); margin: 0 0 6px -42px; border: var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; background: #d9d3c5; }
+.airlock-door { position: absolute; left: 7px; right: 7px; bottom: 0; top: 14px; border: 3px solid var(--ink); border-bottom: 0; border-radius: 8px 8px 0 0; background: #7d6fae; }
+.airlock-light { position: absolute; left: 50%; top: 3px; width: 8px; height: 8px; translate: -50% 0; border: 2px solid var(--ink); border-radius: 50%; background: var(--color-go); }
+/* The corridor along the floor, behind the domes, from the airlock to the far end of the base. */
+.base > .hall { position: relative; z-index: -1; pointer-events: none; align-self: end; height: 30px; margin: 0 0 calc(var(--row) * 0.17 - 4px) -22px; background: var(--color-clean); border-block: var(--line); }
+/* Every dug-in room has a ladder shaft up to the corridor. */
+.base > .ladder { position: relative; z-index: -1; grid-row: 1 / 3; justify-self: center; width: 34px; margin: calc(var(--row) * 0.83) 0 calc(var(--row) - 8px); border-inline: var(--line); background: repeating-linear-gradient(var(--color-clean) 0 9px, var(--ink) 9px 13px); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .body .gait, .body .leg-l, .body .leg-r, .body .step-dust { animation: none !important; }
+}
+html.calm-motion .body .gait, html.calm-motion .body .leg-l, html.calm-motion .body .leg-r { animation: none !important; }

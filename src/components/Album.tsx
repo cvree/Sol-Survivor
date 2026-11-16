@@ -25,7 +25,7 @@ export function AlbumPanel() {
           );
         })}
       </div>
-      <p className="aside">Facts typed in by hand from NASA mission pages. Where they sit next to your base is made up for the game.</p>
+      <p className="aside">Where they sit next to your base is made up for the game.</p>
     </Modal>
   );
 }

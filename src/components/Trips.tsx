@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Eye, EyeOff, Home, X } from 'lucide-react';
-import { tripPos } from '../engine/engine';
 import type { GameState, Trip } from '../engine/types';
 import { follow, glideTo, useCamera, useFollow } from '../lib/camera';
+import { positionOf, tripProgress } from '../lib/movement';
 import { sfx } from '../lib/sound';
 import { useGame } from '../store/game';
 import { Astronaut, Rover } from './art';
@@ -11,9 +11,10 @@ import { lookOf } from './crewLook';
 import { tripWords } from './World';
 
 /** How far along this part of the trip is, 0 to 1. A "look around" trip has no end, so it shows full. */
-function progress(t: Trip) {
-  if (t.phase === 'work' && t.job.kind === 'go') return 1;
-  return t.total > 0 ? Math.max(0, Math.min(1, 1 - t.left / t.total)) : 1;
+function progress(id: string, t: Trip) {
+  if (t.phase === 'work') return t.job.kind === 'go' ? 1 : t.total > 0 ? Math.max(0, Math.min(1, 1 - t.left / t.total)) : 1;
+  // Walking: how much of the way they have really walked.
+  return tripProgress(id);
 }
 
 /**
@@ -31,7 +32,7 @@ export function TripTracker({ game }: { game: GameState }) {
     sfx.ping();
     if (followId === id) { follow(null); return; }
     const { W, vw } = useCamera.getState();
-    glideTo(tripPos(t) * W - vw / 2, 420);
+    glideTo((positionOf(id)?.x ?? t.x * W) - vw / 2, 420);
     setTimeout(() => follow(id), 440);
   };
   return (
@@ -45,7 +46,7 @@ export function TripTracker({ game }: { game: GameState }) {
             <span className="trip-text">
               <b>{name}</b>
               <small>{tripWords(trip)}</small>
-              <span className="trip-bar"><motion.i animate={{ width: `${progress(trip) * 100}%` }} transition={{ duration: 0.2 }} /></span>
+              <span className="trip-bar"><motion.i animate={{ width: `${progress(id, trip) * 100}%` }} transition={{ duration: 0.2 }} /></span>
             </span>
             <motion.button className={`trip-btn ${followId === id ? 'on' : ''}`} whileTap={{ scale: 0.85 }} onClick={() => watch(id, trip)}
               aria-pressed={followId === id} aria-label={followId === id ? `Stop following ${name}` : `Follow ${name}`} title={followId === id ? 'Stop following' : 'Follow'}>

@@ -1,25 +1,25 @@
-import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
-import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { LayoutGroup, motion } from 'motion/react';
 import { Hammer, Plus, Wrench } from 'lucide-react';
 import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, MAX_LEVEL, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS, YARD_CELL } from '../engine/constants';
 import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, plansFor, suggestCell, cannotUpgrade, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
-import { Deposits, Walkers } from './World';
+import { Deposits, TripFlags } from './World';
+import { CrewLayer } from './Crew';
 import { LevelDeco, LevelStars } from './LevelDeco';
-import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/types';
+import type { GameState, ModuleKind, ModuleState } from '../engine/types';
 import { useGame } from '../store/game';
-import { Astronaut, Lander, MODULE_ICON, Rover, type Act } from './art';
-import { lookOf } from './crewLook';
+import { Lander, MODULE_ICON, Rover } from './art';
 import { ModuleArt, RisingArt } from './moduleArt';
 import { sfx } from '../lib/sound';
 import { nearness } from './StormFuse';
 import { stepOf } from './coach';
-import { clearSelection, startCrewDrag, tapCrew, useDrag, wasDragged } from '../lib/crewDrag';
-import { CrewWalkers, DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, noteLeaving, useDropClass, walking } from './Walk';
+import { clearSelection, useDrag } from '../lib/crewDrag';
+import { DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, useDropClass, walking } from './Walk';
 import { EdgeArrows, MiniMap } from './Explore';
 import { CancelSite } from './Trips';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
-import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
-import { ArrowUpCircle, Armchair, Check, CloudLightning, Droplet, Heart, LayoutGrid, MessageCircle, Move, Package, Rocket, Star } from 'lucide-react';
+import { attachDrag, follow, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
+import { ArrowUpCircle, Armchair, Check, LayoutGrid, Move, Package, Rocket, Star } from 'lucide-react';
 
 export const MODULE_JOB: Record<ModuleKind, string> = {
   pod: `Warm, cramped, +3 power`,
@@ -51,89 +51,7 @@ function useHammer(active: boolean, pan = 0) {
 
 const place = (cell: number) => ({ gridColumn: (cell % GRID_COLS) + 1, gridRow: cell < GRID_COLS ? 1 : 2 });
 
-/** What this astronaut is busy with: their job in this room, or a little human moment. */
-function actFor(c: CrewState, m: ModuleState | undefined, game: GameState, mates: number, index: number, partying: boolean): Act {
-  if (c.exhausted) return c.at === 'hab' ? 'sleep' : 'collapse';
-  if (partying) return 'jump';
-  if (!m) return 'idle';
-  if (m.buildLeft > 0) return 'wrench';
-  if (m.kind === 'hab' && (c.energy < 97 || isNight(game))) return 'sleep';
-  const t = game.time;
-  // Two people in one room say hello now and then.
-  if (mates > 1 && (t * 0.55 + m.cell * 0.37 + index * 0.08) % 1 < 0.13) return 'wave';
-  if (!m.on) return 'idle';
-  switch (m.kind) {
-    case 'lab': return 'type';
-    case 'hydro': return 'water';
-    case 'oxygen': return 'wrench';
-    case 'medbay': return c.role === 'Medic' ? 'check' : 'sleep';
-    case 'hab': {
-      const phase = Math.floor(t * 0.4 + index * 1.7) % 4;
-      return phase === 1 ? 'sip' : phase === 3 && index % 2 === 1 ? 'sleep' : 'idle';
-    }
-    default: return 'idle';
-  }
-}
-
-function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?: Act }) {
-  const picked = useGame((s) => s.picked);
-  const coach = useGame((s) => (stepOf(s.coach)?.target === 'crew' ? s.coach?.subject : null));
-  const carried = useDrag((d) => d.id === c.id || d.back?.id === c.id);
-  const selected = useDrag((d) => d.sel === c.id);
-  const line = useDrag((d) => (d.sel === c.id ? d.line : ''));
-  const nope = useDrag((d) => (d.nope?.id === c.id && !d.back ? d.nope.at : 0));
-  const bubble = useGame((s) => s.bubble);
-  const look = lookOf(c);
-  const chat = bubble && bubble.crewId === c.id && bubble.until > Date.now() ? bubble.text : null;
-  const say = selected ? { text: line || 'Where to?', mood: 'chat' } : c.say ?? (chat ? { text: chat, mood: 'chat' } : null);
-  const still = look.fainted || look.shiver || c.exhausted || (act !== 'idle' && act !== 'sip');
-  // As they set off, note exactly where they stood, so the walk starts from there.
-  const el = useRef<HTMLButtonElement>(null);
-  useLayoutEffect(() => {
-    const node = el.current;
-    return () => { if (node?.isConnected) noteLeaving(c.id, node); };
-  }, [c.id]);
-  return (
-    <motion.button
-      ref={el}
-      data-crew={c.id}
-      className={`sprite no-drag ${picked === c.id ? 'picked' : ''} ${selected ? 'selected' : ''} ${coach === c.id ? 'coach-target' : ''} ${carried ? 'carried' : ''} ${c.energy < 30 && !c.exhausted ? 'tired' : ''}`}
-      onPointerDown={(e) => startCrewDrag(e, c.id)}
-      onClick={(e) => { e.stopPropagation(); if (!wasDragged()) tapCrew(c.id); }}
-      initial={{ y: -16, scale: 1.08 }} animate={{ y: 0, scale: 1 }}
-      whileTap={{ scale: 0.88 }}
-      transition={{ type: 'spring', stiffness: 520, damping: 13 }}
-      aria-pressed={selected}
-      aria-label={`${c.name}, ${c.role}${c.commander ? ', your commander' : ''}. Energy ${Math.round(c.energy)}%${c.mood < 35 ? ', unhappy' : ''}${c.exhausted ? ', collapsed asleep' : ''}. ${selected ? 'Picked: now tap a glowing place, or tap again for their card.' : 'Tap to pick, then tap a place. Or drag them there.'}`}
-    >
-      <span className="land-dust" aria-hidden="true" />
-      {c.commander && <span className="sprite-star" aria-hidden="true"><Star /></span>}
-      <AnimatePresence>
-        {say && (
-          <motion.span key={say.text} className={`say ${say.mood}`} initial={{ scale: 0, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0 }} role="status">{say.text}</motion.span>
-        )}
-      </AnimatePresence>
-      {/* Healthy crew with nothing to do wander about. Busy, sick or fainted crew stay put. */}
-      <span key={nope} className={nope ? 'shake-no' : ''}>
-        <span className={still || selected ? '' : `pace pace-${index % 3}`}>
-          <span className={selected ? 'hop' : still ? '' : 'waddle'}><Astronaut who={c} look={look} size={44} act={selected ? 'wave' : act} /></span>
-        </span>
-      </span>
-      <span className={`sprite-dot t-${look.triage}`} />
-      {c.mood < 35 && !c.emote && <span className="grump" aria-hidden="true"><CloudLightning /></span>}
-      <AnimatePresence>
-        {c.emote && (
-          <motion.span key={c.emote.until} className={`emote e-${c.emote.kind}`} initial={{ scale: 0, y: 10 }} animate={{ scale: [0, 1.4, 1], y: -6 }} exit={{ scale: 0, opacity: 0 }} aria-hidden="true">
-            {c.emote.kind === 'heart' ? <Heart /> : c.emote.kind === 'star' ? <Star /> : c.emote.kind === 'note' ? <MessageCircle /> : <Droplet />}
-          </motion.span>
-        )}
-      </AnimatePresence>
-      <span className={`energy ${c.energy < 30 ? 'low' : c.energy < 55 ? 'mid' : ''}`} aria-hidden="true"><i style={{ width: `${Math.max(4, c.energy)}%` }} /></span>
-    </motion.button>
-  );
-}
-
-function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState; fresh: boolean; partying: boolean }) {
+function Module({ m, game, fresh }: { m: ModuleState; game: GameState; fresh: boolean }) {
   const toggle = useGame((s) => s.toggle);
   const open = useGame((s) => s.open);
   const editing = useGame((s) => s.editing);
@@ -217,7 +135,6 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
           </svg>
         )}
       </motion.button>
-      <div className="mod-floor">{arrived.map((c, i) => { const n = game.crew.indexOf(c); return <Sprite key={c.id} c={c} index={n + i} act={actFor(c, m, game, arrived.length, n, partying)} />; })}</div>
       {!editing && <DropZone id={m.id} game={game} />}
       <LandPuff id={m.id} />
       {justBuilt.current > 0 && Date.now() - justBuilt.current < 1800 && <span className="built-stamp" aria-hidden="true">Built!</span>}
@@ -262,7 +179,6 @@ function Pod({ game, intro }: { game: GameState; intro: boolean }) {
   const setTour = useGame((s) => s.setTour);
   const coached = useGame((s) => stepOf(s.coach)?.target === 'pod');
   const home = !habReady(game);
-  const resting = home ? game.crew.filter((c) => !c.out && c.at === 'hab' && !walking(c)) : [];
   const hovered = useDrag((d) => (d.id && d.over === 'pod' ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
   const drop = useDropClass('pod', game);
   return (
@@ -271,7 +187,6 @@ function Pod({ game, intro }: { game: GameState; intro: boolean }) {
         <Lander size={92} capsule />
         {home && <i className="pod-window" aria-hidden="true" />}
       </motion.div>
-      <div className="pod-floor">{resting.map((c, i) => <Sprite key={c.id} c={c} index={i} act={c.exhausted || c.energy < 97 || isNight(game) ? 'sleep' : 'sip'} />)}</div>
       <span className="pod-plate"><span className="plate-icon"><Rocket /></span>Capsule <small>+3 power</small></span>
       {home && <DropZone id="pod" game={game} />}
       <LandPuff id="pod" />
@@ -306,7 +221,6 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
         whileTap={m.kind === 'comms' ? { scale: 0.9 } : undefined}>
         {building ? <RisingArt kind={m.kind} progress={1 - m.buildLeft / total} working={here.length > 0} yard /> : <ModuleArt kind={m.kind} on={on} />}
         {['comms', 'miner', 'rover'].includes(m.kind) && !building && <span className="prop-switch"><span className="switch"><i /></span></span>}
-        {m.kind === 'rover' && !building && game.rover && !game.rover.trip && <span className="parked"><Rover size={64} /></span>}
       </motion.button>
       {m.kind === 'miner' && !building && m.bin >= 1 && (
         <motion.button className={`bin-bubble no-drag ${m.bin >= 20 * m.level - 0.5 ? 'full' : ''}`} onClick={() => emptyBin(m.id)} initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.85 }}
@@ -319,7 +233,6 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
         ? <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : coming ? 'Builder on the way!' : 'Needs a builder'}</span>
         : <SendBuilder siteId={m.id} game={game} />)}
       {building && <CancelSite id={m.id} upgrading={m.upgrading} />}
-      <div className="prop-floor">{here.map((c, i) => <Sprite key={c.id} c={c} index={i} act="wrench" />)}</div>
       {building && <DropZone id={m.id} game={game} />}
       <LandPuff id={m.id} />
     </motion.div>
@@ -336,7 +249,7 @@ const px = (f: number, extra: CSSProperties = {}) => ({ '--f': f, ...extra } as 
 export function Diorama({ game }: { game: GameState }) {
   const ref = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const { tour, open, slowmo, moment, party, tunedAt, editing, moving, setEditing, move, placing, build } = useGame();
+  const { tour, open, slowmo, moment, tunedAt, editing, moving, setEditing, move, placing, build } = useGame();
   const coachTarget = useGame((s) => stepOf(s.coach)?.target ?? null);
   const holding = useDrag((d) => !!(d.id ?? d.sel));
   const night = isNight(game) && tour !== 0;
@@ -352,6 +265,7 @@ export function Diorama({ game }: { game: GameState }) {
   const p = power(game);
   const lit = p.sunlight > 0.6;
   const placed = game.modules.filter((m) => LAYER[m.kind] !== 'yard');
+  const far = Math.max(-1, ...placed.map((m) => m.cell % GRID_COLS));
   const yard = game.modules.filter((m) => LAYER[m.kind] === 'yard');
   // Open spots for your plans. The commander chooses: M.A.R.V. only marks one as a tip.
   const plans = placing ? [placing] : [...new Set(game.blueprints)];
@@ -370,7 +284,6 @@ export function Diorama({ game }: { game: GameState }) {
     const fits = plansFor(game, cell);
     return fits.length === 1 ? `${MODULE_NAME[fits[0]]}?` : cell < GRID_COLS || cell >= YARD_CELL ? 'Build' : 'Dig a room';
   };
-  const partying = Date.now() - party < 3200;
   const dead = game.crew.filter((c) => c.out);
   // Perfect power: every block in use, none wasted. The whole base hums cyan.
   const tuned = !intro && p.free === 0 && p.supply >= 4 && !dust && !storm;
@@ -402,10 +315,10 @@ export function Diorama({ game }: { game: GameState }) {
   useEffect(() => { jumpHome(); }, [game.seed]);
   // When a warning comes in, the camera flies home so the commander can act.
   const warned = game.events.filter((e) => e.phase !== 'pending').length;
-  useEffect(() => { if (warned) glideTo(homeX()); }, [warned]);
+  useEffect(() => { if (warned) { follow(null); glideTo(homeX()); } }, [warned]);
   // A lander arriving, or a lesson about building, also brings the camera home.
   const homeCue = `${game.landers}-${!!game.offer}-${coachTarget === 'spot' || coachTarget === 'site'}`;
-  useEffect(() => { if (game.landers || game.offer || coachTarget === 'spot' || coachTarget === 'site') glideTo(homeX()); }, [homeCue]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (game.landers || game.offer || coachTarget === 'spot' || coachTarget === 'site') { follow(null); glideTo(homeX()); } }, [homeCue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Shake the base when a storm lands or the power trips.
   const bump = game.pulse.hit + game.pulse.brownout;
@@ -460,7 +373,7 @@ export function Diorama({ game }: { game: GameState }) {
         </div>
         <Finds />
         <Deposits game={game} />
-        <Walkers game={game} />
+        <TripFlags game={game} />
         {/* Night falls over the whole crater; the base keeps its lights on. */}
         <div className="night-shade world-shade" aria-hidden="true" />
 
@@ -501,6 +414,11 @@ export function Diorama({ game }: { game: GameState }) {
             </div>
 
             <div className="base">
+              {/* The way in and out: one airlock door, and a corridor along the floor joining every dome and ladder. */}
+              {!intro && <div className="airlock" style={{ gridColumn: 1, gridRow: 1 }} aria-hidden="true"><i className="airlock-door" /><i className="airlock-light" /></div>}
+              {!intro && far >= 0 && <i className="hall" style={{ gridColumn: `1 / ${far + 2}`, gridRow: 1 }} aria-hidden="true" />}
+              {/* Every dug-in room has a ladder shaft up to the corridor. */}
+              {!intro && placed.filter((m) => m.cell >= GRID_COLS).map((m) => <i key={`ladder-${m.id}`} className="ladder" style={{ gridColumn: (m.cell % GRID_COLS) + 1 }} aria-hidden="true" />)}
               {/* Each dome's protection zone. Only crew inside a blue zone are shielded. */}
               {(editing || warnedNow || storm) && game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0).map((m) => {
                 const [a, b] = domeZone(m);
@@ -510,7 +428,7 @@ export function Diorama({ game }: { game: GameState }) {
                 <motion.button key={`slot-${cell}`} className="slot" data-cell={cell} style={place(cell)} onClick={() => move(moving, cell)}
                   initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} aria-label="Move it here"><Move /> Move here</motion.button>
               ))}
-              {!intro && placed.map((m) => <Module key={m.id} m={m} game={game} fresh={tour === 1} partying={partying} />)}
+              {!intro && placed.map((m) => <Module key={m.id} m={m} game={game} fresh={tour === 1} />)}
               {!intro && !editing && spots.map((cell) => (
                 <motion.button key={`spot-${cell}`} className={`spot ready ${tipCell === cell ? 'tip' : ''} ${coachTarget === 'spot' ? 'coach-target' : ''}`} style={place(cell)} whileTap={{ scale: 0.92 }}
                   initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}
@@ -521,8 +439,9 @@ export function Diorama({ game }: { game: GameState }) {
               ))}
             </div>
           </LayoutGroup>
-          <CrewWalkers game={game} />
         </div>
+        {/* Everyone, drawn once each, wherever they really are. */}
+        <CrewLayer game={game} />
       </div>
       <div className="dust-layer" aria-hidden="true" />
       <div className="wind" aria-hidden="true">{Array.from({ length: 18 }, (_, i) => <i key={i} style={{ top: `${(i * 37) % 96}%`, animationDelay: `${-(i * 0.23)}s`, animationDuration: `${0.9 + (i % 5) * 0.22}s`, width: `${60 + (i % 4) * 50}px` }} />)}</div>

@@ -76,7 +76,7 @@ export function ScienceBrief({ kind, onDone, doneLabel = 'I am ready!' }: { kind
         {quiz && <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={!right} onClick={() => { sfx.build(); onDone(); }}>{right ? doneLabel : 'Answer to go on'}</motion.button>}
         {i > 0 && !right && <button className="link-btn" onClick={() => { setI((n) => n - 1); setPick(null); }}>Back</button>}
       </footer>
-      <p className="wx-source"><BookOpen /> Real NASA science, typed in by hand. Learn more: {brief.sources.map((s, n) => (
+      <p className="wx-source"><BookOpen /> Learn more: {brief.sources.map((s, n) => (
         <span key={s.link}>{n > 0 && ' · '}<a href={s.link} target="_blank" rel="noreferrer">{s.name} <ExternalLink /></a></span>
       ))}</p>
     </section>

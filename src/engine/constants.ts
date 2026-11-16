@@ -207,13 +207,27 @@ export const ROVER_CARRY = 15;
 /** Time spent digging at a rock pile, or looking at a discovery, at full speed. */
 export const MINE_SOLS = 0.4;
 export const FIND_WORK_SOLS = 0.25;
-/** Short walk inside the base, and the walk to the far edge of the crater. */
-export const WALK_BASE = 0.06;
-export const WALK_FAR = 0.9;
-/** Walking inside the base: extra time per column crossed, and per ladder climbed into or out of a dug-in room. */
-export const WALK_PER_COL = 0.05;
-export const WALK_LADDER = 0.07;
+/**
+ * Walking. Everyone walks at one steady speed, short walk or long, inside or out in the crater,
+ * and climbs ladders more slowly. Pixels per real second at 1x game speed, the same on every
+ * screen size. The screen moves each astronaut at this speed and tells the engine when they
+ * arrive (`liveWalk`). GAME VALUES.
+ */
+export const WALK_SPEED = 110;
+export const CLIMB_SPEED = 55;
+/** Speeding up from a stand and slowing to a stop, pixels per second per second. */
+export const WALK_ACCEL = 330;
+/** The rover drives this many times faster than walking. */
 export const ROVER_SPEED = 2;
+/**
+ * When nothing is drawing (tests and the simulated players) the engine works walk times out
+ * itself, from the same speeds and the distances on a typical laptop screen.
+ */
+export const NOMINAL_COL_PX = 210;
+export const NOMINAL_LADDER_PX = 70;
+export const NOMINAL_WORLD_PX = 3700;
+/** The airlock door, 0 (far west) to 1 (far east): at the west end of the base, by the yard. */
+export const AIRLOCK_X = 0.37;
 /** Regolith Miner: bricks per sol at level 1, and how many fit in its bin. */
 export const MINER_RATE = 5;
 export const MINER_BIN = 20;

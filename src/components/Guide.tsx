@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check } from 'lucide-react';
-import { glideTo, useCamera } from '../lib/camera';
+import { follow, glideTo, useCamera } from '../lib/camera';
 import { useDrag } from '../lib/crewDrag';
 import { useGame } from '../store/game';
 import { Astronaut, Marv } from './art';
@@ -62,7 +62,7 @@ function locate(target: CoachTarget | 'go', run: CoachRun | null): { t: Element 
       if (open[0]) return { t: open[0], f: null, alt: null };
       return { t: arrow(), f: null, alt: 'No sparkles here. Tap the arrow to look further!' };
     }
-    case 'trip': return { t: q('.walker'), f: null, alt: null };
+    case 'trip': return { t: q('.body.walker > .sprite'), f: null, alt: null };
     case 'spot': {
       const spot = all('.spot.tip')[0] ?? all('.spot.ready')[0];
       if (spot) return { t: spot, f: null, alt: null };
@@ -126,7 +126,7 @@ export function Guide() {
       if (el && scene && el.closest('.world') && performance.now() - lastGlide.current > 900) {
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width / 2;
-        if (cx < scene.left + 60 || cx > scene.right - 60) { lastGlide.current = performance.now(); glideTo(useCamera.getState().x + (cx - (scene.left + scene.width / 2))); }
+        if (cx < scene.left + 60 || cx > scene.right - 60) { lastGlide.current = performance.now(); follow(null); glideTo(useCamera.getState().x + (cx - (scene.left + scene.width / 2))); }
       }
       raf = requestAnimationFrame(loop);
     };

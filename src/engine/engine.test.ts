@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, cancelSite, goTo, recall, tripPos, walkSols, suggestCell, plansFor, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
+import { AIRLOCK_X, BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
+import { acceptCargo, arrive as arriveAt, tripReached, assign, build, cancelSite, goTo, recall, tripPos, walkSols, suggestCell, plansFor, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
@@ -385,9 +385,9 @@ describe('the commander is in control', () => {
 
   it('can be called back from halfway, turning around where they stand', () => {
     let s = goTo(starter(23), 'ada', 0.95).state;
-    for (let i = 0; i < 6; i++) s = step(s, 0.05);
+    for (let i = 0; i < 12; i++) s = step(s, 0.05);
     const mid = tripPos(s.crew[0].trip!);
-    expect(mid).toBeGreaterThan(0.5);
+    expect(mid).toBeGreaterThan(AIRLOCK_X + 0.05);
     s = recall(s, 'ada');
     expect(s.crew[0].trip!.phase).toBe('back');
     expect(tripPos(s.crew[0].trip!)).toBeCloseTo(mid);
@@ -409,6 +409,51 @@ describe('the commander is in control', () => {
     s = recall(s, 'ada', 'm2');
     for (let i = 0; i < 200 && s.crew[0].trip; i++) s = step(s, 0.05);
     expect(s.crew[0].at).toBe('m2');
+  });
+
+  it('a short walk and a long walk go at the same speed', () => {
+    const s = starter(27);
+    s.modules.push({ id: 'd3', kind: 'dome', cell: 3, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
+    s.modules.push({ id: 'd4', kind: 'hydro', cell: 4, on: true, buildLeft: 0, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: 0, bin: 0 });
+    // Twice as far takes twice as long: no head start or penalty for short walks.
+    expect(walkSols(s, 'hab', 'd4')).toBeCloseTo(2 * walkSols(s, 'hab', 'd3'), 6);
+  });
+
+  it('on screen, a walk ends only when the screen says they arrived', () => {
+    let s: GameState = { ...starter(28), liveWalk: true };
+    s = assign(s, 'ada', 'm2');
+    for (let i = 0; i < 100; i++) s = step(s, 0.05);
+    expect(s.crew[0].arriving).toBeGreaterThan(0);
+    s = arriveAt(s, 'ada');
+    expect(s.crew[0].arriving).toBe(0);
+  });
+
+  it('on screen, a crater trip moves on when the screen says each part is done', () => {
+    let s: GameState = { ...arrive(starter(29)), liveWalk: true };
+    s = goTo(s, 'ada', 0.9).state;
+    for (let i = 0; i < 100; i++) s = step(s, 0.05);
+    // Still walking to the airlock.
+    expect(s.crew[0].arriving).toBeGreaterThan(0);
+    s = tripReached(s, 'ada');
+    expect(s.crew[0].arriving).toBe(0);
+    for (let i = 0; i < 100; i++) s = step(s, 0.05);
+    expect(s.crew[0].trip!.phase).toBe('out');
+    s = tripReached(s, 'ada');
+    expect(s.crew[0].trip!.phase).toBe('work');
+    s = recall(s, 'ada', 'm2');
+    s = tripReached(s, 'ada');
+    // Back in through the airlock, and walking on to the place picked while they were out.
+    expect(s.crew[0].trip).toBeNull();
+    expect(s.crew[0].at).toBe('m2');
+    expect(s.crew[0].arriving).toBeGreaterThan(0);
+  });
+
+  it('a new crewmate walks over from the lander', () => {
+    let s = toCrewLander(30);
+    s = acceptCargo(s, [], s.offer!.crewOptions[0].id);
+    const c = s.crew[s.crew.length - 1];
+    expect(c.walkFrom).toBe('pad');
+    expect(c.arriving).toBeGreaterThan(0);
   });
 
   it('packing up a site gives the plan back, and stopping an upgrade gives the bricks back', () => {
