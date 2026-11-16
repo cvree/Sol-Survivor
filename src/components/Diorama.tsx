@@ -16,6 +16,7 @@ import { stepOf } from './coach';
 import { clearSelection, startCrewDrag, tapCrew, useDrag, wasDragged } from '../lib/crewDrag';
 import { CrewWalkers, DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, useDropClass, walking } from './Walk';
 import { EdgeArrows, MiniMap } from './Explore';
+import { CancelSite } from './Trips';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
 import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
 import { ArrowUpCircle, Armchair, Check, CloudLightning, Droplet, Heart, LayoutGrid, MessageCircle, Move, Package, Rocket, Star } from 'lucide-react';
@@ -230,6 +231,7 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
       {building && (here.length || !bestBuilder(game) || editing
         ? <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (arrived.length ? `${m.upgrading ? 'Upgrading' : 'Building'}... ${Math.round((1 - m.buildLeft / total) * 100)}%` : 'Builder on the way!') : 'Needs a builder'}</span>
         : <SendBuilder siteId={m.id} game={game} />)}
+      {building && !editing && <CancelSite id={m.id} upgrading={m.upgrading} />}
       {!building && !editing && m.level < MAX_LEVEL && !cannotUpgrade(game, m) && (
         <motion.button className="up-btn no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.12 }}
           aria-label={`Upgrade the ${MODULE_NAME[m.kind]} (level ${m.level})`} title="Upgrade"><ArrowUpCircle /></motion.button>
@@ -258,7 +260,7 @@ function Pod({ game, intro }: { game: GameState; intro: boolean }) {
   const drop = useDropClass('pod', game);
   return (
     <div className={`pod ${home ? 'is-home' : 'retired'} ${home ? drop : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={home ? 'pod' : undefined}>
-      <motion.div className="pod-craft" initial={intro ? { y: -380, rotate: -10 } : false} animate={{ y: 0, rotate: 0 }} transition={{ type: 'spring', stiffness: 70, damping: 10 }}>
+      <motion.div className="pod-craft" data-curio="capsule" initial={intro ? { y: -380, rotate: -10 } : false} animate={{ y: 0, rotate: 0 }} transition={{ type: 'spring', stiffness: 70, damping: 10 }}>
         <Lander size={92} capsule />
         {home && <i className="pod-window" aria-hidden="true" />}
       </motion.div>
@@ -309,6 +311,7 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
       {building && (here.length || coming || !bestBuilder(game)
         ? <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : coming ? 'Builder on the way!' : 'Needs a builder'}</span>
         : <SendBuilder siteId={m.id} game={game} />)}
+      {building && <CancelSite id={m.id} upgrading={m.upgrading} />}
       <div className="prop-floor">{here.map((c, i) => <Sprite key={c.id} c={c} index={i} act="wrench" />)}</div>
       {building && <DropZone id={m.id} game={game} />}
       <LandPuff id={m.id} />
@@ -401,12 +404,12 @@ export function Diorama({ game }: { game: GameState }) {
       style={{ '--swell': swell, '--wall': wall, '--W': `${W}px`, '--vw': `${vw}px`, '--hl': `${hl}px` } as CSSProperties}>
       <div ref={worldRef} className="world">
         <div className="sky" aria-hidden="true">
-          <div className="sky-top px" style={px(0.9)} />
+          <div className="sky-top px" style={px(0.9)} data-curio="sky" />
           <div className="sky-stars px" style={px(0.9)}>{STARS.map(([x, y], i) => <i key={i} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 0.37}s` }} />)}</div>
           {/* Mars has two small moons, Phobos and Deimos. */}
-          <i className="moon phobos px" style={px(0.9, { left: at(0.3, 0.9) })} />
-          <i className="moon deimos px" style={px(0.9, { left: at(0.56, 0.9) })} />
-          <div className="sun-wrap px" style={px(0.9, { left: at(0.76, 0.9), right: 'auto' })}>
+          <i className="moon phobos px" data-curio="phobos" style={px(0.9, { left: at(0.3, 0.9) })} />
+          <i className="moon deimos px" data-curio="deimos" style={px(0.9, { left: at(0.56, 0.9) })} />
+          <div className="sun-wrap px" data-curio="sun" style={px(0.9, { left: at(0.76, 0.9), right: 'auto' })}>
             <svg className="sun-spikes" viewBox="-50 -50 100 100">
               {Array.from({ length: 12 }, (_, i) => <path key={i} d="M-6 -24L0 -48L6 -24Z" transform={`rotate(${i * 30})`} />)}
             </svg>
@@ -425,9 +428,9 @@ export function Diorama({ game }: { game: GameState }) {
         </div>
         <div className="dirt" aria-hidden="true">
           <i className="strata s1" /><i className="strata s2" /><i className="strata s3" />
-          {ROCKS.map(([x, y], i) => <i key={i} className={`rock r${i % 3}`} style={{ left: `${x}%`, top: `${y}%` }} />)}
+          {ROCKS.map(([x, y], i) => <i key={i} className={`rock r${i % 3}`} data-curio="rock" style={{ left: `${x}%`, top: `${y}%` }} />)}
           {ICE.map(([x, y], i) => (
-            <svg key={i} className="ice" viewBox="0 0 60 40" style={{ left: `${x}%`, top: `${y}%` }}>
+            <svg key={i} className="ice" data-curio="ice" viewBox="0 0 60 40" style={{ left: `${x}%`, top: `${y}%` }}>
               <path d="M6 36l8-22l8 22zM20 36l10-32l10 32zM38 36l8-18l8 18z" fill="#9fdcf5" stroke="#5e1d22" strokeWidth="4" strokeLinejoin="round" />
               <path d="M30 12l-4 16M14 22l-2 8" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
             </svg>
@@ -457,7 +460,7 @@ export function Diorama({ game }: { game: GameState }) {
               ))}
             </div>
 
-              <div className={`pad ${landing ? 'landing' : ''}`}>
+              <div className={`pad ${landing ? 'landing' : ''}`} data-curio="lander">
               {/* The shadow grows as the lander comes down. */}
               <motion.i key={`sh-${landerNo}`} className="pad-shadow" initial={{ scaleX: 0.15, opacity: 0.2 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ duration: landing ? 2.05 : 0.9, ease: 'easeIn' }} />
               <motion.div key={landerNo} initial={{ y: -420, rotate: -7 }} animate={{ y: 0, rotate: 0 }}

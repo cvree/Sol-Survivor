@@ -30,9 +30,13 @@ export interface Trip {
   total: number;
   /** Where in the crater, 0 (far west) to 1 (far east). */
   x: number;
-  job: { kind: 'find'; id: string; reward: 'science' | 'part' | 'supplies'; title: string } | { kind: 'mine'; dep: string };
+  job: { kind: 'find'; id: string; reward: 'science' | 'part' | 'supplies'; title: string } | { kind: 'mine'; dep: string } | { kind: 'go' };
   /** Bricks being carried home. */
   carry: number;
+  /** Where the walk out started (0-1), if not at the base: a trip that was changed on the way. */
+  from?: number;
+  /** Where to go once home again: a place in the base the commander chose while they were out. */
+  then?: string;
 }
 
 /** A pile of rock in the crater. Regolith can be dug out and pressed into bricks. */

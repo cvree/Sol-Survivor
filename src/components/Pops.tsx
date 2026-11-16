@@ -39,10 +39,22 @@ const centre = (el: Element, top = false): [number, number] => {
   return [r.left + r.width / 2, top ? r.top + r.height * 0.18 : r.top + r.height / 2];
 };
 
+/** Anyone can send a pop: a reward that flies from a spot on screen to the bar it fills. */
+type Emit = (text: string, from: [number, number], bar: string | null, tone?: Pop['tone']) => void;
+let emitter: Emit | null = null;
+export const emitPop: Emit = (...a) => emitter?.(...a);
+
 export function Pops() {
   const [pops, setPops] = useState<Pop[]>([]);
   const last = useRef(new Map<string, number>());
   const next = useRef(1);
+  useEffect(() => {
+    emitter = (text, from, bar, tone = 'power') => {
+      const dst = bar ? document.querySelector(`[data-bar="${bar}"]`) : null;
+      setPops((p) => [...p.slice(-14), { id: next.current++, text, tone, from, to: dst ? centre(dst) : null, bar }]);
+    };
+    return () => { emitter = null; };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { MODULE_NAME, assign, canGoOut, habReady } from '../engine/engine';
+import { BASE_HALF, MODULE_NAME, assign, canGoOut, habReady } from '../engine/engine';
 import type { GameState } from '../engine/types';
 import { PICKUP } from '../data/characters';
 import { useGame } from '../store/game';
-import { panBy } from './camera';
+import { follow, panBy, useCamera } from './camera';
 import { sfx } from './sound';
 
 /**
@@ -35,8 +35,12 @@ interface DragState {
   landed: { target: string; at: number } | null;
   /** Someone who just shook their head at a bad drop. */
   nope: { id: string; at: number } | null;
+  /** A happy word over someone just sent somewhere: what they are off to do. */
+  cheer: { crewId: string; text: string; at: number } | null;
+  /** While dragging over open crater ground: where they would walk to (screen x). */
+  ground: number | null;
 }
-export const useDrag = create<DragState>(() => ({ id: null, sel: null, x: 0, y: 0, vx: 0, over: null, ok: false, line: '', back: null, landed: null, nope: null }));
+export const useDrag = create<DragState>(() => ({ id: null, sel: null, x: 0, y: 0, vx: 0, over: null, ok: false, line: '', back: null, landed: null, nope: null, cheer: null, ground: null }));
 
 /** The astronaut whose possible places should light up: being dragged, or picked with a tap. */
 export const useHolding = () => useDrag((d) => d.id ?? d.sel);
@@ -55,15 +59,21 @@ const targetAt = (x: number, y: number) => {
 
 const homeId = (id: string) => (id === 'pod' ? 'hab' : id);
 
-/** Can this astronaut go there right now? */
+/** Can this astronaut go there right now? Someone already out in the crater can be sent anywhere too. */
 export function canDrop(crewId: string, target: string, game: GameState | null = useGame.getState().game): boolean {
   if (!game) return false;
   const c = game.crew.find((x) => x.id === crewId);
-  if (!c || c.out || c.trip) return false;
-  // Out in the crater: a discovery or a rock pile. Anyone rested enough can go.
-  if (target.startsWith('find:') || target.startsWith('dep:')) return canGoOut(c);
+  if (!c || c.out) return false;
+  // Out in the crater: a discovery, a rock pile or any open ground. Anyone rested enough can go,
+  // and someone already outside can change course.
+  if (target.startsWith('find:') || target.startsWith('dep:') || target.startsWith('ground:')) return c.trip ? !c.exhausted : canGoOut(c);
   if (target === 'pod' && habReady(game)) return false;
   const id = homeId(target);
+  if (c.trip) {
+    // They will head there once they are back at the base.
+    const home = { ...game, crew: game.crew.map((x) => (x.id === crewId ? { ...x, trip: null, at: 'out' } : x)) };
+    return id === 'hab' || assign(home, crewId, id) !== home;
+  }
   if (c.at === id) return false;
   return assign(game, crewId, id) !== game;
 }
@@ -71,6 +81,7 @@ export function canDrop(crewId: string, target: string, game: GameState | null =
 /** What they would do there, in two or three words. Null if they cannot go. */
 export function placeVerb(crewId: string, target: string, game: GameState | null = useGame.getState().game): string | null {
   if (!game || !canDrop(crewId, target, game)) return null;
+  if (target.startsWith('ground:')) return 'Walk here';
   if (target.startsWith('find:')) return 'Explore';
   if (target.startsWith('dep:')) return 'Dig bricks';
   const id = homeId(target);
@@ -93,16 +104,66 @@ export function sendTo(crewId: string, target: string): boolean {
   const g = useGame.getState();
   const game = g.game;
   if (!game || !canDrop(crewId, target, game)) return false;
+  const outside = target.startsWith('find:') || target.startsWith('dep:') || target.startsWith('ground:');
   if (target.startsWith('find:')) g.collect(target.slice(5), crewId);
   else if (target.startsWith('dep:')) g.dig(target.slice(4), crewId);
-  else g.assign(crewId, homeId(target));
+  else if (target.startsWith('ground:')) g.goTo(crewId, Number(target.slice(7)));
+  else g.assign(crewId, homeId(target), true);
   const moved = useGame.getState().game !== game;
   if (moved) {
     // The store already played the "off you go" sound.
-    useDrag.setState({ landed: { target, at: Date.now() }, sel: null });
+    useDrag.setState({ landed: { target, at: Date.now() }, sel: null, cheer: { crewId, text: placeVerb(crewId, target, game) ?? 'On it!', at: Date.now() } });
     g.pick(null);
+    // Walking out into the crater: the camera goes with them, so you can watch the whole trip.
+    if (outside && target.startsWith('ground:')) follow(crewId);
   }
   return moved;
+}
+
+/** The world spot (0-1 across the crater) under a point on the screen, or null if it is not over the scene. */
+function groundAt(x: number, y: number): number | null {
+  const scene = document.querySelector('.scene') as HTMLElement | null;
+  if (!scene) return null;
+  const r = scene.getBoundingClientRect();
+  if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
+  const { x: cam, W } = useCamera.getState();
+  return (cam + x - r.left) / W;
+}
+
+/**
+ * Where a drop should go. Right on a place: there. Close to one: it snaps there.
+ * Out on open ground: they walk to that spot. Never a dead end if there is any good place nearby.
+ */
+export function resolveDrop(crewId: string, x: number, y: number): string | null {
+  const over = targetAt(x, y);
+  if (over && canDrop(crewId, over)) return over;
+  // The nearest place they could go, within a short reach of the finger.
+  let best: { id: string; d: number } | null = null;
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('.scene [data-mod]'))) {
+    const id = el.dataset.mod;
+    if (!id || !canDrop(crewId, id)) continue;
+    const r = el.getBoundingClientRect();
+    const dx = Math.max(r.left - x, 0, x - r.right);
+    const dy = Math.max(r.top - y, 0, y - r.bottom);
+    const d = Math.hypot(dx, dy);
+    if (!best || d < best.d) best = { id, d };
+  }
+  if (best && best.d < 110) return best.id;
+  const g = groundAt(x, y);
+  if (g === null) return null;
+  // Open ground away from the base: walk there.
+  if (Math.abs(g - 0.5) > BASE_HALF) {
+    const t = `ground:${g.toFixed(3)}`;
+    return canDrop(crewId, t) ? t : null;
+  }
+  // Somewhere in the base but not on anything: the nearest good place in the base.
+  return best && best.d < 320 ? best.id : null;
+}
+
+/** Is this the place they already are? Dropping them back there just puts them down. */
+function sameSpot(crewId: string, target: string | null) {
+  const c = useGame.getState().game?.crew.find((x) => x.id === crewId);
+  return !!c && !!target && !c.trip && homeId(target) === c.at;
 }
 
 /** Tap a glowing place while an astronaut is picked: send them there. Returns true if the tap was used. */
@@ -186,11 +247,12 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
     const vx = (ev.clientX - lastX) / Math.max(8, now - lastT);
     lastX = ev.clientX;
     lastT = now;
-    const over = targetAt(ev.clientX, ev.clientY);
+    const over = resolveDrop(crewId, ev.clientX, ev.clientY);
     const prev = useDrag.getState();
-    const ok = !!over && canDrop(crewId, over);
-    if (over && over !== prev.over && ok) sfx.hover();
-    useDrag.setState({ id: crewId, x: ev.clientX, y: ev.clientY, vx: prev.vx * 0.6 + vx * 0.4, over, ok });
+    const ok = !!over;
+    const onGround = !!over && over.startsWith('ground:');
+    if (over && (onGround ? !prev.over?.startsWith('ground:') : over !== prev.over)) sfx.hover();
+    useDrag.setState({ id: crewId, x: ev.clientX, y: ev.clientY, vx: prev.vx * 0.6 + vx * 0.4, over, ok, ground: onGround ? ev.clientX : null });
   };
   const up = (ev: PointerEvent) => {
     window.removeEventListener('pointermove', move);
@@ -198,11 +260,14 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
     window.removeEventListener('pointercancel', up);
     cancelAnimationFrame(raf);
     if (!dragging) return; // a tap: the click handler picks them
-    const { over, ok } = useDrag.getState();
-    useDrag.setState({ id: null, over: null, ok: false, vx: 0 });
+    const over = resolveDrop(crewId, ev.clientX, ev.clientY);
+    const under = targetAt(ev.clientX, ev.clientY);
+    useDrag.setState({ id: null, over: null, ok: false, vx: 0, ground: null });
     justDragged = true;
     setTimeout(() => { justDragged = false; }, 0);
-    if (over && ok && sendTo(crewId, over)) return;
+    // Put back where they were: a gentle landing, no fuss.
+    if (sameSpot(crewId, under)) { sfx.land(); return; }
+    if (over && sendTo(crewId, over)) return;
     // A bad drop: they bounce back home, shaking their head.
     useDrag.setState({ back: { id: crewId, x: ev.clientX, y: ev.clientY, at: Date.now() } });
     refuse(crewId);

@@ -49,7 +49,19 @@ export function glideTo(target: number, ms = 560) {
   raf = requestAnimationFrame(tick);
 }
 
-export const nudge = (dx: number) => { moved += Math.abs(dx); glideTo(get().x + dx); };
+export const nudge = (dx: number) => { moved += Math.abs(dx); follow(null); glideTo(get().x + dx); };
+
+/** Who the camera is following out in the crater, if anyone. Panning by hand stops following. */
+export const useFollow = create<{ id: string | null }>(() => ({ id: null }));
+export const follow = (id: string | null) => { if (useFollow.getState().id !== id) useFollow.setState({ id }); };
+/** Ease the camera toward a walker (world px). Called every frame while following; waits for any glide to finish. */
+export function followTo(worldX: number) {
+  if (raf) return;
+  const want = clamp(worldX - get().vw / 2);
+  const x = get().x;
+  if (Math.abs(want - x) < 0.5) return;
+  set({ x: reduced() ? want : x + (want - x) * 0.12 });
+}
 
 /** Past the edge the world stretches like a rubber band, then springs back. */
 function rubber(x: number) {
@@ -98,6 +110,7 @@ export function attachDrag(el: HTMLElement, locked: () => boolean) {
     const dx = e.clientX - down.x;
     if (!dragged && Math.abs(dx) > 8) {
       dragged = true;
+      follow(null);
       try { el.setPointerCapture(e.pointerId); } catch { /* fine */ }
       el.classList.add('dragging');
     }
@@ -130,6 +143,7 @@ export function attachDrag(el: HTMLElement, locked: () => boolean) {
     if (!d) return;
     e.preventDefault();
     stop();
+    follow(null);
     moved += Math.abs(d);
     set({ x: clamp(get().x + d) });
   };

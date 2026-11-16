@@ -1751,3 +1751,86 @@ kbd { min-width: 3.2rem; padding: 0.3rem 0.6rem; text-align: center; font: 700 0
   .wx-text p { font-size: 1.05rem; }
   .school-list { grid-template-columns: 1fr; }
 }
+
+/* ==================================================================
+   Moving the crew anywhere: trails, flags, the trip tracker, cancelling.
+   ================================================================== */
+.trip-path { position: absolute; z-index: 4; top: calc(var(--ground) - 3px); height: 0; border-top: 5px dashed var(--color-volt); pointer-events: none; opacity: 0.85; }
+.trip-path.back { border-top-color: var(--color-cyan); }
+.trip-flag { position: absolute; z-index: 4; top: calc(var(--ground) - 40px); color: var(--color-volt); pointer-events: none; animation: flag-bob 1s ease-in-out infinite; }
+.trip-flag svg.lucide { width: 34px; height: 34px; fill: var(--color-volt); stroke: var(--ink); stroke-width: 2.4; }
+.trip-flag.there { animation: none; opacity: 0.6; }
+@keyframes flag-bob { 50% { translate: 0 -6px; } }
+.walker.carried { opacity: 0.25; }
+.walker.followed .walker-name { background: var(--color-volt); }
+.walker { touch-action: none; }
+
+.trips { position: absolute; z-index: 30; right: 12px; top: 64px; display: grid; gap: 8px; justify-items: end; pointer-events: none; }
+.trip-chip { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.4rem 0.35rem 0.4rem; pointer-events: auto; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); }
+.trip-chip.followed { background: var(--color-volt); }
+.trip-face { display: grid; place-items: center; width: 40px; height: 40px; flex: none; overflow: hidden; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-cyan); }
+.trip-rover { display: grid; place-items: center; }
+.trip-text { display: grid; gap: 1px; min-width: 120px; max-width: 190px; }
+.trip-text b { font-size: 0.95rem; line-height: 1.1; }
+.trip-text small { font-size: 0.75rem; line-height: 1.15; color: #46306f; }
+.trip-bar { display: block; height: 8px; margin-top: 2px; border: 2px solid var(--ink); border-radius: 999px; background: #d9d1ea; overflow: hidden; }
+.trip-bar i { display: block; height: 100%; background: var(--color-go); }
+.trip-chip.back .trip-bar i { background: var(--color-cyan); }
+.trip-btn { display: grid; place-items: center; width: 38px; height: 38px; flex: none; cursor: pointer; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-cyan); color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.trip-btn.on { background: var(--ink); color: var(--color-volt); }
+.trip-btn.back { background: var(--color-sand); }
+
+.cancel-site { position: absolute; z-index: 6; right: 0; bottom: -24px; display: flex; align-items: center; gap: 4px; height: 28px; min-width: 28px; padding: 0 5px; cursor: pointer; border: 3px solid var(--ink); border-radius: 999px; background: var(--color-clean); color: var(--ink); font: 700 0.75rem var(--font-display); white-space: nowrap; }
+.cancel-site svg.lucide { width: 14px; height: 14px; }
+.cancel-site.sure { background: var(--color-danger); color: var(--color-clean); }
+.prop-wrap .cancel-site { right: -16px; bottom: -6px; }
+
+/* While carrying someone over open ground: a flag shows the spot they would walk to. */
+.ground-mark { position: fixed; z-index: 90; pointer-events: none; }
+.ground-ring { position: absolute; left: -26px; top: -10px; width: 52px; height: 20px; border: 4px solid var(--color-volt); border-radius: 50%; animation: ground-ring 0.9s ease-out infinite; }
+@keyframes ground-ring { from { scale: 0.5; opacity: 1; } to { scale: 1.4; opacity: 0; } }
+.ground-pole { position: absolute; left: -2px; top: -54px; width: 5px; height: 54px; background: var(--ink); border-radius: 3px; }
+.ground-flag { position: absolute; left: 2px; top: -54px; width: 30px; height: 20px; background: var(--color-volt); border: 3px solid var(--ink); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+
+/* A good drop: stars, and a word for what they are off to do. */
+.drop-puff .puff-star { position: absolute; left: 50%; bottom: 20%; width: 16px; height: 16px; margin-left: -8px; background: var(--color-volt); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: puff-star 0.8s ease-out both; }
+.drop-puff .puff-star:nth-of-type(1) { --dx: -46px; --dy: -40px; }
+.drop-puff .puff-star:nth-of-type(2) { --dx: 46px; --dy: -44px; animation-delay: 0.05s; }
+.drop-puff .puff-star:nth-of-type(3) { --dx: -24px; --dy: -70px; animation-delay: 0.1s; background: var(--color-clean); }
+.drop-puff .puff-star:nth-of-type(4) { --dx: 26px; --dy: -74px; animation-delay: 0.08s; background: var(--color-cyan); }
+@keyframes puff-star { 0% { translate: 0 0; scale: 0.3; opacity: 1; } 100% { translate: var(--dx) var(--dy); scale: 1.2; rotate: 140deg; opacity: 0; } }
+.puff-word { position: absolute; left: 50%; bottom: 60%; translate: -50% 0; padding: 0.2rem 0.7rem; white-space: nowrap; background: var(--color-go); color: var(--ink); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font: 700 1rem var(--font-display); animation: puff-word 1.3s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes puff-word { 0% { scale: 0.2; translate: -50% 10px; } 25% { scale: 1.15; translate: -50% -14px; } 35%, 75% { scale: 1; translate: -50% -18px; opacity: 1; } 100% { translate: -50% -40px; opacity: 0; } }
+
+/* ==================================================================
+   Every tap answers back: star bursts and curiosity facts.
+   ================================================================== */
+.tap-juice { position: fixed; inset: 0; z-index: 95; pointer-events: none; }
+.tap-burst { position: absolute; width: 0; height: 0; }
+.tap-ring { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border: 3px solid var(--color-clean); border-radius: 50%; animation: tap-ring 0.45s ease-out both; }
+.tap-burst.big .tap-ring { border-color: var(--color-volt); border-width: 4px; }
+@keyframes tap-ring { from { scale: 0.3; opacity: 1; } to { scale: 1.7; opacity: 0; } }
+.tap-burst s { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; background: var(--color-volt); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); rotate: var(--a); animation: tap-star 0.6s ease-out both; }
+.tap-burst s:nth-child(3n) { background: var(--color-cyan); }
+.tap-burst s:nth-child(3n+1) { background: var(--color-clean); }
+.tap-burst:not(.big) s { width: 9px; height: 9px; left: -4.5px; top: -4.5px; }
+@keyframes tap-star { 0% { transform: translateY(0) scale(0.4); opacity: 1; } 100% { transform: translateY(-34px) scale(1); opacity: 0; } }
+.tap-burst.big s { animation-name: tap-star-big; }
+@keyframes tap-star-big { 0% { transform: translateY(0) scale(0.4); opacity: 1; } 100% { transform: translateY(-48px) scale(1.2); opacity: 0; } }
+.curio-bubble { position: absolute; display: grid; gap: 0.3rem; width: min(320px, 86vw); translate: -50% -100%; margin-top: -26px; padding: 0.7rem 0.9rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 20px; box-shadow: 0 6px 0 var(--ink); }
+.curio-bubble.below { translate: -50% 0; margin-top: 30px; }
+.curio-bubble.below::after { bottom: auto; top: -14px; rotate: 225deg; }
+.curio-bubble::after { content: ''; position: absolute; left: 50%; bottom: -14px; width: 20px; height: 20px; margin-left: -10px; background: var(--color-clean); border-right: var(--line); border-bottom: var(--line); rotate: 45deg; }
+.curio-bubble.fresh { background: var(--color-volt); }
+.curio-bubble.fresh::after { background: var(--color-volt); }
+.curio-kicker { display: inline-flex; align-items: center; gap: 0.3rem; font: 700 0.78rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+.curio-name { font-size: 1.3rem; line-height: 1.1; }
+.curio-fact { font-size: 1rem; line-height: 1.35; }
+.curio-reward { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.curio-brick { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.6rem; border: 3px solid var(--ink); border-radius: 999px; background: var(--color-clean); font-weight: 700; }
+.curio-reward small { font-size: 0.78rem; }
+@media (max-width: 560px) {
+  .trips { top: 56px; right: 6px; }
+  .trip-text { min-width: 90px; max-width: 130px; }
+  .trip-text small { display: none; }
+}

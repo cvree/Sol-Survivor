@@ -36,10 +36,13 @@ export function useDropClass(id: string, game: GameState): string {
 /** A puff of dust and a ring where an astronaut was just sent. */
 export function LandPuff({ id }: { id: string }) {
   const landed = useDrag((d) => (d.landed?.target === id ? d.landed.at : 0));
-  if (!landed || Date.now() - landed > 900) return null;
+  const word = useDrag((d) => (d.landed?.target === id && d.cheer ? d.cheer.text : ''));
+  if (!landed || Date.now() - landed > 1400) return null;
   return (
     <span key={landed} className="drop-puff" aria-hidden="true">
       <i /><i /><i /><i /><i />
+      <s className="puff-star" /><s className="puff-star" /><s className="puff-star" /><s className="puff-star" />
+      {word && <b className="puff-word">{word}!</b>}
     </span>
   );
 }
