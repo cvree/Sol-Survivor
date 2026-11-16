@@ -75,6 +75,16 @@ Sixth pass (clarity and characters):
 - Clearer screen: the yard (capsule, panels, miners) has its own lane on the left, the landing pad its own lane on the right, the base the middle. The big shield arc is gone (the blue zones show cover instead). One message bar: M.A.R.V. (the scrolling ticker was removed; crew chatter still appears in speech bubbles). Name plates show name, level, switch and one icon. Upgrade arrows only appear when you can afford the upgrade. Bricks and parts share one header chip. The background is calmer so the base stands out.
 - Characters: each astronaut loves one thing (Ada: fixing, Mei: caring, Kofi: plants, Yuki: exploring, Luis: science, Zara: building, Omar: sleeping, Tala: company) and doing it lifts their mood. Tap an astronaut for a big card with a Chat, a High five and a Pep talk, each with their own lines (`data/characters.ts`), which cheer them up. Little pop-up pictures (heart, star, speech, sweat) show how they feel.
 
+Seventh pass (submission night):
+
+- Training that points at the thing: M.A.R.V.'s guide (`Guide.tsx`) dims the scene, cuts a spotlight around the target, bounces a hand on it and puts the instruction in a bubble beside it. Paused steps block every other tap, and the store refuses any action the step did not ask for, so a stray tap cannot strand the lesson. Drag steps loop a ghost hand. Every step ends by doing it or by "Got it"; no timers, no Skip. Training completion and lessons seen are remembered in `localStorage`; a trained player skips the intro and can start from the briefing.
+- Carrying astronauts (`crewDrag.ts`, `CrewGhost.tsx`, `Walk.tsx`): drag or tap-then-tap, with mouse, trackpad or touch. The carried astronaut dangles, swings and kicks and says a line in their own voice (`PICKUP` in `characters.ts`). Every place they can go lights up with a verb (Sleep, Build, Make air, Grow food, Dig bricks, Explore); the rest dim. Bad drops arc back home with a head shake.
+- Walking: the engine now gives every move inside the base a walk time by distance (`walkSols`, `WALK_PER_COL`, `WALK_LADDER`), and builders only build once they arrive. The screen draws the walk along the ground and down the ladder shaft, in exactly that time.
+- Building in one tap: every building site has a Send button that sends the best free astronaut.
+- Sound: effects rebuilt (`sound.ts`) with chip voices, FM bells, a shared reverb and echo and a soft limiter; every effect measured offline (no clipping). Five music tracks (`public/music`, made by Connor with Gemini) crossfade by mood: title, base (two bright tracks taking turns), storm, dust, win and loss.
+- Phones: portrait and landscape layouts fit the screen without zooming out.
+- Facts: discoveries, briefing-adjacent facts and the dust records were checked on 16 Nov 2026; two radio-delay lines and one dust number were corrected. See `docs/SUBMISSION.md`.
+
 Known gaps:
 
 | Gap | Detail |

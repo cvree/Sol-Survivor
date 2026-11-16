@@ -113,8 +113,8 @@ const dustRecords: RealRecord[] = [
     date: 'July 2007',
     facts: [
       { label: 'Rovers', value: 'Spirit and Opportunity' },
-      { label: 'Dust thickness (tau)', value: 'above 5' },
-      { label: 'Opportunity solar power', value: 'fell to 128 watt-hours a day' },
+      { label: 'Opportunity solar power before', value: 'about 700 watt-hours a day' },
+      { label: 'Opportunity solar power at worst', value: '128 watt-hours a day (July 18, 2007)' },
     ],
     story: 'In July 2007 dust blocked almost all direct sunlight for weeks. Engineers switched off nearly everything on both rovers to save power, and both rovers made it through.',
     source: 'NASA/JPL Mars Exploration Rover reports (entered by hand)',

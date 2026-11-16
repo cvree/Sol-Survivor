@@ -4,6 +4,7 @@ import { AlbumPanel } from './Album';
 import { UpgradePanel } from './Upgrade';
 import { BottomBar } from './BottomBar';
 import { CrewGhost } from './CrewGhost';
+import { Guide } from './Guide';
 import { Confetti } from './Confetti';
 import { Debrief } from './Debrief';
 import { Diorama } from './Diorama';
@@ -62,6 +63,7 @@ export function GameScreen() {
       <Pops />
       <Moments />
       <CrewGhost />
+      <Guide />
       {over && !panel && <Debrief game={game} />}
       {panel?.type === 'event' && <EventCard game={game} eventId={panel.eventId} />}
       {panel?.type === 'cargo' && <CargoPanel game={game} />}

@@ -6,12 +6,12 @@ import { acceptCargo, activeEvents, assign, build, canGoOut, cheer, collectBin, 
 import { saveRecord } from '../lib/records';
 import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
-import { LESSONS, lessonOf, stepOf, type CoachRun } from '../components/coach';
+import { LESSONS, TRAINING, isTrained, lessonOf, loadSeen, markTrained, saveSeen, stepOf, type CoachRun } from '../components/coach';
 import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
 import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
-import { setMood, setMuted, sfx } from '../lib/sound';
+import { isMuted, setMood, setMusic, setMuted, sfx } from '../lib/sound';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
@@ -33,6 +33,21 @@ function pickAgent(game: GameState): string | null {
   const busy = (c: GameState['crew'][number]) => (c.at === 'hab' ? 0 : game.modules.some((m) => m.id === c.at && m.buildLeft > 0) ? 2 : 1);
   const free = game.crew.filter(canGoOut).sort((a, b) => busy(a) - busy(b) || b.energy - a.energy);
   return free[0]?.id ?? null;
+}
+
+/**
+ * During a paused lesson step, only the thing M.A.R.V. asked for works.
+ * A stray tap on something else (a rock pile next to the sparkle, say) does nothing,
+ * so the lesson can never get stuck.
+ */
+type Act = 'collect' | 'dig' | 'assign' | 'toggle' | 'build' | 'other';
+const ALLOW: Partial<Record<string, Act[]>> = { find: ['collect'], deposit: ['dig'], site: ['assign'], bed: ['assign'], module: ['toggle'], spot: ['build'] };
+function lessonAllows(act: Act): boolean {
+  const { coach, tour } = useGame.getState();
+  if (tour === 0) return false;
+  const step = stepOf(coach);
+  if (!step?.pause) return true;
+  return !!ALLOW[step.target]?.includes(act);
 }
 
 let lastTick = 0;
@@ -124,6 +139,8 @@ interface Store {
   pickToMove: (id: string | null) => void;
   move: (id: string, cell: number) => void;
   setCoach: (run: CoachRun | null) => void;
+  /** The "Got it" button: finish a step that only needed reading. */
+  coachNext: () => void;
   /** Straight back in after a loss: no intro, and the first mini-mission practises what went wrong. */
   retry: () => void;
   patch: (id: string) => void;
@@ -167,7 +184,7 @@ export const useGame = create<Store>((set, get) => ({
   notice: null,
   party: 0,
   seenKinds: [],
-  muted: false,
+  muted: isMuted(),
   sun: { status: 'loading', activity: 1 },
   difficulty: 'easy',
   slowmo: false,
@@ -185,10 +202,21 @@ export const useGame = create<Store>((set, get) => ({
   begin: () => { sfx.build(); set({ screen: 'pick', panel: null }); },
   chooseCommander: (commander) => { sfx.reward(); set({ commander, screen: 'brief' }); },
   setCoach: (coach) => set({ coach, coachAt: Date.now() }),
+  coachNext: () => {
+    const { coach } = get();
+    if (!coach) return;
+    const steps = lessonOf(coach.lesson)?.steps.length ?? 0;
+    sfx.learn();
+    if (coach.step + 1 < steps) get().setCoach({ ...coach, step: coach.step + 1 });
+    else { if (coach.lesson === TRAINING[TRAINING.length - 1]) markTrained(); get().setCoach(null); }
+  },
 
   start: () => {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const { sun, difficulty, commander, album } = get();
+    // The first-run training happens once. After that the intro is skipped and lessons are remembered.
+    const trained = isTrained();
+    const seen = loadSeen().filter((id) => !TRAINING.includes(id));
     sfx.build();
     landerShown = -1;
     clearTimeout(holdTimer);
@@ -202,7 +230,7 @@ export const useGame = create<Store>((set, get) => ({
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [],
       screen: 'game', game: fresh,
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
-      tour: 0, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
+      tour: trained ? null : 0, lessonsSeen: trained ? [...seen, ...TRAINING] : seen, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
     });
   },
   retry: () => {
@@ -210,7 +238,7 @@ export const useGame = create<Store>((set, get) => ({
     const cause = game?.lostCause;
     get().start();
     sfx.thump();
-    set({ tour: null, coach: null, tip: cause ? TIP_GOAL[cause] : null });
+    set({ tip: cause ? TIP_GOAL[cause] : null });
   },
   quit: () => { setMood('off'); set({ coach: null }); clearTimeout(holdTimer); set({ screen: 'title', game: null, panel: null, tour: null, picked: null, moment: null, slowmo: false }); },
 
@@ -228,22 +256,30 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) return;
     if (game.status !== 'playing' || tour !== null) setMood(game.status === 'playing' ? 'calm' : 'off');
     else setMood(stormDose(game) > 0 ? 'storm' : activeEvents(game, 'dust').length ? 'dust' : game.events.some((e) => e.phase === 'warned') ? 'tension' : 'calm');
+    // The music follows the story: bright while building, dramatic in a storm, and an ending for the debrief.
+    setMusic(game.status === 'won' ? 'win' : game.status === 'lost' ? 'lost'
+      : stormDose(game) > 0 || game.events.some((e) => e.kind !== 'dust' && e.phase === 'warned') ? 'storm'
+      : activeEvents(game, 'dust').length ? 'dust' : 'base');
     // M.A.R.V.'s lessons move on as soon as the player has done the thing asked,
     // and a new lesson starts the first time it is needed.
     const { coach, lessonsSeen, picked } = get();
     if (coach) {
       const step = stepOf(coach);
       const steps = lessonOf(coach.lesson)?.steps.length ?? 0;
-      if (step && step.done({ game, picked, subject: coach.subject }, Date.now() - get().coachAt)) {
-        if (step.pause) sfx.reward();
-        get().setCoach(coach.step + 1 < steps ? { ...coach, step: coach.step + 1 } : null);
+      if (step?.done?.({ game, picked, subject: coach.subject })) {
+        sfx.learn();
+        const last = coach.step + 1 >= steps;
+        if (last && coach.lesson === TRAINING[TRAINING.length - 1]) markTrained();
+        get().setCoach(last ? null : { ...coach, step: coach.step + 1 });
       }
-    } else if (tour === null && game.status === 'playing' && !moment && !panel) {
+    } else if (tour === null && game.status === 'playing' && !moment && !panel && !get().editing) {
       const cs = { game, picked };
       const next = LESSONS.find((l) => !lessonsSeen.includes(l.id) && l.when(cs));
       if (next) {
         sfx.ping();
-        set({ lessonsSeen: [...lessonsSeen, next.id] });
+        const seen = [...lessonsSeen, next.id];
+        set({ lessonsSeen: seen });
+        saveSeen([...new Set([...loadSeen(), ...seen.filter((id) => !TRAINING.includes(id))])]);
         get().setCoach({ lesson: next.id, step: 0, subject: next.subject?.(cs) });
       }
     }
@@ -271,7 +307,9 @@ export const useGame = create<Store>((set, get) => ({
     }
     if (s.pulse.hit !== game.pulse.hit) sfx.hit();
     if (s.pulse.brownout !== game.pulse.brownout) sfx.brownout();
-    if (s.pulse.built !== game.pulse.built) sfx.thump();
+    if (s.pulse.built !== game.pulse.built) sfx.built();
+    // Someone got to where they were sent: a little hop.
+    if (s.crew.some((c) => c.arriving <= 0 && (game.crew.find((x) => x.id === c.id)?.arriving ?? 0) > 0 && !c.trip)) sfx.land();
     if (s.status === 'won' && game.status === 'playing') sfx.win();
     if (s.status === 'lost' && game.status === 'playing') sfx.lose();
     if (s.pulse.delivered !== game.pulse.delivered) sfx.reward();
@@ -370,7 +408,7 @@ export const useGame = create<Store>((set, get) => ({
 
   toggle: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('toggle')) return;
     const r = toggleModule(game, id);
     if (r.ok) (r.state.modules.find((m) => m.id === id)?.on ? sfx.on : sfx.off)();
     else if (r.reason) sfx.denied();
@@ -379,6 +417,7 @@ export const useGame = create<Store>((set, get) => ({
   collect: (id, who) => {
     const { game, findsActive, findsGot, moment, panel } = get();
     const f = findById(id);
+    if (!lessonAllows('collect')) return;
     if (!game || !f || game.status !== 'playing' || moment || panel || !findsActive.includes(id) || findsGot.includes(id)) return;
     const agent = who ?? pickAgent(game);
     if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out. Build a Rover Garage, or let someone rest.', at: Date.now() } }); return; }
@@ -391,7 +430,7 @@ export const useGame = create<Store>((set, get) => ({
   dig: (depId, who) => {
     const { game } = get();
     const d = game?.deposits.find((x) => x.id === depId);
-    if (!game || !d) return;
+    if (!game || !d || !lessonAllows('dig')) return;
     const agent = who ?? pickAgent(game);
     if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out.', at: Date.now() } }); return; }
     const r = sendOut(game, agent, { kind: 'mine', dep: depId }, d.x);
@@ -412,13 +451,13 @@ export const useGame = create<Store>((set, get) => ({
   },
   emptyBin: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const next = collectBin(game, id);
     if (next !== game) { sfx.reward(); set({ game: next }); }
   },
   upgrade: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const r = startUpgrade(game, id);
     if (r.ok) { sfx.thump(); set({ game: r.state, panel: null }); }
     else { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); }
@@ -433,18 +472,18 @@ export const useGame = create<Store>((set, get) => ({
   },
   patch: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const r = patch(game, id);
     if (r.ok) sfx.patch(); else sfx.denied();
     set({ game: r.state, notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice });
   },
   build: (kind, cell) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('build')) return;
     sfx.build();
     set({ game: build(game, kind, cell), panel: null });
   },
-  assign: (crewId, moduleId) => { const { game } = get(); if (game) {
+  assign: (crewId, moduleId) => { const { game } = get(); if (game && lessonAllows('assign')) {
     const next = assign(game, crewId, moduleId);
     if (next === game) { sfx.denied(); set({ notice: { text: 'There is no room to work there.', at: Date.now() } }); return; }
     sfx.assign();
@@ -460,7 +499,8 @@ export const useGame = create<Store>((set, get) => ({
   setTour: (tour) => {
     sfx.build();
     // After the first dome, M.A.R.V. coaches one thing at a time, by doing.
-    if (tour === null && get().tour === 1) {
+    if (tour !== 0 && get().tour === 0) tour = null;
+    if (tour === null && get().tour !== null) {
       const lead = get().game?.crew.find((c) => c.commander)?.id;
       set({ tour, coach: { lesson: 'start', step: 0, subject: lead }, coachAt: Date.now(), lessonsSeen: [...new Set([...get().lessonsSeen, 'start'])] });
     }

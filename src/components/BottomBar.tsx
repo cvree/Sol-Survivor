@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { Compass, FastForward, Hammer, Pause, Play, Satellite, ScrollText, Users, Volume2, VolumeX } from 'lucide-react';
 import { FACTS } from '../data/facts';
 import { POWER_COST, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, alive, bedName, habReady, isOn, power, shieldCover, stormDose, workersIn } from '../engine/engine';
+import { MODULE_NAME, aModule, alive, bedName, habReady, isOn, power, shieldCover, stormDose, workersIn } from '../engine/engine';
 import type { GameState } from '../engine/types';
 import { TRIAGE_LABEL, triage } from '../engine/vitals';
 import { useGame } from '../store/game';
 import { Astronaut, Marv, type Mood } from './art';
 import { feeling, lookOf } from './crewLook';
 import { TOUR } from './tour';
-import { lessonOf, stepOf } from './coach';
+import { stepOf, trainingStep } from './coach';
 import { useOpenFinds } from './Finds';
 import { FINDS } from '../data/discoveries';
 
@@ -30,7 +30,7 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   const site = game.modules.find((m) => m.buildLeft > 0 && !game.crew.some((c) => c.at === m.id));
   const hand = alive(game).find((c) => !c.exhausted && c.energy > 35 && !game.modules.some((m) => m.id === c.at && m.buildLeft > 0));
   if (site && hand) return { text: `The ${MODULE_NAME[site.kind]} will not build itself! Drag ${hand.name} onto the building site.`, mood: 'happy' };
-  if (game.blueprints.length) return { text: `You earned plans for a ${MODULE_NAME[game.blueprints[0]]}. Press a green spot (or Build) to mark out the site.`, mood: 'happy' };
+  if (game.blueprints.length) return { text: `You earned plans for ${aModule(game.blueprints[0])}. Tap a green spot (or Build) to mark out the site.`, mood: 'happy' };
   if (!game.modules.some((m) => m.kind === 'oxygen') && game.life < 30) return { text: 'The capsule air is running low! Explore and finish missions to bring the next lander sooner, then build an Oxygen Maker.', mood: 'alert' };
   if (game.modules.length === 1) return { text: `Everything here must be earned. Explore the crater and finish missions to fill the Next lander bar (${Math.round(game.cargoProgress * 100)}%).`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
@@ -66,10 +66,10 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
 import { CrewCard } from './CrewCard';
 
 export function BottomBar({ game }: { game: GameState }) {
-  const { tour, setTour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
+  const { tour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
   const openFinds = useOpenFinds().length;
   const lesson = stepOf(coach);
-  const lessonSteps = coach ? lessonOf(coach.lesson)?.steps.length ?? 0 : 0;
+  const training = trainingStep(coach);
   const [roster, setRoster] = useState(false);
   const step = tour !== null ? TOUR[tour] : null;
   const partying = Date.now() - party < 4500;
@@ -88,10 +88,8 @@ export function BottomBar({ game }: { game: GameState }) {
         <AnimatePresence mode="wait">
           <motion.div key={talk.text} className="marv-say" role="status"
             initial={{ opacity: 0, x: -12, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 26 }}>
-            {lesson && <span className="marv-step">{coach?.lesson === 'start' ? `Training ${coach.step + 1} of ${lessonSteps}` : 'New lesson'}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
-            <p>{talk.text}{tour === 1 ? ' 👍' : ''}</p>
-            {lesson && lesson.pause && <button className="linklike skip-coach" onClick={() => useGame.getState().setCoach(null)}>Skip this lesson</button>}
-            {tour === 1 && <motion.button className="btn btn-go" whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.05 }} onClick={() => setTour(null)} autoFocus>Let's go!</motion.button>}
+            {lesson && <span className="marv-step">{training ? `Training ${training.n} of ${training.of}` : 'New lesson'}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
+            <p>{talk.text}</p>
           </motion.div>
         </AnimatePresence>
       </div>
