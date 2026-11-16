@@ -1,8 +1,8 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { Hammer, Plus, Wrench } from 'lucide-react';
-import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, MAX_LEVEL, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, cannotUpgrade, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
+import { BATTERY_OUTPUT, BUILD_SOLS, GRID_COLS, LAYER, MAX_LEVEL, PATCHABLE, POWER_COST, SOLAR_OUTPUT, WORK_SLOTS, YARD_CELL } from '../engine/constants';
+import { MODULE_NAME, SPECIALIST, activeEvents, buildableCells, plansFor, suggestCell, cannotUpgrade, domeZone, habReady, isNight, isPatched, moveTargets, power, staffing, stormDose, workersIn } from '../engine/engine';
 import { Deposits, Walkers } from './World';
 import { LevelDeco, LevelStars } from './LevelDeco';
 import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/types';
@@ -14,7 +14,7 @@ import { sfx } from '../lib/sound';
 import { nearness } from './StormFuse';
 import { stepOf } from './coach';
 import { clearSelection, startCrewDrag, tapCrew, useDrag, wasDragged } from '../lib/crewDrag';
-import { CrewWalkers, DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, useDropClass, walking } from './Walk';
+import { CrewWalkers, DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, noteLeaving, useDropClass, walking } from './Walk';
 import { EdgeArrows, MiniMap } from './Explore';
 import { CancelSite } from './Trips';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
@@ -87,8 +87,15 @@ function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?:
   const chat = bubble && bubble.crewId === c.id && bubble.until > Date.now() ? bubble.text : null;
   const say = selected ? { text: line || 'Where to?', mood: 'chat' } : c.say ?? (chat ? { text: chat, mood: 'chat' } : null);
   const still = look.fainted || look.shiver || c.exhausted || (act !== 'idle' && act !== 'sip');
+  // As they set off, note exactly where they stood, so the walk starts from there.
+  const el = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const node = el.current;
+    return () => { if (node?.isConnected) noteLeaving(c.id, node); };
+  }, [c.id]);
   return (
     <motion.button
+      ref={el}
       data-crew={c.id}
       className={`sprite no-drag ${picked === c.id ? 'picked' : ''} ${selected ? 'selected' : ''} ${coach === c.id ? 'coach-target' : ''} ${carried ? 'carried' : ''} ${c.energy < 30 && !c.exhausted ? 'tired' : ''}`}
       onPointerDown={(e) => startCrewDrag(e, c.id)}
@@ -329,7 +336,7 @@ const px = (f: number, extra: CSSProperties = {}) => ({ '--f': f, ...extra } as 
 export function Diorama({ game }: { game: GameState }) {
   const ref = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const { tour, open, slowmo, moment, party, tunedAt, editing, moving, setEditing, move } = useGame();
+  const { tour, open, slowmo, moment, party, tunedAt, editing, moving, setEditing, move, placing, build } = useGame();
   const coachTarget = useGame((s) => stepOf(s.coach)?.target ?? null);
   const holding = useDrag((d) => !!(d.id ?? d.sel));
   const night = isNight(game) && tour !== 0;
@@ -346,8 +353,23 @@ export function Diorama({ game }: { game: GameState }) {
   const lit = p.sunlight > 0.6;
   const placed = game.modules.filter((m) => LAYER[m.kind] !== 'yard');
   const yard = game.modules.filter((m) => LAYER[m.kind] === 'yard');
-  const kinds = [...new Set(game.blueprints)].filter((k) => LAYER[k] !== 'yard');
+  // Open spots for your plans. The commander chooses: M.A.R.V. only marks one as a tip.
+  const plans = placing ? [placing] : [...new Set(game.blueprints)];
+  const kinds = plans.filter((k) => LAYER[k] !== 'yard');
   const spots = [...new Set(kinds.flatMap((k) => buildableCells(game, k)))];
+  const yardKinds = plans.filter((k) => LAYER[k] === 'yard');
+  const yardSpot = yardKinds.length ? buildableCells(game, yardKinds[0])[0] : undefined;
+  const tipKind = placing ?? [...plans].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'))[0];
+  const tipCell = tipKind ? suggestCell(game, tipKind) : undefined;
+  const tapSpot = (cell: number) => {
+    if (placing) build(placing, cell);
+    else open({ type: 'build', cell });
+  };
+  const spotLabel = (cell: number) => {
+    if (placing) return `${MODULE_NAME[placing]} here`;
+    const fits = plansFor(game, cell);
+    return fits.length === 1 ? `${MODULE_NAME[fits[0]]}?` : cell < GRID_COLS || cell >= YARD_CELL ? 'Build' : 'Dig a room';
+  };
   const partying = Date.now() - party < 3200;
   const dead = game.crew.filter((c) => c.out);
   // Perfect power: every block in use, none wasted. The whole base hums cyan.
@@ -447,6 +469,14 @@ export function Diorama({ game }: { game: GameState }) {
             <div className="yard">
               <Pod game={game} intro={intro} />
               {!intro && yard.filter((m) => m.kind !== 'pod').map((m, i) => <YardProp key={m.id} m={m} game={game} lit={lit} index={i} fresh={tour === 1} />)}
+              {!intro && !editing && yardSpot !== undefined && (
+                <motion.button key="yard-spot" className={`spot ready yard-spot ${tipCell === yardSpot ? 'tip' : ''} ${coachTarget === 'spot' ? 'coach-target' : ''}`} whileTap={{ scale: 0.92 }}
+                  initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}
+                  onClick={(e) => { e.stopPropagation(); tapSpot(yardSpot); }} aria-label={`Build in the yard here${tipCell === yardSpot ? '. M.A.R.V. thinks this is a good spot.' : ''}`}>
+                  {tipCell === yardSpot && <b className="spot-tip"><Star /> Good spot</b>}
+                  <Plus /><span>{spotLabel(yardSpot)}</span>
+                </motion.button>
+              )}
               {/* The crew remember the friends they lost. */}
               {dead.map((c) => (
                 <motion.div key={`rip-${c.id}`} className="memorial" title={`${c.name} did not survive`} initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }}>
@@ -482,10 +512,11 @@ export function Diorama({ game }: { game: GameState }) {
               ))}
               {!intro && placed.map((m) => <Module key={m.id} m={m} game={game} fresh={tour === 1} partying={partying} />)}
               {!intro && !editing && spots.map((cell) => (
-                <motion.button key={`spot-${cell}`} className={`spot ready ${coachTarget === 'spot' ? 'coach-target' : ''}`} style={place(cell)} whileTap={{ scale: 0.92 }}
+                <motion.button key={`spot-${cell}`} className={`spot ready ${tipCell === cell ? 'tip' : ''} ${coachTarget === 'spot' ? 'coach-target' : ''}`} style={place(cell)} whileTap={{ scale: 0.92 }}
                   initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}
-                  onClick={() => open({ type: 'build', cell })} aria-label={cell < GRID_COLS ? 'Build on the surface here' : 'Dig a room here'}>
-                  <Plus /><span>{cell < GRID_COLS ? 'Build' : 'Dig a room'}</span>
+                  onClick={(e) => { e.stopPropagation(); tapSpot(cell); }} aria-label={`${cell < GRID_COLS ? 'Build on the surface here' : 'Dig a room here'}${tipCell === cell ? '. M.A.R.V. thinks this is a good spot.' : ''}`}>
+                  {tipCell === cell && <b className="spot-tip"><Star /> Good spot</b>}
+                  <Plus /><span>{spotLabel(cell)}</span>
                 </motion.button>
               ))}
             </div>
@@ -503,6 +534,12 @@ export function Diorama({ game }: { game: GameState }) {
       {tour === null && (
         <motion.button className={`edit-btn no-drag ${editing ? 'on' : ''} ${coachTarget === 'edit' ? 'coach-target' : ''}`} onClick={() => setEditing(!editing)} whileTap={{ scale: 0.9 }}
           aria-pressed={editing}>{editing ? <><Check /> Done</> : <><LayoutGrid /> Edit layout</>}</motion.button>
+      )}
+      {placing && !editing && (
+        <div className="placing-bar no-drag" role="status">
+          Tap a glowing spot for the {MODULE_NAME[placing]}.
+          <button onClick={(e) => { e.stopPropagation(); useGame.getState().setPlacing(null); }}>Cancel</button>
+        </div>
       )}
       {editing && <div className="edit-banner" role="status">Layout editor: drag a module to a glowing spot (or tap it, then a spot). The clock is stopped. Blue zones show where Shield Domes protect.</div>}
     </div>

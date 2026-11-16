@@ -3,8 +3,14 @@ import type { ModuleKind } from './types';
 /** Every balance number lives here. Real-world anchors are marked REAL with a source. */
 
 export const MISSION_SOLS = 30;
-/** Real seconds per sol at 1x speed. REAL: a sol is 24 h 39 min 35 s (NASA Mars facts). */
-export const SOL_SECONDS = 8;
+/**
+ * Real seconds per sol at 1x speed, by difficulty. Easy is the slowest, so a young commander
+ * has time to look, think and act between storms. GAME VALUES.
+ * REAL: a sol is 24 h 39 min 35 s (NASA Mars facts).
+ */
+export const SOL_SECONDS = { easy: 20, normal: 15, hard: 11 } as const;
+/** Storms in the middle of a mission (the first and last solar storms, and the finale dust storm, come on top). */
+export const MIDDLE_STORMS = { easy: 3, normal: 5, hard: 5 } as const;
 
 // The site map.
 /** The base is a side-view cutaway: domes on the surface, rooms dug in below, gear out in the yard. */

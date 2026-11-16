@@ -29,7 +29,7 @@ Built for the 2026 NASA Space Apps Challenge, **Build a Junior Astronaut Mission
 
 ## What is simplified (the game tells players this too, in the NASA Log)
 
-- **Time is squeezed.** One sol passes in 8 seconds. Real cargo flights take about seven months, not a few sols.
+- **Time is squeezed.** One sol passes in 20 seconds on Easy, 15 on Normal and 11 on Hard. Real cargo flights take about seven months, not a few sols.
 - **Storm radiation is scaled up** so one storm matters in a short game. The Shield Dome and the way it covers neighbouring rooms are game rules.
 - **Bodies are simplified.** Energy, mood, sleep and long-stay wear use game numbers, inspired by the OSDR studies but not calculated from them.
 - **Practice storms.** Because the DONKI archive could not be downloaded, storms use made-up strengths and say so on screen. Running `npm run fetch-nasa` with a NASA API key replaces them with real dated records.

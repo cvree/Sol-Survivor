@@ -108,7 +108,7 @@ export function sendTo(crewId: string, target: string): boolean {
   if (target.startsWith('find:')) g.collect(target.slice(5), crewId);
   else if (target.startsWith('dep:')) g.dig(target.slice(4), crewId);
   else if (target.startsWith('ground:')) g.goTo(crewId, Number(target.slice(7)));
-  else g.assign(crewId, homeId(target), true);
+  else g.assign(crewId, homeId(target));
   const moved = useGame.getState().game !== game;
   if (moved) {
     // The store already played the "off you go" sound.

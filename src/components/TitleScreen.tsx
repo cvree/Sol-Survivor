@@ -44,7 +44,7 @@ export function TitleScreen() {
 
         <fieldset className="levels">
           <legend>How tough is the Sun today?</legend>
-          {([['easy', 'Easy', 'Gentle storms, lots of warning.'], ['normal', 'Normal', 'Stronger storms, less warning.'], ['hard', 'Hard', 'Fierce storms. For experts.']] as const).map(([id, name, blurb]) => (
+          {([['easy', 'Easy', 'Slow days, fewer storms, lots of warning.'], ['normal', 'Normal', 'Quicker days, stronger storms.'], ['hard', 'Hard', 'Fast days, fierce storms. For experts.']] as const).map(([id, name, blurb]) => (
             <label key={id} className={difficulty === id ? 'picked' : ''}>
               <input type="radio" name="level" checked={difficulty === id} onChange={() => setDifficulty(id)} />
               <b>{name}</b><span>{blurb}</span>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, cancelSite, goTo, recall, tripPos, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
+import { acceptCargo, assign, build, cancelSite, goTo, recall, tripPos, walkSols, suggestCell, plansFor, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
@@ -307,15 +307,21 @@ describe('every plan you pick is really yours', () => {
     return s;
   };
 
-  it('marks out a building site for each plan, yard gear included', () => {
-    const s = acceptCargo(toFirstLander(11), ['solar', 'hab']);
-    const sites = s.modules.filter((m) => m.buildLeft > 0).map((m) => m.kind).sort();
-    expect(sites).toEqual(['hab', 'solar']);
+  /** The commander places every plan, the way a player taps each glowing spot. */
+  const placeAll = (s: GameState) => { for (const k of [...s.blueprints].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'))) s = build(s, k, suggestCell(s, k)); return s; };
+
+  it('plans wait until the commander picks a spot, yard gear included', () => {
+    let s = acceptCargo(toFirstLander(11), ['solar', 'hab']);
+    expect(s.modules.filter((m) => m.buildLeft > 0)).toEqual([]);
+    expect([...s.blueprints].sort()).toEqual(['hab', 'solar']);
+    expect(plansFor(s, suggestCell(s, 'hab')!)).toEqual(['hab']);
+    s = placeAll(s);
+    expect(s.modules.filter((m) => m.buildLeft > 0).map((m) => m.kind).sort()).toEqual(['hab', 'solar']);
     expect(s.blueprints).toEqual([]);
   });
 
   it('a builder walks on to the next site by themselves when one is finished', () => {
-    let s = acceptCargo(toFirstLander(12), ['oxygen', 'hab']);
+    let s = placeAll(acceptCargo(toFirstLander(12), ['oxygen', 'hab']));
     const lead = s.crew[0];
     s = arrive(assign(s, lead.id, 'hab-site'));
     s.crew[0].energy = 100;
@@ -326,7 +332,7 @@ describe('every plan you pick is really yours', () => {
   });
 
   it('stays put when the player turns that off', () => {
-    let s = acceptCargo(toFirstLander(12), ['oxygen', 'hab']);
+    let s = placeAll(acceptCargo(toFirstLander(12), ['oxygen', 'hab']));
     s.autoBuild = false;
     s = arrive(assign(s, s.crew[0].id, 'hab-site'));
     s.crew[0].energy = 100;
@@ -336,13 +342,30 @@ describe('every plan you pick is really yours', () => {
 });
 
 describe('the commander is in control', () => {
-  it('dropping someone inside the base puts them there at once', () => {
-    const s = starter(21);
-    const next = assign(s, s.crew[0].id, 'm2', true);
-    expect(next.crew[0].at).toBe('m2');
-    expect(next.crew[0].arriving).toBe(0);
-    // Without a drop (the Send button, or the engine moving people), they still walk.
-    expect(assign(s, s.crew[0].id, 'm2').crew[0].arriving).toBeGreaterThan(0);
+  it('every move is a walk from where they stand, even a change of mind halfway', () => {
+    let s = starter(21);
+    s = assign(s, s.crew[0].id, 'm2');
+    expect(s.crew[0].at).toBe('m2');
+    expect(s.crew[0].arriving).toBeGreaterThan(0);
+    // Halfway there, sent back home: the walk back is shorter than a fresh walk from m2.
+    const full = s.crew[0].walkTotal;
+    s = step(s, full / 2);
+    const back = assign(s, s.crew[0].id, 'hab');
+    expect(back.crew[0].arriving).toBeGreaterThan(0);
+    expect(back.crew[0].arriving).toBeLessThan(walkSols(s, 'm2', 'hab'));
+  });
+
+  it('going out into the crater starts with a walk to the airlock', () => {
+    let s = arrive(starter(23));
+    const r = goTo(s, s.crew[0].id, 0.9);
+    s = r.state;
+    expect(s.crew[0].arriving).toBeGreaterThan(0);
+    const left = s.crew[0].trip!.left;
+    s = step(s, 0.01);
+    // The crater walk waits until they are out of the base.
+    expect(s.crew[0].trip!.left).toBe(left);
+    s = step(step(s, s.crew[0].arriving + 0.01), 0.05);
+    expect(s.crew[0].trip!.left).toBeLessThan(left);
   });
 
   it('anyone rested can walk out to any spot in the crater and stays there', () => {

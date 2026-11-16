@@ -35,8 +35,9 @@ const DURATION: Record<EventKind, [number, number]> = {
  * but the mission always ramps up: one gentle storm to learn on, then harder mixes.
  * `activity` (0.8-1.25) comes from how busy the real Sun is right now.
  */
-export function planEvents(rng: Rng, catalog: Catalog, activity = 1, ease = 1, extraWarning = 0): GameEvent[] {
-  const middle = rng.shuffle<EventKind>(['dust', 'flare', 'cme', 'dust', 'flare']);
+export function planEvents(rng: Rng, catalog: Catalog, activity = 1, ease = 1, extraWarning = 0, middleCount = 5): GameEvent[] {
+  // Fewer storms on Easy, but always one of each kind to learn from.
+  const middle = rng.shuffle<EventKind>((['flare', 'dust', 'cme', 'dust', 'flare'] as EventKind[]).slice(0, Math.max(1, middleCount)));
   if (activity > 1.1) middle.splice(rng.pick([1, 2, 3]), 0, 'flare');
   const order: EventKind[] = ['cme', ...middle, 'cme'];
 

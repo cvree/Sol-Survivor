@@ -30,7 +30,7 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   const site = game.modules.find((m) => m.buildLeft > 0 && !game.crew.some((c) => c.at === m.id));
   const hand = alive(game).find((c) => !c.exhausted && c.energy > 35 && !game.modules.some((m) => m.id === c.at && m.buildLeft > 0));
   if (site && hand) return { text: `The ${MODULE_NAME[site.kind]} will not build itself! Drag ${hand.name} onto the building site.`, mood: 'happy' };
-  if (game.blueprints.length) return { text: `You have plans for ${aModule(game.blueprints[0])}. Tap Build to mark out the site.`, mood: 'happy' };
+  if (game.blueprints.length) return { text: `You have plans for ${aModule(game.blueprints[0])}. Tap a glowing + spot to choose where it goes.`, mood: 'happy' };
   if (!game.modules.some((m) => m.kind === 'oxygen') && game.life < 30) return { text: 'The capsule air is running low! Explore and finish missions to bring the next lander sooner, then build an Oxygen Maker.', mood: 'alert' };
   if (game.modules.length === 1) return { text: `Everything here must be earned. Explore the crater and finish missions to fill the Next lander bar (${Math.round(game.cargoProgress * 100)}%).`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');

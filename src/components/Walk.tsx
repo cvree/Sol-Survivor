@@ -93,18 +93,43 @@ function groundY(home: DOMRect) {
   return dirt ? dirt.getBoundingClientRect().top - home.top + 2 : home.height * 0.46;
 }
 
-/** The way there: along the ground, and down the ladder shaft for rooms dug in below. */
-function pathOf(home: DOMRect, from: string, to: string): Pt[] | null {
-  const a = anchorOf(home, from);
+/** The way there from a starting point: along the ground, and down the ladder shaft for rooms dug in below. */
+function pathFrom(home: DOMRect, a: Anchor, to: string): Pt[] | null {
   const b = anchorOf(home, to);
-  if (!a || !b) return null;
+  if (!b) return null;
   const g = groundY(home);
   const pts: Pt[] = [{ x: a.x, y: a.y }];
+  // Two places in the same dug-in room: just walk across it.
+  if (a.under && b.under && Math.abs(a.shaft - b.shaft) < 8) return [...pts, { x: b.x, y: b.y }];
   if (a.under) { pts.push({ x: a.shaft, y: a.y }, { x: a.shaft, y: g }); }
   if (b.under) { pts.push({ x: b.shaft, y: g }, { x: b.shaft, y: b.y }); }
   pts.push({ x: b.x, y: b.y });
   return pts;
 }
+
+/** Is a point on a path below ground, and which ladder shaft would take it up? */
+function anchorOn(pts: Pt[], p: Pt, g: number): Anchor {
+  const under = p.y > g + 4;
+  let shaft = p.x;
+  if (under) {
+    // The top of the nearest ladder on this path is the way up.
+    const tops = pts.filter((q) => Math.abs(q.y - g) < 3);
+    if (tops.length) shaft = tops.reduce((best, q) => (Math.abs(q.x - p.x) < Math.abs(best.x - p.x) ? q : best)).x;
+  }
+  return { ...p, under, shaft };
+}
+
+// ---------- where everyone was last seen ----------
+
+/** Where each astronaut was standing in their room, noted the moment they leave it (screen coordinates). */
+const leftFrom = new Map<string, { x: number; at: number }>();
+/** Call as a room's astronaut is taken off screen, so their walk can start from exactly that spot. */
+export function noteLeaving(crewId: string, el: HTMLElement) {
+  const r = el.getBoundingClientRect();
+  if (r.width) leftFrom.set(crewId, { x: r.left + r.width / 2, at: performance.now() });
+}
+/** Each walker's current walk, and the last place it was drawn, so a change of plan never jumps. */
+const trails = new Map<string, { key: string; start: Anchor | null; last: Anchor | null; done: boolean }>();
 
 /** A point part-way along a path, and whether that part is a ladder. */
 function along(pts: Pt[], k: number): { p: Pt; dir: number; climb: boolean } {
@@ -123,8 +148,8 @@ function along(pts: Pt[], k: number): { p: Pt; dir: number; climb: boolean } {
   return { p: pts[pts.length - 1], dir: 0, climb: false };
 }
 
-/** Is this astronaut on their way somewhere inside the base right now? */
-export const walking = (c: CrewState) => !c.out && !c.trip && c.arriving > 0 && c.walkTotal > 0;
+/** Is this astronaut on their way somewhere inside the base right now (including out to the airlock)? */
+export const walking = (c: CrewState) => !c.out && c.arriving > 0 && c.walkTotal > 0;
 
 /**
  * Astronauts on their way to a new job, walking along the surface and climbing the ladder.
@@ -138,12 +163,28 @@ export function CrewWalkers({ game }: { game: GameState }) {
     const el = layer.current;
     const home = el?.parentElement?.getBoundingClientRect();
     if (!el || !home) return;
+    const g = groundY(home);
+    for (const [id, t] of trails) if (!movers.some((c) => c.id === id)) t.done = true;
     for (const node of Array.from(el.children) as HTMLElement[]) {
       const c = game.crew.find((x) => x.id === node.dataset.crew);
       if (!c) continue;
-      const pts = pathOf(home, c.walkFrom, c.at);
+      // A new walk starts exactly where they were: part-way along the last walk, or their spot in the room.
+      const key = `${c.walkFrom}>${c.at}>${c.walkTotal.toFixed(5)}`;
+      let t = trails.get(c.id);
+      if (!t || t.key !== key) {
+        const mid = t && !t.done ? t.last : null;
+        const room = anchorOf(home, c.walkFrom);
+        const seen = leftFrom.get(c.id);
+        const spot = room && seen && performance.now() - seen.at < 800 ? { ...room, x: seen.x - home.left } : null;
+        t = { key, start: mid ?? spot, last: null, done: false };
+        trails.set(c.id, t);
+        leftFrom.delete(c.id);
+      }
+      const start = t.start ?? anchorOf(home, c.walkFrom);
+      const pts = start && pathFrom(home, start, c.at);
       if (!pts) { node.style.opacity = '0'; continue; }
       const { p, dir, climb } = along(pts, 1 - c.arriving / c.walkTotal);
+      t.last = anchorOn(pts, p, g);
       node.style.opacity = '1';
       node.style.transform = `translate(${p.x}px, ${p.y}px)`;
       node.classList.toggle('climb', climb);
@@ -170,5 +211,7 @@ export function useSelected(game: GameState) {
 
 /** Keyboard: Escape puts a picked astronaut back down. */
 export function cancelOnEscape(e: globalThis.KeyboardEvent) {
-  if (e.key === 'Escape' && useDrag.getState().sel) { useDrag.setState({ sel: null }); useGame.getState().pick(null); }
+  if (e.key !== 'Escape') return;
+  if (useDrag.getState().sel) { useDrag.setState({ sel: null }); useGame.getState().pick(null); }
+  else if (useGame.getState().placing) useGame.getState().setPlacing(null);
 }

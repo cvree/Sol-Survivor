@@ -54,13 +54,29 @@ export const nudge = (dx: number) => { moved += Math.abs(dx); follow(null); glid
 /** Who the camera is following out in the crater, if anyone. Panning by hand stops following. */
 export const useFollow = create<{ id: string | null }>(() => ({ id: null }));
 export const follow = (id: string | null) => { if (useFollow.getState().id !== id) useFollow.setState({ id }); };
-/** Ease the camera toward a walker (world px). Called every frame while following; waits for any glide to finish. */
+/**
+ * Where the followed walker is (world px). Safe to call while drawing: it only notes the goal.
+ * The camera eases toward it on its own animation frames.
+ *
+ * It must never move the camera directly: the scene redraws when the camera moves, and a redraw
+ * that moves the camera again loops until React gives up and blanks the whole page.
+ */
+let followGoal: number | null = null;
+let followRaf = 0;
 export function followTo(worldX: number) {
-  if (raf) return;
-  const want = clamp(worldX - get().vw / 2);
-  const x = get().x;
-  if (Math.abs(want - x) < 0.5) return;
-  set({ x: reduced() ? want : x + (want - x) * 0.12 });
+  followGoal = worldX;
+  if (!followRaf) followRaf = requestAnimationFrame(followStep);
+}
+function followStep() {
+  followRaf = 0;
+  if (followGoal === null || !useFollow.getState().id) { followGoal = null; return; }
+  // Waits for any glide to finish first.
+  if (!raf) {
+    const want = clamp(followGoal - get().vw / 2);
+    const x = get().x;
+    if (Math.abs(want - x) >= 0.5) set({ x: reduced() ? want : x + (want - x) * 0.12 });
+  }
+  followRaf = requestAnimationFrame(followStep);
 }
 
 /** Past the edge the world stretches like a rubber band, then springs back. */

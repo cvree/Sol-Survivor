@@ -64,7 +64,7 @@ function locate(target: CoachTarget | 'go', run: CoachRun | null): { t: Element 
     }
     case 'trip': return { t: q('.walker'), f: null, alt: null };
     case 'spot': {
-      const spot = all('.spot.ready')[0];
+      const spot = all('.spot.tip')[0] ?? all('.spot.ready')[0];
       if (spot) return { t: spot, f: null, alt: null };
       return { t: q('.dock-btn.build'), f: null, alt: 'You got new plans! Tap Build to choose where they go.' };
     }

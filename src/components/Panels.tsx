@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, BedDouble, Check, ShieldHalf, Users, Wind, Zap } from 'lucide-react';
+import { ArrowRight, BedDouble, Check, ShieldHalf, Star, Users, Wind, Zap } from 'lucide-react';
 import { donki, hasDonki, osdrFetchedAt, osdrStudies, recordById, type RealRecord } from '../data/records';
 import { BACKGROUND_DOSE, BATTERY_OUTPUT, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, SKIP_CREW_SUPPLIES, DOME_COVERS, POWER_COST, SOLAR_OUTPUT, SOL_SECONDS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, TRAITS, alive, buildableCells, power } from '../engine/engine';
+import { MODULE_NAME, SPECIALIST, TRAITS, alive, plansFor, power, suggestCell } from '../engine/engine';
 import { sfx } from '../lib/sound';
 import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
@@ -233,25 +233,36 @@ export function CargoPanel({ game }: { game: GameState }) {
         <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={!ready} onClick={() => unpack(picks, chosen)}>
           {choosing && chosen === undefined ? 'Choose who comes' : picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : `Unpack: ${picks.map((k) => MODULE_NAME[k]).join(' + ')}`}
         </motion.button>
-        <span className="aside">Every plan you pick is marked out on the ground right away. Send builders to raise them. Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. The clock is stopped.</span>
+        <span className="aside">After this, you choose where each plan is built: tap a glowing + spot. Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. The clock is stopped.</span>
       </div>
     </Modal>
   );
 }
 
+/**
+ * Choosing what to build. Opened from a glowing spot, it asks what goes there.
+ * Opened from the Build button, you pick a plan first and then tap the spot for it.
+ * M.A.R.V. marks a good choice, but the commander always decides.
+ */
 export function BuildPanel({ game, cell }: { game: GameState; cell?: number }) {
-  const { open, build } = useGame();
-  const kinds = [...new Set(game.blueprints)].filter((k) => cell === undefined || buildableCells(game, k).includes(cell));
+  const { open, build, setPlacing } = useGame();
+  const here = cell !== undefined;
+  const kinds = here ? plansFor(game, cell) : [...new Set(game.blueprints)].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'));
+  // M.A.R.V.'s tip: on a spot, the plan this spot suits best. From the dock, the plan to place first.
+  const tip = here ? kinds.find((k) => suggestCell(game, k) === cell) : kinds[0];
   return (
-    <Modal title="Build" onClose={() => open(null)}>
-      <p className="lede">Pick a plan. It becomes a building site: drag an astronaut onto it to build it.</p>
+    <Modal title={here ? 'What goes here?' : 'Your plans'} onClose={() => open(null)}>
+      <p className="lede">{here ? 'Pick what to build on this spot. Then drag an astronaut onto it to build it.' : 'Pick a plan. Then tap a glowing spot to choose where it goes.'}</p>
       <div className="offer-list one">
         {kinds.map((k) => {
           const Icon = MODULE_ICON[k];
           return (
-            <motion.button key={k} className={`offer k-${k}`} onClick={() => build(k, cell)} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}>
+            <motion.button key={k} className={`offer k-${k} ${k === tip && kinds.length > 1 ? 'tipped' : ''}`} onClick={() => (here ? build(k, cell) : setPlacing(k))} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}>
               <span className="badge"><Icon /></span>
-              <span className="offer-text"><strong>{MODULE_NAME[k]}</strong><span>{MODULE_JOB[k]}.</span><span className="strain">{STRAIN[k]}</span></span>
+              <span className="offer-text">
+                <strong>{MODULE_NAME[k]}{k === tip && kinds.length > 1 && <b className="tip-tag"><Star /> M.A.R.V.'s tip</b>}</strong>
+                <span>{MODULE_JOB[k]}.</span><span className="strain">{STRAIN[k]}</span>
+              </span>
             </motion.button>
           );
         })}
@@ -422,7 +433,7 @@ export function DataPanel({ recordId }: { recordId?: string }) {
       <section className="source honest">
         <h3>What we changed to make it a game</h3>
         <ul className="plain">
-          <li>Time is squeezed. One sol passes in {SOL_SECONDS} seconds. Running out of air really harms a person in minutes, not sols.</li>
+          <li>Time is squeezed. A real sol is about 24 hours and 40 minutes. Here one passes in {SOL_SECONDS.easy} seconds on Easy, {SOL_SECONDS.normal} on Normal and {SOL_SECONDS.hard} on Hard. Running out of air really harms a person in minutes, not sols.</li>
           <li>Storm radiation is turned up. On the real Mars surface one solar storm adds far less dose than it does here.</li>
           <li>Long-stay wear is real, but how fast it happens here is a game number. The studies used mice, bed rest and the Space Station, not Mars.</li>
           <li>The Shield Dome is simplified. Real plans use thick walls, water tanks and Mars dirt, with no switch.</li>

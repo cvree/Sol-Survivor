@@ -53,7 +53,7 @@ export function SettingsHost() {
       if (useGame.getState().settingsOpen) return; // the menu's own dialog closes itself
       // Esc first closes whatever is in the way: an open card, or an astronaut you are holding.
       if (document.querySelector('dialog[open]')) return;
-      if (useDrag.getState().sel || useDrag.getState().id || useGame.getState().picked) return;
+      if (useDrag.getState().sel || useDrag.getState().id || useGame.getState().picked || useGame.getState().placing) return;
       e.preventDefault();
       setOpen(true);
     };

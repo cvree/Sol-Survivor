@@ -18,6 +18,7 @@ import { fetchLiveSun } from './lib/liveSun';
 import { setMood, setMusic, setVolumes } from './lib/sound';
 import { applyLook, useSettings, type Settings } from './lib/settings';
 import { SettingsHost } from './components/Settings';
+import { Oops } from './components/Oops';
 import { useGame } from './store/game';
 
 export function App() {
@@ -33,11 +34,13 @@ export function App() {
   }, [screen]);
   return (
     <MotionConfig reducedMotion={calm ? 'always' : 'user'}>
-      {screen === 'title' && <TitleScreen />}
-      {screen === 'pick' && <CommanderPick />}
-      {screen === 'brief' && <Briefing />}
-      {screen === 'game' && <GameScreen />}
-      <SettingsHost />
+      <Oops>
+        {screen === 'title' && <TitleScreen />}
+        {screen === 'pick' && <CommanderPick />}
+        {screen === 'brief' && <Briefing />}
+        {screen === 'game' && <GameScreen />}
+        <SettingsHost />
+      </Oops>
     </MotionConfig>
   );
 }

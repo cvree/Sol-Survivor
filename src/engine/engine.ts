@@ -5,7 +5,7 @@ import type { CargoOffer, Cause, CrewState, GameEvent, GameState, Like, ModuleKi
 import { heartRateFor, hypoxiaStage, isFainted, maxHealth, spo2For } from './vitals';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
-/** Easy: gentler storms, more warning, a fuller tank. Hard: storms at the strength of the real records. */
+/** Easy: gentler storms, more warning, a fuller tank, fewer storms. Hard: storms at the strength of the real records. */
 export const LEVEL: Record<Difficulty, { ease: number; warning: number; life: number }> = {
   easy: { ease: 0.72, warning: 0.6, life: 15 },
   normal: { ease: 0.88, warning: 0.3, life: 8 },
@@ -135,7 +135,7 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
     crew: [newCrew(lead, 1, 'hab', rng.range(0.9, 1.1), true)],
     life,
     shield: 0,
-    events: planEvents(rng, catalog, activity, level.ease, level.warning),
+    events: planEvents(rng, catalog, activity, level.ease, level.warning, K.MIDDLE_STORMS[difficulty]),
     blueprints: [],
     cargoProgress: K.START_CARGO,
     landers: 0,
@@ -434,7 +434,7 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
  * Send a crew member somewhere: to work in a module, to build at a building site,
  * or home to rest ('hab' means home: the Hab once built, the capsule before that).
  */
-export function assign(prev: GameState, crewId: string, moduleId: string, drop = false): GameState {
+export function assign(prev: GameState, crewId: string, moduleId: string): GameState {
   const id = moduleId === 'pod' ? 'hab' : moduleId;
   const m = prev.modules.find((x) => x.id === id);
   const c = prev.crew.find((x) => x.id === crewId);
@@ -448,10 +448,8 @@ export function assign(prev: GameState, crewId: string, moduleId: string, drop =
   moduleId = id;
   const s = clone(prev);
   const who = s.crew.find((x) => x.id === crewId)!;
-  // Picked up and dropped by the commander inside the base: they land right there.
-  // Otherwise it takes a moment to walk (or climb down the ladder) to the new place.
-  if (drop) { who.at = moduleId; who.arriving = 0; who.walkFrom = moduleId; who.walkTotal = 0; }
-  else walk(s, who, moduleId);
+  // Every move is a real walk (or a climb down the ladder) from where they stand now.
+  walk(s, who, moduleId);
   return s;
 }
 
@@ -461,7 +459,7 @@ export function cancelSite(prev: GameState, id: string): GameState {
   if (!m || m.buildLeft <= 0 || prev.status !== 'playing') return prev;
   const s = clone(prev);
   const mm = s.modules.find((x) => x.id === id)!;
-  for (const c of s.crew) if (c.at === id) { c.at = 'hab'; c.arriving = 0; c.walkFrom = 'hab'; c.walkTotal = 0; }
+  for (const c of s.crew) if (c.at === id && !c.out) walk(s, c, 'hab');
   if (mm.upgrading) {
     // Stop an upgrade: every brick comes back, and the module is ready to use again.
     s.materials += upgradeCost(mm);
@@ -495,9 +493,17 @@ export function walkSols(s: GameState, from: string, to: string): number {
   return K.WALK_BASE + Math.abs(a.col - b.col) * K.WALK_PER_COL + ladders * K.WALK_LADDER;
 }
 
-/** Start a walk from where they are to a new place. Work starts when they get there. */
+/**
+ * Start a walk from where they are to a new place. Work starts when they get there.
+ * Sent somewhere new halfway through a walk? They turn round where they stand, so the
+ * time is worked out from that spot (the screen draws the walk from there too).
+ */
 function walk(s: GameState, c: CrewState, to: string, from = c.at) {
-  const t = walkSols(s, from, to);
+  let t = walkSols(s, from, to);
+  if (from === c.at && c.arriving > 0 && c.walkTotal > 0) {
+    const k = 1 - c.arriving / c.walkTotal;
+    t = k * t + (1 - k) * walkSols(s, c.walkFrom, to);
+  }
   c.walkFrom = from;
   c.walkTotal = t;
   c.arriving = t;
@@ -546,8 +552,8 @@ export function sendOut(prev: GameState, who: string, job: Trip['job'], x: numbe
     const able = !!c && !c.out && !c.exhausted && (c.trip ? true : canGoOut(c));
     if (!c || !able) return { state: prev, ok: false, reason: c && !c.out && c.energy <= 25 ? `${c.name} is too tired to go out.` : 'Nobody is free to go.' };
     c.trip = trip;
-    c.at = 'out';
-    c.arriving = 0;
+    // Leaving the base: first they walk from their room to the airlock, then out across the crater.
+    if (!now) walk(s, c, 'out');
   }
   const name = rover ? 'The rover' : s.crew.find((m) => m.id === who)!.name;
   log(s, 'info', `${name} ${now ? 'changes course' : 'heads out'} ${job.kind === 'find' ? `to investigate: ${job.title}` : job.kind === 'mine' ? 'to dig regolith' : 'to explore the crater'}.`);
@@ -565,6 +571,17 @@ export function recall(prev: GameState, who: string, then?: string): GameState {
   const rover = who === 'rover';
   const t0 = rover ? prev.rover?.trip : prev.crew.find((c) => c.id === who)?.trip;
   if (!t0 || prev.status !== 'playing') return prev;
+  // Still inside, on the way to the airlock: they just turn round and walk to the new place.
+  const leaving = !rover && (prev.crew.find((c) => c.id === who)?.arriving ?? 0) > 0;
+  if (leaving) {
+    const s = clone(prev);
+    const c = s.crew.find((x) => x.id === who)!;
+    c.trip = null;
+    const probe = { ...s, crew: s.crew.map((x) => (x === c ? { ...x, at: 'out', arriving: 0 } : x)) };
+    const to = then && then !== 'hab' && assign(probe, c.id, then) !== probe ? then : 'hab';
+    walk(s, c, to);
+    return s;
+  }
   if (t0.phase === 'back') {
     if (then === t0.then) return prev;
     const s = clone(prev);
@@ -718,11 +735,19 @@ export function acceptCargo(prev: GameState, picks: ModuleKind[], crewId?: strin
   s.landers = offer.number;
   s.offer = null;
   s.cargoProgress = 0;
-  // Every plan you chose is marked out on the ground at once, so both choices are really there.
-  // The Hab goes first, so it takes the middle of the base. Move sites later in Edit layout.
-  let out = s;
-  for (const k of [...chosen].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'))) out = build(out, k);
-  return out;
+  // The plans wait in the Build list. The commander picks the spot for each one.
+  if (chosen.length) log(s, 'info', `New plans: ${chosen.map((k) => MODULE_NAME[k]).join(' and ')}. Tap a glowing + spot to choose where to build.`);
+  return s;
+}
+
+/** M.A.R.V.'s tip for where a plan should go: close to the heart of the base. Only a tip: the commander chooses. */
+export function suggestCell(s: GameState, kind: ModuleKind): number | undefined {
+  return buildableCells(s, kind)[0];
+}
+
+/** The plans that would fit on this spot, the Hab first (the base grows from it). */
+export function plansFor(s: GameState, cell: number): ModuleKind[] {
+  return [...new Set(s.blueprints)].filter((k) => buildableCells(s, k).includes(cell)).sort((a, b) => Number(b === 'hab') - Number(a === 'hab'));
 }
 
 // ---------- the simulation ----------
@@ -813,7 +838,7 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, stor
     if (wasStage > 0 && stage === 0) speak(s, c, 'airBack', 'good');
 
     // Warmth: the Hab heats the whole base. Before it exists, only the capsule is warm. Outside is cold.
-    const outside = !!c.trip;
+    const outside = !!c.trip && c.arriving <= 0;
     const heat = !outside && (habHeat || (inPod && c.at === 'hab'));
     const wasCold = c.temp < K.HYPOTHERMIA_TEMP;
     if (heat) c.temp = Math.min(K.NORMAL_TEMP, c.temp + (inBed ? K.TEMP_RISE_MEDBAY : K.TEMP_RISE) * dt);
@@ -881,8 +906,8 @@ function stepCrew(s: GameState, dt: number, air: boolean, habHeat: boolean, stor
     c.mood = Math.max(0, Math.min(100, c.mood + (up - down) * dt));
     if (c.emote && c.emote.until <= s.time) c.emote = null;
     if (!c.emote && c.energy < 20 && !resting) c.emote = { kind: 'sweat', until: s.time + 0.4 };
-    if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && !outside && c.at !== 'hab') {
-      c.at = 'hab';
+    if (c.mood < K.STRIKE_AT && !resting && !c.exhausted && !c.trip && c.at !== 'hab') {
+      walk(s, c, 'hab');
       s.stats.strikes++;
       log(s, 'warn', `${c.name} is too unhappy to work and went to the Hab for a break.`);
       c.lastSaid = '';
@@ -975,7 +1000,8 @@ export function step(prev: GameState, dt: number): GameState {
   // Trips out in the crater. Collapsed astronauts stop where they are until they wake.
   for (const c of s.crew) {
     if (!c.trip || c.out) continue;
-    if (c.exhausted) continue;
+    // Still walking to the airlock: the trip starts once they are out.
+    if (c.exhausted || c.arriving > 0) continue;
     // Someone looking around out in the crater walks home by themselves once they get tired.
     if (c.trip.job.kind === 'go' && c.trip.phase === 'work' && c.energy < K.AUTO_BUILD_ENERGY) {
       const back = recall(s, c.id);

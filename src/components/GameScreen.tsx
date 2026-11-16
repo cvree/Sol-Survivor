@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { noteCrash } from './Oops';
 import { useGame } from '../store/game';
 import { AlbumPanel } from './Album';
 import { UpgradePanel } from './Upgrade';
@@ -28,10 +29,13 @@ export function GameScreen() {
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    let failed = 0;
     const loop = (now: number) => {
-      tick((now - last) / 1000);
-      last = now;
+      // Keep the loop alive even if one frame goes wrong, so the clock never freezes for good.
       raf = requestAnimationFrame(loop);
+      try { tick((now - last) / 1000); failed = 0; }
+      catch (e) { if (failed++ === 0) noteCrash(e, 'game clock'); }
+      last = now;
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);

@@ -72,11 +72,14 @@ export function tripWords(t: Trip): string {
 
 /** Astronauts and the rover out in the crater. Every job outside is a real walk, and you can watch it. */
 export function Walkers({ game }: { game: GameState }) {
-  const { W, vw } = useCamera();
+  // Only the sizes: this must not redraw every time the camera pans.
+  const W = useCamera((c) => c.W);
+  const vw = useCamera((c) => c.vw);
   const carried = useDrag((d) => d.id);
   const followId = useFollow((f) => f.id);
   const home = (W - vw) / 2 + vw * 0.5;
-  const out = game.crew.filter((c) => c.trip && !c.out) as (CrewState & { trip: Trip })[];
+  // Someone still walking through the base to the airlock is drawn inside the base, not out here yet.
+  const out = game.crew.filter((c) => c.trip && !c.out && c.arriving <= 0) as (CrewState & { trip: Trip })[];
   const rover = game.rover?.trip;
   // The camera walks along with whoever it is following, and lets go when they are home.
   useEffect(() => {

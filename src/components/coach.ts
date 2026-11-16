@@ -30,8 +30,8 @@ export interface Lesson {
 }
 
 /** The first-run training, in order. It must be finished once; after that it is remembered. */
-// Plans from a lander are marked out on the ground by themselves, so there is no 'place' step any more.
-export const TRAINING = ['start', 'builder'];
+// Plans from a lander wait for the commander to choose a spot for each one.
+export const TRAINING = ['start', 'place', 'builder'];
 
 const lead = (s: CoachState) => s.game?.crew.find((c) => c.commander);
 const who = (s: CoachState) => s.game?.crew.find((c) => c.id === s.subject);
@@ -61,14 +61,14 @@ export const LESSONS: Lesson[] = [
   {
     id: 'place', when: (s) => !!s.game && s.game.blueprints.length > 0 && !sites(s).length && s.game.modules.length <= 2,
     steps: [
-      { say: (s) => `You got plans for ${aModule(s.game!.blueprints[0])}! Tap the green spot to build it.`, target: 'spot', pause: true,
+      { say: (s) => `You got plans for ${aModule([...s.game!.blueprints].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'))[0])}! You choose where it goes. Tap a glowing spot.`, target: 'spot', pause: true,
         done: (s) => sites(s).length > 0 },
     ],
   },
   {
     id: 'builder', when: (s) => sites(s).length > 0 && !builderAt(s) && !!idleHand(s), subject: (s) => idleHand(s)?.id,
     steps: [
-      { say: (s) => `${sites(s).length > 1 ? 'Your plans are marked out! ' : ''}Nothing builds itself. Drag ${name(s)} onto a building site.`, target: 'site', pause: true, drag: true,
+      { say: (s) => `Nothing builds itself. Drag ${name(s)} onto the building site.`, target: 'site', pause: true, drag: true,
         done: (s) => sites(s).length === 0 || builderAt(s) },
       { say: (s) => sites(s).length > 1 && s.game?.autoBuild !== false ? `Watch it rise! Then ${name(s)} walks to the next site by themselves.` : `Watch ${name(s)} build it, piece by piece!`, target: 'site', pause: false,
         done: (s) => !!s.game && s.game.modules.some((m) => m.kind !== 'pod' && m.buildLeft <= 0) },

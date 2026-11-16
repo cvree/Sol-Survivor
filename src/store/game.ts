@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { acceptCargo, activeEvents, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { MODULE_NAME, acceptCargo, activeEvents, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { saveRecord } from '../lib/records';
 import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
@@ -17,7 +17,7 @@ import { forgetWeather } from '../data/spaceWeather';
 import { markCurio } from '../data/curios';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
-const SLOWMO_SOLS = 0.01;
+const SLOWMO_SECONDS = 0.3;
 const SLOWMO_RATE = 0.25;
 /** How long the big moments hold the screen, in milliseconds. */
 export const HOLD_SURVIVED = 4800;
@@ -101,6 +101,9 @@ interface Store {
   albumSeen: number;
   /** Layout editing: the clock stops and modules can be moved. */
   editing: boolean;
+  /** A plan picked from the Build list, waiting for the commander to tap the spot it goes on. */
+  placing: ModuleKind | null;
+  setPlacing: (kind: ModuleKind | null) => void;
   /** Module picked up in the layout editor (click to pick, click a spot to drop). */
   moving: string | null;
   /** Where the last finished mission landed on the leaderboard (0 = not on it). */
@@ -167,8 +170,8 @@ interface Store {
   tick: (realSeconds: number) => void;
   toggle: (id: string) => void;
   build: (kind: ModuleKind, cell?: number) => void;
-  /** `drop`: put down by hand, so they land there at once instead of walking. */
-  assign: (crewId: string, moduleId: string, drop?: boolean) => void;
+  /** Send someone to a place in the base. They always walk there from where they stand. */
+  assign: (crewId: string, moduleId: string) => void;
   /** Walk out to any spot in the crater (0-1 across) and look around. */
   goTo: (crewId: string, x: number) => void;
   /** Call someone (or 'rover') back from the crater; `then` is a place in the base to go to once home. */
@@ -208,6 +211,11 @@ export const useGame = create<Store>((set, get) => ({
   album: loadAlbum(),
   albumSeen: loadAlbum().length,
   editing: false,
+  placing: null,
+  setPlacing: (placing) => {
+    if (placing) sfx.pickup();
+    set({ placing, panel: null, notice: placing ? { text: `Now tap a glowing spot to choose where the ${MODULE_NAME[placing]} goes.`, at: Date.now() } : get().notice });
+  },
   moving: null,
   said: null,
   lastRank: 0,
@@ -265,7 +273,7 @@ export const useGame = create<Store>((set, get) => ({
     const sharp = takeBonus();
     if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
     fresh = { ...fresh, autoBuild: useSettings.getState().autoBuilders };
-    set({ sharpMind: sharp, editing: false, moving: null, lastRank: 0,
+    set({ sharpMind: sharp, editing: false, placing: null, moving: null, lastRank: 0,
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], curios: [],
       screen: 'game', game: fresh,
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
@@ -331,14 +339,15 @@ export const useGame = create<Store>((set, get) => ({
     const now = performance.now();
     const incoming = game.events.filter((e) => e.phase === 'warned').sort((a, b) => a.startAt - b.startAt)[0];
     const leftSols = incoming ? incoming.startAt - game.time : Infinity;
-    const slow = leftSols < SLOWMO_SOLS;
+    const solSeconds = SOL_SECONDS[game.difficulty];
+    const slow = leftSols < (SLOWMO_SECONDS * SLOWMO_RATE * speed) / solSeconds;
     if (incoming) {
       const near = Math.max(0, Math.min(1, 1 - leftSols / Math.max(0.2, incoming.startAt - incoming.warnAt)));
       if (now - lastTick > 950 - 800 * near) { lastTick = now; sfx.tick(near); }
     }
     if (slow && !get().slowmo) sfx.slowmo();
 
-    let left = Math.min(realSeconds, 0.25) * (speed / SOL_SECONDS) * (slow ? SLOWMO_RATE : 1);
+    let left = Math.min(realSeconds, 0.25) * (speed / solSeconds) * (slow ? SLOWMO_RATE : 1);
     let s = game;
     while (left > 1e-6 && s.status === 'playing' && !s.offer) {
       const dt = Math.min(left, 0.02);
@@ -522,14 +531,16 @@ export const useGame = create<Store>((set, get) => ({
   build: (kind, cell) => {
     const { game } = get();
     if (!game || !lessonAllows('build')) return;
+    const next = build(game, kind, cell);
+    if (next === game) { sfx.denied(); return; }
     sfx.build();
-    set({ game: build(game, kind, cell), panel: null });
+    set({ game: next, panel: null, placing: null });
   },
-  assign: (crewId, moduleId, drop) => { const { game } = get(); if (game && lessonAllows('assign')) {
+  assign: (crewId, moduleId) => { const { game } = get(); if (game && lessonAllows('assign')) {
     const c = game.crew.find((x) => x.id === crewId);
     // Out in the crater? They turn around and head for that place once they are back.
     if (c?.trip) { get().recall(crewId, moduleId); return; }
-    const next = assign(game, crewId, moduleId, drop);
+    const next = assign(game, crewId, moduleId);
     if (next === game) { sfx.denied(); set({ notice: { text: 'There is no room to work there.', at: Date.now() } }); return; }
     sfx.assign();
     set({ game: next });
@@ -566,7 +577,10 @@ export const useGame = create<Store>((set, get) => ({
     const { game } = get();
     if (!game) return;
     sfx.reward();
-    set({ game: acceptCargo(game, picks, crewId), panel: null });
+    const next = acceptCargo(game, picks, crewId);
+    // The plans are yours to place: M.A.R.V. says how, once.
+    const notice = next.blueprints.length > game.blueprints.length ? { text: 'Your new plans are ready! Tap a glowing + spot to choose where to build.', at: Date.now() } : get().notice;
+    set({ game: next, panel: null, notice });
   },
   pick: (picked) => set({ picked }),
   setTour: (tour) => {
