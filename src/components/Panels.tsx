@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { motion } from 'motion/react';
-import { Check } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, BedDouble, Check, ShieldHalf, Users, Wind, Zap } from 'lucide-react';
 import { donki, hasDonki, osdrFetchedAt, osdrStudies, recordById, type RealRecord } from '../data/records';
-import { BACKGROUND_DOSE, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, SKIP_CREW_SUPPLIES, DOME_COVERS, POWER_COST, SOL_SECONDS } from '../engine/constants';
-import { MODULE_NAME, SPECIALIST, TRAITS, alive, buildableCells } from '../engine/engine';
+import { BACKGROUND_DOSE, BATTERY_OUTPUT, CAREER_LIMIT, CARGO_SPARE_PARTS, CARGO_SUPPLIES, SKIP_CREW_SUPPLIES, DOME_COVERS, POWER_COST, SOLAR_OUTPUT, SOL_SECONDS } from '../engine/constants';
+import { MODULE_NAME, SPECIALIST, TRAITS, alive, buildableCells, power } from '../engine/engine';
+import { sfx } from '../lib/sound';
 import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Marv } from './art';
@@ -80,13 +81,77 @@ const STRAIN: Record<ModuleKind, string> = {
   comms: `Needs ${POWER_COST.comms} power all the time to listen.`,
 };
 
+/** What M.A.R.V. says when you pick a plan. Each one says what the choice will change. */
+const PICK_SAY: Record<ModuleKind, string> = {
+  pod: '',
+  hab: 'A real home! Warm beds, and heat for everyone.',
+  oxygen: 'Air is life. Good call, Commander!',
+  solar: `More power! +${SOLAR_OUTPUT} blocks on a sunny day.`,
+  battery: `Steady power, +${BATTERY_OUTPUT}, even in a dust storm.`,
+  hydro: 'Fresh food! The crew will love it.',
+  dome: 'A Shield Dome. The Sun will not scare us now!',
+  medbay: 'A doctor\'s room. Sick crew get better faster.',
+  lab: 'Science! Earth will send landers sooner.',
+  comms: 'Big ears! We will hear about storms sooner.',
+  miner: 'Bricks! We can make every module better.',
+  rover: 'A rover! It explores and never gets tired.',
+};
+
+/** Your base before and after these plans, side by side, so a choice shows what it changes. */
+function Preview({ game, picks, crewAfter }: { game: GameState; picks: ModuleKind[]; crewAfter: number }) {
+  const has = (k: ModuleKind) => game.modules.some((m) => m.kind === k);
+  const gets = (k: ModuleKind) => picks.includes(k);
+  const supply = power(game).most;
+  const extra = picks.reduce((n, k) => n + (k === 'solar' ? SOLAR_OUTPUT : k === 'battery' ? BATTERY_OUTPUT : 0), 0);
+  const rows: { icon: ReactNode; name: string; now: string; after: string }[] = [
+    { icon: <Zap />, name: 'Power', now: String(supply), after: String(supply + extra) },
+    { icon: <Wind />, name: 'Makes air', now: has('oxygen') ? 'Yes' : 'No', after: has('oxygen') || gets('oxygen') ? 'Yes' : 'No' },
+    { icon: <BedDouble />, name: 'Warm beds', now: has('hab') ? 'Yes' : 'No', after: has('hab') || gets('hab') ? 'Yes' : 'No' },
+    { icon: <ShieldHalf />, name: 'Storm shield', now: has('dome') ? 'Yes' : 'No', after: has('dome') || gets('dome') ? 'Yes' : 'No' },
+    { icon: <Users />, name: 'Crew', now: String(alive(game).length), after: String(crewAfter) },
+  ];
+  return (
+    <section className="preview" aria-label="Your base after this lander">
+      <h3>Your base after this lander</h3>
+      <div className="preview-skyline" aria-hidden="true">
+        {game.modules.filter((m) => m.kind !== 'pod').map((m) => { const Icon = MODULE_ICON[m.kind]; return <span key={m.id} className={`sky-mod k-${m.kind}`}><Icon /></span>; })}
+        <AnimatePresence>
+          {picks.map((k) => { const Icon = MODULE_ICON[k]; return (
+            <motion.span key={k} className={`sky-mod new k-${k}`} initial={{ y: -40, scale: 0, rotate: -20 }} animate={{ y: 0, scale: 1, rotate: 0 }} exit={{ y: -30, scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 14 }}><Icon /><b>New</b></motion.span>
+          ); })}
+        </AnimatePresence>
+        {!picks.length && !game.modules.some((m) => m.kind !== 'pod') && <span className="sky-empty">Just the capsule so far. Pick your plans!</span>}
+      </div>
+      <dl className="preview-rows">
+        {rows.map((r) => {
+          const up = r.after !== r.now;
+          return (
+            <div key={r.name} className={up ? 'up' : ''}>
+              <dt>{r.icon}{r.name}</dt>
+              <dd><span>{r.now}</span>{up && <><ArrowRight /><motion.b key={r.after} initial={{ scale: 0.3 }} animate={{ scale: [1.5, 1] }} transition={{ type: 'spring', stiffness: 500, damping: 12 }}>{r.after}</motion.b></>}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
+  );
+}
+
 export function CargoPanel({ game }: { game: GameState }) {
   const unpack = useGame((s) => s.unpack);
   const offer = game.offer;
   const [picks, setPicks] = useState<ModuleKind[]>([]);
   const [who, setWho] = useState<string | null | undefined>(undefined);
+  const [say, setSay] = useState<string | null>(null);
   if (!offer) return null;
-  const flip = (k: ModuleKind) => setPicks((p) => (p.includes(k) ? p.filter((x) => x !== k) : p.length < offer.picks ? [...p, k] : p));
+  const flip = (k: ModuleKind) => {
+    if (picks.includes(k)) { sfx.off(); setSay(null); setPicks(picks.filter((x) => x !== k)); return; }
+    sfx.on();
+    setSay(PICK_SAY[k]);
+    // Already full? The oldest pick makes room, so a change of mind is one tap.
+    setPicks(picks.length >= offer.picks ? [...picks.slice(1), k] : [...picks, k]);
+  };
   const choosing = offer.crewOptions.length > 0;
   const chosen = who === undefined ? undefined : who;
   const crewAfter = alive(game).length + (chosen ? 1 : 0);
@@ -133,7 +198,7 @@ export function CargoPanel({ game }: { game: GameState }) {
           {chosen && <p className="strain">One more mouth to feed: {crewAfter} astronauts will share your air and food.</p>}
         </>
       )}
-      <h3 className="cargo-step">{choosing ? '2. ' : ''}Pick {offer.picks} building plans to unpack</h3>
+      <h3 className="cargo-step">{choosing ? '2. ' : ''}Pick {offer.picks} building plans. You will build both!</h3>
       <div className="offer-list">
         {offer.options.map((k, i) => {
           const Icon = MODULE_ICON[k];
@@ -153,11 +218,20 @@ export function CargoPanel({ game }: { game: GameState }) {
           );
         })}
       </div>
+      <div className="cargo-marv">
+        <Marv mood="happy" size={56} />
+        <AnimatePresence mode="wait">
+          <motion.p key={say ?? 'idle'} className="marv-pick" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 18 }}>
+            {say ?? (picks.length ? 'Pick one more!' : 'Each plan changes your base. What do we need most?')}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+      <Preview game={game} picks={picks} crewAfter={crewAfter} />
       <div className="modal-actions">
         <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} disabled={!ready} onClick={() => unpack(picks, chosen)}>
-          {choosing && chosen === undefined ? 'Choose who comes' : picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : 'Unpack the lander'}
+          {choosing && chosen === undefined ? 'Choose who comes' : picks.length < offer.picks ? `Pick ${offer.picks - picks.length} more` : `Unpack: ${picks.map((k) => MODULE_NAME[k]).join(' + ')}`}
         </motion.button>
-        <span className="aside">Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. Plans must be built by hand. The clock is stopped.</span>
+        <span className="aside">Every plan you pick is marked out on the ground right away. Send builders to raise them. Also on board: {CARGO_SUPPLIES} life support and {CARGO_SPARE_PARTS} spare part. The clock is stopped.</span>
       </div>
     </Modal>
   );

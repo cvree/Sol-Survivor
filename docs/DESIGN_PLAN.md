@@ -85,6 +85,15 @@ Seventh pass (submission night):
 - Phones: portrait and landscape layouts fit the screen without zooming out.
 - Facts: discoveries, briefing-adjacent facts and the dust records were checked on 16 Nov 2026; two radio-delay lines and one dust number were corrected. See `docs/SUBMISSION.md`.
 
+Eighth pass (Connor's fixes: quieter music, Esc menu, building you can watch, choices that count):
+
+- Music is much quieter and softer by default: about 14 dB lower on the base and storm tracks, played through a warm lowpass ("Soft and dreamy"), and the storm heartbeat is halved. Volumes are the player's to set.
+- Esc (or the gear button, in game and on the title) opens a settings menu (`Settings.tsx`, `lib/settings.ts`): a little night sky with twinkling stars, M.A.R.V. with an orbiting moon, and four pages. Sound: all sound, everything, music, sound effects, Mars wind, music style. Play: game speed, how tough the Sun is (next mission), builders keep going, tips from M.A.R.V., train again. Look: calm motion, screen shake, bigger words. Help: keys and how to play. The clock stops and the music goes muffled while it is open. Back to Mars, Start over and Title screen (both ask twice). Settings are kept on this device.
+- Building you can watch (`RisingArt` in `moduleArt.tsx`): a pale blueprint of the finished module, the real module filling in from the ground up as the work is done, scaffolding, a build line that climbs with sparks, a crane swinging a load, dust at the base, and quiet hammer taps. Upgrades throw sparks too.
+- Every plan you pick is yours at once: unpacking a lander marks out a building site for each chosen plan (yard gear included; before, a Solar Field or Battery plan had no green spot, so only one choice could be built). When a builder finishes and has energy left, they walk on to the next empty site by themselves ("Builders keep going", on by default).
+- The lander card answers each pick: M.A.R.V. says what it changes, and "Your base after this lander" shows the new modules dropping into a skyline and what changes (power, air, warm beds, storm shield, crew). Tapping a third plan swaps out the oldest pick.
+- Training is now two lessons (start, builder); the "tap the green spot" step is gone because plans place themselves.
+
 Known gaps:
 
 | Gap | Detail |

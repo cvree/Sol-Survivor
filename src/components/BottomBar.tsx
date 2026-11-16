@@ -30,7 +30,7 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
   const site = game.modules.find((m) => m.buildLeft > 0 && !game.crew.some((c) => c.at === m.id));
   const hand = alive(game).find((c) => !c.exhausted && c.energy > 35 && !game.modules.some((m) => m.id === c.at && m.buildLeft > 0));
   if (site && hand) return { text: `The ${MODULE_NAME[site.kind]} will not build itself! Drag ${hand.name} onto the building site.`, mood: 'happy' };
-  if (game.blueprints.length) return { text: `You earned plans for ${aModule(game.blueprints[0])}. Tap a green spot (or Build) to mark out the site.`, mood: 'happy' };
+  if (game.blueprints.length) return { text: `You have plans for ${aModule(game.blueprints[0])}. Tap Build to mark out the site.`, mood: 'happy' };
   if (!game.modules.some((m) => m.kind === 'oxygen') && game.life < 30) return { text: 'The capsule air is running low! Explore and finish missions to bring the next lander sooner, then build an Oxygen Maker.', mood: 'alert' };
   if (game.modules.length === 1) return { text: `Everything here must be earned. Explore the crater and finish missions to fill the Next lander bar (${Math.round(game.cargoProgress * 100)}%).`, mood: 'happy' };
   const coming = game.events.find((e) => e.phase === 'warned');
@@ -64,6 +64,7 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
 }
 
 import { CrewCard } from './CrewCard';
+import { SettingsButton } from './Settings';
 
 export function BottomBar({ game }: { game: GameState }) {
   const { tour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
@@ -136,6 +137,7 @@ export function BottomBar({ game }: { game: GameState }) {
         <motion.button className="icon-btn big" whileTap={{ scale: 0.9 }} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? 'Play' : 'Pause'} title={paused ? 'Play (P)' : 'Pause (P)'}>{paused ? <Play /> : <Pause />}</motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={() => setSpeed(speed === 1 ? 2 : 1)} aria-pressed={speed === 2} aria-label="Double speed" title="Double speed"><FastForward /></motion.button>
         <motion.button className="icon-btn" whileTap={{ scale: 0.9 }} onClick={toggleMute} aria-pressed={muted} aria-label={muted ? 'Sound is off' : 'Sound is on'} title="Sound">{muted ? <VolumeX /> : <Volume2 />}</motion.button>
+        <SettingsButton />
       </div>
       <AnimatePresence>{chosen && <CrewCard key={chosen.id} c={chosen} game={game} />}</AnimatePresence>
     </footer>

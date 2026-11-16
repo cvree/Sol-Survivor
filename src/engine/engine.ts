@@ -638,7 +638,11 @@ export function acceptCargo(prev: GameState, picks: ModuleKind[], crewId?: strin
   s.landers = offer.number;
   s.offer = null;
   s.cargoProgress = 0;
-  return s;
+  // Every plan you chose is marked out on the ground at once, so both choices are really there.
+  // The Hab goes first, so it takes the middle of the base. Move sites later in Edit layout.
+  let out = s;
+  for (const k of [...chosen].sort((a, b) => Number(b === 'hab') - Number(a === 'hab'))) out = build(out, k);
+  return out;
 }
 
 // ---------- the simulation ----------
@@ -908,10 +912,22 @@ export function step(prev: GameState, dt: number): GameState {
       const rate = hands.length ? Math.max(...hands.map((c) => workRate(c) * (has(c, 'builder') ? 2 : 1))) * (1 + 0.25 * (hands.length - 1)) : 0;
       m.buildLeft = Math.max(0, m.buildLeft - dt * rate);
       if (m.buildLeft === 0) {
-        // Builders stay on to work in a workplace; otherwise they head home.
+        // A builder with energy left walks straight on to the next building site nobody is working on.
+        // Otherwise builders stay on to work in a workplace, or head home.
         // Whoever built the Hab is already standing in it.
-        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) { if (m.id === 'hab-site') c.at = 'hab'; else walk(s, c, 'hab'); }
+        const siteId = m.id;
         if (m.id === 'hab-site') { m.id = 'hab'; m.on = true; m.onSince = s.time; }
+        for (const c of s.crew) {
+          if (c.at !== siteId) continue;
+          if (siteId === 'hab-site') { c.at = 'hab'; if (c.walkFrom === 'hab-site') c.walkFrom = 'hab'; }
+          const next = s.autoBuild !== false && !c.exhausted && c.energy > K.AUTO_BUILD_ENERGY
+            ? s.modules.find((x) => x !== m && x.buildLeft > 0 && !s.crew.some((o) => !o.out && o.at === x.id))
+            : undefined;
+          if (next) {
+            walk(s, c, next.id);
+            c.say = { text: 'On to the next one!', until: s.time + 0.5, mood: 'good' };
+          } else if (!(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay') && siteId !== 'hab-site') walk(s, c, 'hab');
+        }
         if (m.kind === 'rover' && !s.rover) s.rover = { trip: null };
         if (m.upgrading) {
           m.upgrading = false;

@@ -1423,3 +1423,183 @@ button.find::before { display: none; }
   .goal-body small, .goal-reward { display: none; }
   .crew-card { bottom: 8px; max-height: calc(100vh - 16px); }
 }
+
+/* ==================================================================
+   Building sites you can watch: the module rises out of the ground.
+   ================================================================== */
+.rise { position: relative; width: 100%; height: 100%; }
+.rise-yard { height: auto; }
+.rise > div, .rise > svg { position: absolute; inset: 0; }
+.rise-yard > .rise-ghost { position: relative; }
+.rise .mod-art, .rise .yard-art { width: 100%; height: 100%; }
+.rise-yard .yard-art { height: auto; }
+/* The blueprint: what it will be, pale and waiting. */
+.rise-ghost { opacity: 0.42; filter: grayscale(1) brightness(1.9); }
+.rise.waiting .rise-ghost { animation: ghost-wait 1.6s ease-in-out infinite; }
+@keyframes ghost-wait { 50% { opacity: 0.6; } }
+/* The real thing, filling in from the bottom up as the work is done. */
+.rise-real { clip-path: inset(calc((1 - var(--p)) * 100%) 0 0 0); transition: clip-path 0.35s ease-out; }
+.rise-scaffold { width: 100%; height: 100%; overflow: visible; opacity: 0.9; }
+.rise-under .rise-scaffold { display: none; }
+/* The build line climbs with the walls. Sparks fly off it while someone is working. */
+.rise-line { position: absolute; left: 4%; right: 4%; top: calc((1 - var(--p)) * 100%); height: 0; transition: top 0.35s ease-out; }
+.rise-line::before { content: ''; position: absolute; left: 0; right: 0; top: -3px; height: 6px; border-radius: 3px; background: var(--color-volt); border: 2px solid var(--ink); }
+.rise.waiting .rise-line::before { background: #cfc6e6; }
+.spark { position: absolute; top: -8px; width: 16px; height: 16px; margin-left: -8px; background: var(--color-volt); border: 2px solid var(--ink); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: spark 0.85s ease-out infinite; }
+.spark:nth-child(2n) { background: var(--color-clean); animation-duration: 0.7s; }
+@keyframes spark { 0% { translate: 0 0; scale: 0.4; opacity: 1; } 60% { opacity: 1; } 100% { translate: var(--sx, 14px) -30px; scale: 1.1; opacity: 0; rotate: 90deg; } }
+.spark:nth-child(odd) { --sx: -14px; }
+/* A little crane swings pieces into place. */
+.crane { pointer-events: none; }
+.crane-mast { position: absolute; right: 3%; top: -16%; bottom: 0; width: 8px; background: repeating-linear-gradient(var(--color-volt) 0 8px, var(--ink) 8px 11px); border: 2px solid var(--ink); border-radius: 3px; }
+.crane-jib { position: absolute; right: 3%; top: -16%; width: 52%; height: 8px; background: var(--color-volt); border: 2px solid var(--ink); border-radius: 3px; }
+.crane-cable { position: absolute; right: calc(3% + 52% - 10px); top: calc(-16% + 6px); width: 3px; height: calc((1 - var(--p)) * 100% + 16% - 18px); min-height: 8px; background: var(--ink); transform-origin: top center; transition: height 0.35s ease-out; }
+.crane-load { position: absolute; left: 50%; bottom: -14px; width: 24px; height: 14px; translate: -50% 0; background: var(--kind, var(--color-sand)); border: 2.5px solid var(--ink); border-radius: 3px; }
+.rise.working .crane-cable { animation: crane-swing 1.5s ease-in-out infinite; }
+.rise.working .crane-load { animation: crane-drop 1.5s ease-in-out infinite; }
+@keyframes crane-swing { 0%, 100% { rotate: -9deg; } 50% { rotate: 9deg; } }
+@keyframes crane-drop { 0%, 40% { scale: 1; } 50% { scale: 1.15 0.85; } 60%, 100% { scale: 1; } }
+.rise-yard .crane-mast, .rise-yard .crane-jib { top: -26%; }
+.rise-yard .crane-cable { top: calc(-26% + 6px); height: calc((1 - var(--p)) * 100% + 26% - 18px); }
+.rise-yard .crane-load { width: 16px; height: 10px; bottom: -10px; }
+/* Dust kicked up at the foot of the walls. */
+.rise-dust { position: absolute; left: 18%; bottom: 2%; width: 22px; height: 22px; border-radius: 50%; background: #e7b08a; border: 2.5px solid var(--ink); animation: rise-dust 1.1s ease-out infinite; }
+.rise-dust.d2 { left: auto; right: 22%; animation-delay: 0.55s; }
+@keyframes rise-dust { 0% { scale: 0.3; opacity: 0.9; translate: 0 0; } 100% { scale: 1.3; opacity: 0; translate: 0 -18px; } }
+.rise-under .rise-dust { background: #b5764f; }
+/* Upgrades: the scaffold shakes a little and throws sparks while a builder works. */
+.upgrade-scaffold.working { animation: led 1.2s ease-in-out infinite, scaffold-buzz 0.18s steps(2) infinite; }
+.upgrade-scaffold .spark { top: 6%; }
+@keyframes scaffold-buzz { 50% { translate: 1px 0; } }
+.prop-wrap.building .prop { opacity: 1; }
+html.no-shake .shake { animation: none !important; }
+
+/* ==================================================================
+   Settings, from the setting store: calm motion and bigger words.
+   ================================================================== */
+html.calm-motion *, html.calm-motion *::before, html.calm-motion *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
+html.big-text { font-size: 115%; }
+.btn-small { padding: 0.5rem 0.95rem; font-size: 0.95rem; }
+.btn-small svg.lucide { width: 1.1em; height: 1.1em; }
+.btn-warn { background: var(--color-danger); color: var(--color-clean); animation: bob-in 0.25s ease-out; }
+@keyframes bob-in { 0% { scale: 0.9; } 60% { scale: 1.06; } 100% { scale: 1; } }
+.link-btn { margin-left: auto; background: none; border: 0; color: var(--muted); font: 600 0.9rem var(--font-display); text-decoration: underline; cursor: pointer; }
+.link-btn:hover { color: var(--color-clean); }
+.gear-btn svg.lucide { width: 1.35em; height: 1.35em; }
+.title-gear { position: absolute; z-index: 5; top: 16px; right: 16px; width: 56px; height: 56px; background: var(--color-volt); color: var(--ink); }
+
+/* ==================================================================
+   The Esc menu: a little night sky that opens over the game.
+   ================================================================== */
+.settings { margin: auto; padding: 0; border: 0; background: transparent; color: var(--color-clean); width: min(720px, 96vw); max-width: none; max-height: 96vh; overflow: visible; }
+.settings::backdrop { background: rgba(29, 16, 51, 0.82); }
+.settings-card { position: relative; display: grid; gap: 0.8rem; max-height: 96vh; overflow: hidden auto; padding: 1.1rem 1.3rem 1.2rem;
+  background: var(--color-void); border: var(--line); border-radius: 30px; box-shadow: 0 10px 0 var(--ink), inset 0 0 0 4px var(--color-dusk); }
+.settings-sky { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.settings-card > *:not(.settings-sky) { position: relative; z-index: 1; }
+.twinkle { position: absolute; background: var(--color-volt); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: 0.18; animation: twinkle 2.6s ease-in-out infinite; }
+.twinkle:nth-child(3n) { background: var(--color-cyan); }
+.twinkle:nth-child(4n) { background: var(--color-clean); }
+@keyframes twinkle { 0%, 100% { opacity: 0.12; scale: 0.7; } 50% { opacity: 0.6; scale: 1.15; rotate: 45deg; } }
+.shooting { position: absolute; top: 12%; left: -20%; width: 90px; height: 4px; border-radius: 4px; background: var(--color-clean); opacity: 0; rotate: 18deg; animation: shoot 7s ease-in 1.5s infinite; }
+.shooting.s2 { top: 54%; animation-delay: 4.6s; animation-duration: 9s; }
+@keyframes shoot { 0% { translate: 0 0; opacity: 0; } 3% { opacity: 0.9; } 12% { translate: 900px 290px; opacity: 0; } 100% { translate: 900px 290px; opacity: 0; } }
+.settings-planet { position: absolute; right: -60px; bottom: -70px; width: 220px; height: 220px; border-radius: 50%; background: var(--color-rust); border: var(--line); opacity: 0.32; }
+.settings-planet::after { content: ''; position: absolute; left: -40px; right: -40px; top: 46%; height: 22px; border: 5px solid var(--color-sand); border-radius: 50%; rotate: -14deg; }
+
+.settings-head { display: flex; align-items: center; gap: 0.9rem; padding-right: 3rem; }
+.settings-head h2 { font-size: 2rem; line-height: 1; }
+.settings-head p { margin-top: 0.25rem; color: var(--muted); font-size: 1rem; }
+.settings-marv { position: relative; flex: none; animation: marv-float 3s ease-in-out infinite; }
+@keyframes marv-float { 50% { translate: 0 -7px; rotate: 3deg; } }
+.orbit { position: absolute; inset: -10px; border-radius: 50%; animation: orbit 3.4s linear infinite; }
+.orbit i { position: absolute; top: 0; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--color-cyan); border: 3px solid var(--ink); }
+@keyframes orbit { to { rotate: 360deg; } }
+.settings-x { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 46px; height: 46px; border: var(--line); border-radius: 50%; background: var(--color-dusk); color: var(--color-clean); box-shadow: var(--drop); cursor: pointer; }
+
+.settings-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 6px; border: var(--line); border-radius: 999px; background: var(--ink); }
+.settings-tab { position: relative; padding: 0.55rem 0.4rem; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 1.05rem var(--font-display); cursor: pointer; }
+.settings-tab:hover:not(.on) { color: var(--color-clean); }
+.settings-tab.on { color: var(--ink); }
+.tab-pill { position: absolute; inset: 0; border-radius: 999px; background: var(--color-volt); border: 3px solid var(--ink); box-shadow: 0 3px 0 #b8901c; }
+.tab-label { position: relative; display: inline-flex; align-items: center; gap: 0.35rem; }
+
+.settings-page { display: grid; gap: 0.55rem; min-height: 300px; align-content: start; }
+.set-row { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; background: var(--color-dusk); border: var(--line); border-radius: 20px; box-shadow: 0 4px 0 var(--ink); }
+.set-icon { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid var(--ink); border-radius: 14px; background: var(--color-cyan); color: var(--ink); }
+.set-row:nth-child(4n+2) .set-icon { background: var(--color-volt); }
+.set-row:nth-child(4n+3) .set-icon { background: var(--color-go); }
+.set-row:nth-child(4n) .set-icon { background: #ff8fb1; }
+.set-text { display: grid; gap: 2px; min-width: 0; }
+.set-text b { font-size: 1.1rem; }
+.set-text small { color: var(--muted); font-size: 0.88rem; line-height: 1.25; }
+.set-control { display: flex; justify-content: flex-end; }
+
+/* A slider with a little planet for a knob. */
+.planet-slider { position: relative; display: flex; align-items: center; gap: 0.6rem; --v: 0.5; }
+.planet-slider input { -webkit-appearance: none; appearance: none; width: 190px; height: 22px; margin: 0; cursor: pointer; border: 3px solid var(--ink); border-radius: 999px; background: var(--ink); }
+.planet-slider input { background: linear-gradient(90deg, var(--color-volt) 0 calc(var(--v) * 100%), var(--ink) calc(var(--v) * 100%) 100%); }
+.planet-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--color-rust); border: 4px solid var(--ink); box-shadow: 0 3px 0 var(--ink), inset -6px -4px 0 #8f2f2a; transition: scale 0.12s; }
+.planet-slider input::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--color-rust); border: 4px solid var(--ink); box-shadow: 0 3px 0 var(--ink), inset -6px -4px 0 #8f2f2a; }
+.planet-slider input:active::-webkit-slider-thumb { scale: 1.2; }
+.planet-slider input:focus-visible { outline: 4px solid var(--color-cyan); outline-offset: 3px; }
+.slider-num { width: 2.6ch; font: 700 1rem var(--font-mono); text-align: right; }
+
+/* An on/off switch that throws sparkles. */
+.magic-switch { position: relative; display: flex; align-items: center; width: 92px; height: 42px; padding: 4px; cursor: pointer; border: var(--line); border-radius: 999px; background: #6b5b98; box-shadow: 0 4px 0 var(--ink); justify-content: flex-start; }
+.magic-switch.on { background: var(--color-go); justify-content: flex-end; }
+.magic-switch > i { position: relative; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--color-clean); border: 3px solid var(--ink); color: var(--ink); }
+.magic-switch > i svg.lucide { width: 16px; height: 16px; }
+.switch-word { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 12px; font: 700 0.95rem var(--font-display); color: var(--ink); pointer-events: none; }
+.magic-switch.on .switch-word { justify-items: start; }
+.magic-switch:not(.on) .switch-word { justify-items: end; color: var(--color-clean); }
+.burst-star { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; background: var(--color-volt); border: 0; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); pointer-events: none; }
+
+.choice { display: flex; gap: 4px; padding: 4px; border: var(--line); border-radius: 999px; background: var(--ink); }
+.choice-opt { padding: 0.45rem 0.8rem; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 0.95rem var(--font-display); cursor: pointer; white-space: nowrap; }
+.choice-opt:hover:not(.on) { color: var(--color-clean); }
+.choice-opt.on { background: var(--color-cyan); color: var(--ink); box-shadow: inset 0 -3px 0 #2a9fc4; }
+
+.settings-sub { display: flex; align-items: center; gap: 0.4rem; font-size: 1.2rem; margin-top: 0.2rem; }
+.keys { display: grid; gap: 0.4rem; }
+.keys li { display: flex; align-items: center; gap: 0.7rem; }
+kbd { min-width: 3.2rem; padding: 0.3rem 0.6rem; text-align: center; font: 700 0.95rem var(--font-mono); color: var(--ink); background: var(--color-clean); border: 3px solid var(--ink); border-radius: 10px; box-shadow: 0 4px 0 var(--ink); }
+.how { display: grid; gap: 0.4rem; padding-left: 1.4rem; list-style: decimal; }
+.how li { line-height: 1.35; }
+
+.settings-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+
+@media (max-width: 560px) {
+  .settings-card { padding: 0.9rem 0.8rem 1rem; border-radius: 24px; }
+  .settings-head h2 { font-size: 1.5rem; }
+  .settings-marv svg { width: 54px; height: 54px; }
+  .settings-tab { font-size: 0.85rem; padding: 0.5rem 0.2rem; }
+  .tab-label svg.lucide { display: none; }
+  .set-row { grid-template-columns: 1fr; gap: 0.4rem; }
+  .set-row .set-icon { display: none; }
+  .set-control { justify-content: flex-start; }
+  .planet-slider input { width: min(230px, 62vw); }
+  .settings-foot .btn-big { width: 100%; }
+}
+
+/* ==================================================================
+   Cargo lander: M.A.R.V. answers each pick, and a preview shows what changes.
+   ================================================================== */
+.cargo-marv { display: flex; align-items: center; gap: 0.6rem; }
+.marv-pick { position: relative; padding: 0.5rem 0.9rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 18px; font-weight: 600; }
+.marv-pick::before { content: ''; position: absolute; left: -12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; background: var(--color-clean); border-left: var(--line); border-bottom: var(--line); rotate: 45deg; }
+.preview { display: grid; gap: 0.5rem; padding: 0.7rem 0.9rem; background: var(--color-dusk); border: var(--line); border-radius: 22px; }
+.preview h3 { font-size: 1.1rem; }
+.preview-skyline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; min-height: 52px; padding: 6px 8px; border-bottom: 6px solid var(--color-dustred); }
+.sky-mod { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border: 3px solid var(--ink); border-radius: 12px 12px 6px 6px; background: var(--kind, var(--color-cyan)); color: var(--ink); }
+.sky-mod.new { outline: 4px dashed var(--color-volt); outline-offset: 2px; }
+.sky-mod b { position: absolute; top: -14px; left: 50%; translate: -50% 0; padding: 0 5px; font-size: 0.65rem; background: var(--color-volt); color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; }
+.sky-empty { color: var(--muted); font-size: 0.95rem; align-self: center; }
+.preview-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.preview-rows > div { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 8px; border: 3px solid var(--ink); border-radius: 14px; background: var(--color-void); }
+.preview-rows > div.up { background: var(--color-clean); color: var(--ink); }
+.preview-rows dt { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.9rem; }
+.preview-rows dd { display: flex; align-items: center; gap: 3px; font: 700 0.9rem var(--font-mono); }
+.preview-rows dd svg.lucide { width: 1em; height: 1em; }
+.preview-rows dd b { color: #138a4f; }
+.preview-rows .up dd > span { opacity: 0.55; text-decoration: line-through; }

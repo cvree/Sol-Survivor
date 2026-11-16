@@ -12,6 +12,7 @@ import { Astronaut, Marv } from './art';
 import { HAPPY } from './crewLook';
 import { DataPanel } from './Panels';
 import { Term } from './Term';
+import { SettingsButton } from './Settings';
 
 const CREW = [{ skin: '#9a6240', suit: '#ffd23f' }, { skin: '#f3cfa6', suit: '#ff8fb1' }, { skin: '#6a432c', suit: '#5ee6a0' }, { skin: '#cf9668', suit: '#4fd8ff' }];
 
@@ -27,6 +28,7 @@ export function TitleScreen() {
       </div>
       <div className="title-ground" aria-hidden="true" />
 
+      <SettingsButton className="title-gear" />
       <motion.div className="title-card" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
         <div className="title-crew" aria-hidden="true">
           {CREW.map((who, i) => (

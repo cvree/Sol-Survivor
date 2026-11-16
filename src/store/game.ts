@@ -11,7 +11,8 @@ import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
 import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
-import { isMuted, setMood, setMusic, setMuted, sfx } from '../lib/sound';
+import { isMuted, setMenuMuffle, setMood, setMusic, setMuted, sfx } from '../lib/sound';
+import { useSettings } from '../lib/settings';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
@@ -93,6 +94,8 @@ interface Store {
   sharpMind: boolean;
   game: GameState | null;
   paused: boolean;
+  /** The Esc menu is open: the clock stops and the music goes soft. */
+  settingsOpen: boolean;
   speed: 1 | 2;
   panel: Panel;
   /** Step of M.A.R.V.'s training, or null when it is not running. */
@@ -154,6 +157,9 @@ interface Store {
   pick: (crewId: string | null) => void;
   setTour: (n: number | null) => void;
   setPaused: (p: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
+  /** Forget the training, so the next mission starts with M.A.R.V.'s lessons again. */
+  replayTraining: () => void;
   setSpeed: (s: 1 | 2) => void;
   open: (p: Panel) => void;
   toggleMute: () => void;
@@ -177,6 +183,7 @@ export const useGame = create<Store>((set, get) => ({
   sharpMind: false,
   game: null,
   paused: false,
+  settingsOpen: false,
   speed: 1,
   panel: null,
   tour: null,
@@ -226,6 +233,7 @@ export const useGame = create<Store>((set, get) => ({
     // Solved today's Sol Check? A sharp mind starts with a few bricks and a spare part.
     const sharp = takeBonus();
     if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
+    fresh = { ...fresh, autoBuild: useSettings.getState().autoBuilders };
     set({ sharpMind: sharp, editing: false, moving: null, lastRank: 0,
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [],
       screen: 'game', game: fresh,
@@ -274,7 +282,8 @@ export const useGame = create<Store>((set, get) => ({
       }
     } else if (tour === null && game.status === 'playing' && !moment && !panel && !get().editing) {
       const cs = { game, picked };
-      const next = LESSONS.find((l) => !lessonsSeen.includes(l.id) && l.when(cs));
+      const hints = useSettings.getState().hints;
+      const next = LESSONS.find((l) => !lessonsSeen.includes(l.id) && (hints || TRAINING.includes(l.id)) && l.when(cs));
       if (next) {
         sfx.ping();
         const seen = [...lessonsSeen, next.id];
@@ -285,7 +294,7 @@ export const useGame = create<Store>((set, get) => ({
     }
     // The clock waits while the commander is learning.
     const learning = !!stepOf(get().coach)?.pause;
-    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning || get().editing) return;
+    if (game.status !== 'playing' || paused || panel || tour !== null || moment || learning || get().editing || get().settingsOpen) return;
 
     // The fuse: the nearest warned storm ticks faster and higher as it closes in, then time slows.
     const now = performance.now();
@@ -507,6 +516,15 @@ export const useGame = create<Store>((set, get) => ({
     else set({ tour });
   },
   setPaused: (paused) => set({ paused }),
+  setSettingsOpen: (settingsOpen) => {
+    if (settingsOpen === get().settingsOpen) return;
+    if (settingsOpen) sfx.menuOpen(); else sfx.menuClose();
+    setMenuMuffle(settingsOpen);
+    set({ settingsOpen });
+  },
+  replayTraining: () => {
+    try { localStorage.removeItem('sol-survivor:trained'); localStorage.removeItem('sol-survivor:lessons'); } catch { /* fine */ }
+  },
   setSpeed: (speed) => set({ speed }),
   open: (panel) => {
     if (panel?.type === 'data' || panel?.type === 'log' || panel?.type === 'finds') sfx.ping();
