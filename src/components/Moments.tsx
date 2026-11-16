@@ -10,6 +10,7 @@ import { Astronaut } from './art';
 import { lookOf } from './crewLook';
 import { recordById } from '../data/records';
 import { sfx } from '../lib/sound';
+import { factFor } from '../data/spaceWeather';
 import { HOLD_SURVIVED, useGame } from '../store/game';
 import { Marv } from './art';
 
@@ -71,6 +72,7 @@ export function Moments() {
             </span>
             <span className="held-stat">Your shield blocked <b>{survived.blocked}%</b></span>
             <span className="held-next">{nextStep(survived.blocked, survived.stars)}</span>
+            <span className="held-fact"><b>Did you know?</b> {factFor(survived.kind, survived.eventId)}</span>
             <span className="held-real">{practice || !rec ? 'Practice storm' : `This storm was real: ${rec.title}, ${rec.date}`}</span>
             <span className="held-marv" aria-hidden="true"><Marv mood={survived.stars ? 'party' : 'happy'} size={70} /></span>
             <i className="held-timer" style={{ animationDuration: `${HOLD_SURVIVED}ms` }} aria-hidden="true" />

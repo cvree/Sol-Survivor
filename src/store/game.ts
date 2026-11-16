@@ -13,12 +13,13 @@ import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
 import { isMuted, setMenuMuffle, setMood, setMusic, setMuted, sfx } from '../lib/sound';
 import { useSettings } from '../lib/settings';
+import { forgetWeather } from '../data/spaceWeather';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
 const SLOWMO_RATE = 0.25;
 /** How long the big moments hold the screen, in milliseconds. */
-export const HOLD_SURVIVED = 2600;
+export const HOLD_SURVIVED = 4800;
 export const HOLD_LANDER = 2400;
 
 /** A moment that stops the clock and takes the whole screen for a couple of seconds. */
@@ -524,6 +525,7 @@ export const useGame = create<Store>((set, get) => ({
   },
   replayTraining: () => {
     try { localStorage.removeItem('sol-survivor:trained'); localStorage.removeItem('sol-survivor:lessons'); } catch { /* fine */ }
+    forgetWeather();
   },
   setSpeed: (speed) => set({ speed }),
   open: (panel) => {

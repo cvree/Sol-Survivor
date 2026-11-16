@@ -1651,3 +1651,103 @@ kbd { min-width: 3.2rem; padding: 0.3rem 0.6rem; text-align: center; font: 700 0
   .daily-grid.len-6 .tile { width: 42px; height: 42px; }
   .word-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ==================================================================
+   Space weather school: the first time a storm comes, M.A.R.V. teaches it.
+   ================================================================== */
+.wx-lede { font-size: 1.05rem; }
+.wx { display: grid; gap: 0.7rem; }
+.wx-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.wx-kicker { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.7rem; border: 3px solid var(--ink); border-radius: 999px; background: var(--color-cyan); color: var(--ink); font-weight: 700; font-size: 0.9rem; }
+.wx-dots { display: flex; gap: 5px; }
+.wx-dots i { width: 14px; height: 14px; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-dusk); transition: background 0.2s, scale 0.2s; }
+.wx-dots i.done { background: var(--color-go); }
+.wx-dots i.now { background: var(--color-volt); scale: 1.25; }
+.wx-card { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1rem; align-items: center; min-height: 220px; padding: 0.9rem; background: var(--color-dusk); border: var(--line); border-radius: 24px; box-shadow: 0 5px 0 var(--ink); }
+.wx-art { border: var(--line); border-radius: 18px; background: #2b1a4a; overflow: hidden; }
+.wx-cme .wx-art, .wx-flare .wx-art { background: #1d1440; }
+.wx-dust .wx-art { background: #d98e5f; }
+.wx-text h3 { font-size: 1.5rem; line-height: 1.1; margin-bottom: 0.4rem; color: var(--color-volt); }
+.wx-text p { font-size: 1.15rem; line-height: 1.4; }
+.wx-foot { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.wx-foot .link-btn { margin-left: 0; }
+.wx-source { font: 400 0.78rem/1.5 var(--font-mono); color: var(--muted); }
+.wx-source svg.lucide { display: inline-block; width: 1em; height: 1em; vertical-align: -2px; }
+.wx-source a svg.lucide { width: 0.85em; height: 0.85em; }
+
+.wx-card.quiz { grid-template-columns: 1fr; gap: 0.7rem; }
+.quiz-q { display: flex; align-items: center; gap: 0.7rem; }
+.quiz-q h3 { font-size: 1.35rem; line-height: 1.2; }
+.quiz-options { display: grid; gap: 0.5rem; }
+.quiz-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.9rem; text-align: left; cursor: pointer; border: var(--line); border-radius: 18px; background: var(--color-clean); color: var(--ink); box-shadow: 0 4px 0 var(--ink); font: 600 1.1rem var(--font-display); }
+.quiz-opt:hover:not(:disabled) { background: #fff; }
+.quiz-opt:disabled { cursor: default; }
+.quiz-opt.right { background: var(--color-go); }
+.quiz-opt.wrong { background: #ffb199; }
+.quiz-letter { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-volt); font-size: 0.9rem; }
+.quiz-why { padding: 0.5rem 0.8rem; border-radius: 14px; font-size: 1.05rem; }
+.quiz-why.right { background: var(--color-clean); color: var(--ink); border: 3px solid var(--ink); }
+.quiz-why.wrong { color: #ffb199; font-weight: 600; }
+
+.held-fact { max-width: 26em; padding: 0.4rem 0.7rem; border: 3px dashed var(--ink); border-radius: 14px; font-size: 0.95rem; line-height: 1.3; }
+
+.school-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+.school-btn { display: grid; gap: 0.25rem; justify-items: center; padding: 0.5rem; cursor: pointer; border: var(--line); border-radius: 18px; background: var(--color-dusk); color: var(--color-clean); box-shadow: 0 4px 0 var(--ink); font-family: var(--font-display); }
+.school-btn b { font-size: 1.05rem; }
+.school-btn small { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
+.school-btn.learned small { color: var(--color-go); }
+.school-art { width: 100%; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; background: #1d1440; }
+.school-btn.k-dust .school-art { background: #d98e5f; }
+
+/* The pictures. Flat shapes, thick outlines, gentle loops. */
+.weather-art { display: block; width: 100%; height: auto; }
+.art-label { font: 700 22px var(--font-display); fill: var(--color-volt); stroke: var(--ink); stroke-width: 1.5px; }
+.art-mono { font: 700 17px var(--font-mono); fill: var(--ink); }
+.art-small { font: 600 14px var(--font-display); fill: var(--color-clean); }
+.art-tiny { font: 700 10px var(--font-mono); fill: var(--ink); }
+.art-tiny.light { fill: var(--color-clean); }
+.art-pulse { animation: art-pulse 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes art-pulse { 50% { scale: 1.08; opacity: 0.7; } }
+.art-flash { animation: art-flash 1.4s steps(1) infinite; }
+@keyframes art-flash { 0%, 40% { opacity: 1; } 50%, 100% { opacity: 0.2; } }
+.art-snap { stroke-dasharray: 120; animation: art-snap 1.4s ease-in-out infinite; }
+@keyframes art-snap { 0% { stroke-dashoffset: 120; } 45%, 100% { stroke-dashoffset: 0; } }
+.art-beam { stroke-dasharray: 140; animation: art-beam 1.2s linear infinite; }
+@keyframes art-beam { 0% { stroke-dashoffset: 140; } 70%, 100% { stroke-dashoffset: 0; } }
+.art-grow { transform-box: fill-box; transform-origin: bottom; animation: art-grow 0.7s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes art-grow { from { scale: 1 0; } }
+.art-spin { transform-box: fill-box; transform-origin: center; animation: art-spin 6s linear infinite; }
+@keyframes art-spin { to { rotate: 360deg; } }
+.art-rain path { animation: art-rain 1.1s ease-in infinite; }
+@keyframes art-rain { 0% { translate: 0 -10px; opacity: 0; } 30% { opacity: 1; } 100% { translate: 0 22px; opacity: 0; } }
+.art-bounce path { animation: art-bounce 1.3s ease-out infinite; }
+@keyframes art-bounce { 0% { translate: 0 0; opacity: 1; } 50% { translate: 0 10px; } 100% { translate: -24px -6px; opacity: 0; } }
+.art-deflect { animation: art-deflect 1.3s ease-in infinite; }
+@keyframes art-deflect { 0% { translate: 0 0; opacity: 1; } 60% { translate: 0 22px; opacity: 1; } 100% { translate: -26px 4px; opacity: 0; } }
+.art-swell { animation: art-swell 2.2s ease-in-out infinite; }
+@keyframes art-swell { 0% { scale: 0.5; translate: -30px 0; } 70%, 100% { scale: 1; translate: 0 0; } }
+.art-drift { animation: art-drift 4.5s ease-in-out infinite; }
+@keyframes art-drift { 0% { translate: 0 0; } 100% { translate: 150px 0; } }
+.art-zipdot { animation: art-zip 1.4s linear infinite; }
+@keyframes art-zip { from { translate: -10px 0; } to { translate: 310px 0; } }
+.art-chart { stroke-dasharray: 260; animation: art-chart 2.6s ease-out infinite; }
+@keyframes art-chart { 0% { stroke-dashoffset: 260; } 70%, 100% { stroke-dashoffset: 0; } }
+.art-wave { animation: art-wave 2.2s ease-in-out infinite; }
+@keyframes art-wave { 50% { translate: 0 -6px; opacity: 0.4; } }
+.art-rise { animation: art-rise 2.4s ease-out infinite; }
+@keyframes art-rise { 0% { translate: 0 0; scale: 0.6; } 100% { translate: 10px -70px; scale: 1.5; opacity: 0; } }
+.art-wind { stroke-dasharray: 40 200; animation: art-wind 1.3s linear infinite; }
+@keyframes art-wind { from { stroke-dashoffset: 60; } to { stroke-dashoffset: -180; } }
+.art-dim { animation: art-dim 3s ease-in-out infinite; }
+@keyframes art-dim { 0%, 15% { opacity: 0; } 60%, 100% { opacity: 0.8; } }
+.art-drain { transform-box: fill-box; transform-origin: bottom; animation: art-drain 3s ease-in-out infinite; }
+@keyframes art-drain { 0%, 15% { scale: 1 1; } 60%, 100% { scale: 1 0.18; fill: #ff2e4d; } }
+.art-flag { transform-box: fill-box; transform-origin: left center; animation: art-flag 2s ease-in-out infinite; }
+@keyframes art-flag { 50% { scale: 0.92 1; } }
+
+@media (max-width: 560px) {
+  .wx-card { grid-template-columns: 1fr; min-height: 0; gap: 0.6rem; }
+  .wx-text h3 { font-size: 1.25rem; }
+  .wx-text p { font-size: 1.05rem; }
+  .school-list { grid-template-columns: 1fr; }
+}
