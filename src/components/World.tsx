@@ -3,7 +3,9 @@ import { motion } from 'motion/react';
 import { Package, Pickaxe } from 'lucide-react';
 import type { CrewState, GameState, Trip } from '../engine/types';
 import { useCamera } from '../lib/camera';
-import { useDrag } from '../lib/crewDrag';
+import { tapPlace, useDrag, useHolding } from '../lib/crewDrag';
+import { DropZone, LandPuff } from './Walk';
+import { placeVerb } from '../lib/crewDrag';
 import { useGame } from '../store/game';
 import { Astronaut, INK, Rover } from './art';
 import { lookOf } from './crewLook';
@@ -13,6 +15,7 @@ export function Deposits({ game }: { game: GameState }) {
   const W = useCamera((s) => s.W);
   const dig = useGame((s) => s.dig);
   const hovered = useDrag((d) => (d.id ? d.over : null));
+  const holding = useHolding();
   const busy = (id: string) => [...game.crew.map((c) => c.trip), game.rover?.trip].some((t) => t && t.job.kind === 'mine' && t.job.dep === id && t.phase !== 'back');
   return (
     <>
@@ -36,11 +39,13 @@ export function Deposits({ game }: { game: GameState }) {
         );
         if (empty) return <div key={d.id} className="deposit empty" style={style} aria-hidden="true">{art}</div>;
         return (
-          <motion.button key={d.id} className={`deposit ${hovered === `dep:${d.id}` ? 'drop-ok' : ''} ${busy(d.id) ? 'busy' : ''}`} style={style} data-mod={`dep:${d.id}`}
-            onClick={() => dig(d.id)} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.93 }}
+          <motion.button key={d.id} className={`deposit ${hovered === `dep:${d.id}` ? 'drop-ok' : ''} ${busy(d.id) ? 'busy' : ''} ${holding ? (placeVerb(holding, `dep:${d.id}`, game) ? 'drop-can' : 'drop-dim') : ''}`} style={style} data-mod={`dep:${d.id}`}
+            onClick={() => { if (!tapPlace(`dep:${d.id}`)) dig(d.id); }} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.93 }}
             aria-label={`Rock pile with about ${Math.round(d.left)} bricks of regolith. Press to send someone to dig.`}>
             {art}
             <span className="dep-tag"><Pickaxe /> {Math.round(d.left)}</span>
+            <DropZone id={`dep:${d.id}`} game={game} />
+            <LandPuff id={`dep:${d.id}`} />
           </motion.button>
         );
       })}

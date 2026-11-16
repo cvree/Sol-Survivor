@@ -20,3 +20,14 @@ export const PEP_TALK: Record<string, string> = {
   ada: 'You are right. We can fix anything together.', mei: 'Thank you, Commander. I feel calmer already.', kofi: 'You make me feel like a sunflower. Standing tall!', yuki: 'Okay! I am ready for anything. Even more rocks.',
   luis: 'That was better than any coffee. Let us do science!', zara: 'Let’s build something amazing!', omar: 'I am wide awake now. Wide. Awake.', tala: 'Aww. Okay, no jokes for one whole minute. Thank you.',
 };
+/** What each astronaut says when the commander picks them up. Short, in their own voice. */
+export const PICKUP: Record<string, string[]> = {
+  ada: ['Where to, boss?', 'Bring Gerald!', 'I can fix that!'],
+  mei: ['Careful, careful!', 'Who needs a check-up?', 'Steady hands!'],
+  kofi: ['Whoa, I feel like a seed!', 'To the plants?', 'Wheee!'],
+  yuki: ['Rocks? Is it rocks?', 'Adventure time!', 'Let me go explore!'],
+  luis: ['Is there coffee there?', 'For science!', 'Whoa, my coffee!'],
+  zara: ['Let me build it!', 'Tape is ready!', 'Hammer time!'],
+  omar: ['Is it nap time?', 'Five more minutes...', 'Huh? Oh! Okay!'],
+  tala: ['I am flying! Ha!', 'Up, up and away!', 'Wheee! Again!'],
+};

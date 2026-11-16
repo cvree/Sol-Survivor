@@ -10,7 +10,7 @@ import { useGame } from '../store/game';
 import { Astronaut, Marv, type Mood } from './art';
 import { feeling, lookOf } from './crewLook';
 import { TOUR } from './tour';
-import { lessonOf, stepOf } from './coach';
+import { stepOf, trainingStep } from './coach';
 import { useOpenFinds } from './Finds';
 import { FINDS } from '../data/discoveries';
 
@@ -66,10 +66,10 @@ function advice(game: GameState, party: boolean, finds = 0): { text: string; moo
 import { CrewCard } from './CrewCard';
 
 export function BottomBar({ game }: { game: GameState }) {
-  const { tour, setTour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
+  const { tour, picked, pick, notice, party, paused, speed, muted, setPaused, setSpeed, toggleMute, open, coach, album, albumSeen } = useGame();
   const openFinds = useOpenFinds().length;
   const lesson = stepOf(coach);
-  const lessonSteps = coach ? lessonOf(coach.lesson)?.steps.length ?? 0 : 0;
+  const training = trainingStep(coach);
   const [roster, setRoster] = useState(false);
   const step = tour !== null ? TOUR[tour] : null;
   const partying = Date.now() - party < 4500;
@@ -88,10 +88,8 @@ export function BottomBar({ game }: { game: GameState }) {
         <AnimatePresence mode="wait">
           <motion.div key={talk.text} className="marv-say" role="status"
             initial={{ opacity: 0, x: -12, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 26 }}>
-            {lesson && <span className="marv-step">{coach?.lesson === 'start' ? `Training ${coach.step + 1} of ${lessonSteps}` : 'New lesson'}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
-            <p>{talk.text}{tour === 1 ? ' 👍' : ''}</p>
-            {lesson && lesson.pause && <button className="linklike skip-coach" onClick={() => useGame.getState().setCoach(null)}>Skip this lesson</button>}
-            {tour === 1 && <motion.button className="btn btn-go" whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.05 }} onClick={() => setTour(null)} autoFocus>Let's go!</motion.button>}
+            {lesson && <span className="marv-step">{training ? `Training ${training.n} of ${training.of}` : 'New lesson'}{lesson.pause ? ' · the clock is stopped' : ''}</span>}
+            <p>{talk.text}</p>
           </motion.div>
         </AnimatePresence>
       </div>

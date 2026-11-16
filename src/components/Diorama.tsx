@@ -12,7 +12,8 @@ import { lookOf } from './crewLook';
 import { ModuleArt } from './moduleArt';
 import { nearness } from './StormFuse';
 import { stepOf } from './coach';
-import { canDrop, startCrewDrag, useDrag, wasDragged } from '../lib/crewDrag';
+import { clearSelection, startCrewDrag, tapCrew, useDrag, wasDragged } from '../lib/crewDrag';
+import { CrewWalkers, DropZone, LandPuff, SendBuilder, bestBuilder, cancelOnEscape, useDropClass, walking } from './Walk';
 import { EdgeArrows, MiniMap } from './Explore';
 import { Finds, MountSharp, useOpenFinds } from './Finds';
 import { attachDrag, glideTo, homeX, jumpHome, setView, useCamera } from '../lib/camera';
@@ -60,24 +61,30 @@ function actFor(c: CrewState, m: ModuleState | undefined, game: GameState, mates
 }
 
 function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?: Act }) {
-  const { pick, picked } = useGame();
+  const picked = useGame((s) => s.picked);
   const coach = useGame((s) => (stepOf(s.coach)?.target === 'crew' ? s.coach?.subject : null));
-  const carried = useDrag((d) => d.id === c.id);
+  const carried = useDrag((d) => d.id === c.id || d.back?.id === c.id);
+  const selected = useDrag((d) => d.sel === c.id);
+  const line = useDrag((d) => (d.sel === c.id ? d.line : ''));
+  const nope = useDrag((d) => (d.nope?.id === c.id && !d.back ? d.nope.at : 0));
   const bubble = useGame((s) => s.bubble);
   const look = lookOf(c);
   const chat = bubble && bubble.crewId === c.id && bubble.until > Date.now() ? bubble.text : null;
-  const say = c.say ?? (chat ? { text: chat, mood: 'chat' } : null);
+  const say = selected ? { text: line || 'Where to?', mood: 'chat' } : c.say ?? (chat ? { text: chat, mood: 'chat' } : null);
   const still = look.fainted || look.shiver || c.exhausted || (act !== 'idle' && act !== 'sip');
   return (
     <motion.button
-      layoutId={`crew-${c.id}`}
-      className={`sprite no-drag ${picked === c.id ? 'picked' : ''} ${coach === c.id ? 'coach-target' : ''} ${carried ? 'carried' : ''} ${c.energy < 30 && !c.exhausted ? 'tired' : ''}`}
+      data-crew={c.id}
+      className={`sprite no-drag ${picked === c.id ? 'picked' : ''} ${selected ? 'selected' : ''} ${coach === c.id ? 'coach-target' : ''} ${carried ? 'carried' : ''} ${c.energy < 30 && !c.exhausted ? 'tired' : ''}`}
       onPointerDown={(e) => startCrewDrag(e, c.id)}
-      onClick={() => { if (!wasDragged()) pick(picked === c.id ? null : c.id); }}
+      onClick={(e) => { e.stopPropagation(); if (!wasDragged()) tapCrew(c.id); }}
+      initial={{ y: -16, scale: 1.08 }} animate={{ y: 0, scale: 1 }}
       whileTap={{ scale: 0.88 }}
-      transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-      aria-label={`${c.name}, ${c.role}${c.commander ? ', your commander' : ''}. Energy ${Math.round(c.energy)}%${c.mood < 35 ? ', unhappy' : ''}${c.exhausted ? ', collapsed asleep' : ''}. Press to open their card, or drag to a module.`}
+      transition={{ type: 'spring', stiffness: 520, damping: 13 }}
+      aria-pressed={selected}
+      aria-label={`${c.name}, ${c.role}${c.commander ? ', your commander' : ''}. Energy ${Math.round(c.energy)}%${c.mood < 35 ? ', unhappy' : ''}${c.exhausted ? ', collapsed asleep' : ''}. ${selected ? 'Picked: now tap a glowing place, or tap again for their card.' : 'Tap to pick, then tap a place. Or drag them there.'}`}
     >
+      <span className="land-dust" aria-hidden="true" />
       {c.commander && <span className="sprite-star" aria-hidden="true"><Star /></span>}
       <AnimatePresence>
         {say && (
@@ -85,8 +92,10 @@ function Sprite({ c, index, act = 'idle' }: { c: CrewState; index: number; act?:
         )}
       </AnimatePresence>
       {/* Healthy crew with nothing to do wander about. Busy, sick or fainted crew stay put. */}
-      <span className={still ? '' : `pace pace-${index % 3}`}>
-        <span className={still ? '' : 'waddle'}><Astronaut who={c} look={look} size={44} act={act} /></span>
+      <span key={nope} className={nope ? 'shake-no' : ''}>
+        <span className={still || selected ? '' : `pace pace-${index % 3}`}>
+          <span className={selected ? 'hop' : still ? '' : 'waddle'}><Astronaut who={c} look={look} size={44} act={selected ? 'wave' : act} /></span>
+        </span>
       </span>
       <span className={`sprite-dot t-${look.triage}`} />
       {c.mood < 35 && !c.emote && <span className="grump" aria-hidden="true"><CloudLightning /></span>}
@@ -128,13 +137,18 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
     if (t === 'site') return m.buildLeft > 0;
     return t === m.kind && game.modules.find((x) => x.kind === m.kind)?.id === m.id;
   });
-  const carrying = useDrag((d) => d.id);
   const hovered = useDrag((d) => (d.id && d.over === m.id ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
-  const dropCan = !!carrying && m.buildLeft <= 0 && canDrop(carrying, m.id);
+  const drop = useDropClass(m.id, game);
   const patch = useGame((s) => s.patch);
+  // A building just finished: stamp it.
+  const wasBuilding = useRef(m.buildLeft > 0);
+  const justBuilt = useRef(0);
+  if (wasBuilding.current && m.buildLeft <= 0) justBuilt.current = Date.now();
+  wasBuilding.current = m.buildLeft > 0;
   const Icon = MODULE_ICON[m.kind];
   const building = m.buildLeft > 0;
   const here = game.crew.filter((c) => !c.out && c.at === m.id);
+  const arrived = here.filter((c) => !walking(c));
   const cost = POWER_COST[m.kind];
   const slots = WORK_SLOTS[m.kind];
   const boosted = !!slots && m.on && staffing(game, m) > 1;
@@ -147,7 +161,7 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
   const status = building ? `${m.upgrading ? 'Upgrading' : 'Building'}, ${Math.round((1 - m.buildLeft / total) * 100)}% done` : patched ? 'Patched and running' : m.on ? 'On' : 'Off';
   return (
     <motion.div
-      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''} ${dropCan ? 'drop-can' : ''} ${hovered} ${editing ? 'editable' : ''} ${moving === m.id ? 'moving' : ''} lvl-${m.level}`}
+      className={`mod ${row ? 'under' : 'surface'} k-${m.kind} ${m.on ? 'on' : 'off'} ${building ? 'building' : ''} ${leftTaken ? 'link-left' : ''} ${below ? 'shaft' : ''} ${patched ? 'patched' : ''} ${coached ? 'coach-target' : ''} ${drop} ${hovered} ${editing ? 'editable' : ''} ${moving === m.id ? 'moving' : ''} lvl-${m.level}`}
       onPointerDown={startMove}
       style={place(m.cell)}
       data-mod={m.id}
@@ -163,7 +177,7 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
         whileTap={building ? undefined : { scale: 0.95 }}
         whileHover={building ? undefined : { scale: 1.03 }}
         transition={{ type: 'spring', stiffness: 500, damping: 14 }}
-        onClick={(e) => { if (!editing) toggle(m.id); else if (e.detail === 0) pickToMove(moving === m.id ? null : m.id); /* pointer presses pick it up on pointerdown */ }}
+        onClick={(e) => { if (!editing) { clearSelection(); toggle(m.id); } else if (e.detail === 0) pickToMove(moving === m.id ? null : m.id); /* pointer presses pick it up on pointerdown */ }}
         disabled={building && !editing}
         aria-pressed={m.on}
         aria-label={`${MODULE_NAME[m.kind]}. ${status}. ${MODULE_JOB[m.kind]}.${building ? '' : ` Uses ${cost} power. Press to switch ${m.on ? 'off' : 'on'}.`}`}
@@ -178,7 +192,10 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
           </svg>
         )}
       </motion.button>
-      <div className="mod-floor">{here.map((c, i) => { const n = game.crew.indexOf(c); return <Sprite key={c.id} c={c} index={n + i} act={actFor(c, m, game, here.length, n, partying)} />; })}</div>
+      <div className="mod-floor">{arrived.map((c, i) => { const n = game.crew.indexOf(c); return <Sprite key={c.id} c={c} index={n + i} act={actFor(c, m, game, arrived.length, n, partying)} />; })}</div>
+      {!editing && <DropZone id={m.id} game={game} />}
+      <LandPuff id={m.id} />
+      {justBuilt.current > 0 && Date.now() - justBuilt.current < 1800 && <span className="built-stamp" aria-hidden="true">Built!</span>}
       <div className="plate" aria-hidden="true">
         <span className="plate-icon">{building ? <Hammer /> : <Icon />}</span>
         <span className="plate-name">{MODULE_NAME[m.kind]}</span>
@@ -193,7 +210,9 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
           </>
         )}
       </div>
-      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? `${m.upgrading ? 'Upgrading' : 'Building'}... ${Math.round((1 - m.buildLeft / total) * 100)}%` : m.upgrading ? `Drag a builder here: level ${m.level + 1}` : 'Drag an astronaut here to build!'}</span>}
+      {building && (here.length || !bestBuilder(game) || editing
+        ? <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (arrived.length ? `${m.upgrading ? 'Upgrading' : 'Building'}... ${Math.round((1 - m.buildLeft / total) * 100)}%` : 'Builder on the way!') : 'Needs a builder'}</span>
+        : <SendBuilder siteId={m.id} game={game} />)}
       {!building && !editing && m.level < MAX_LEVEL && !cannotUpgrade(game, m) && (
         <motion.button className="up-btn no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.12 }}
           aria-label={`Upgrade the ${MODULE_NAME[m.kind]} (level ${m.level})`} title="Upgrade"><ArrowUpCircle /></motion.button>
@@ -217,17 +236,19 @@ function Pod({ game, intro }: { game: GameState; intro: boolean }) {
   const setTour = useGame((s) => s.setTour);
   const coached = useGame((s) => stepOf(s.coach)?.target === 'pod');
   const home = !habReady(game);
-  const resting = home ? game.crew.filter((c) => !c.out && c.at === 'hab') : [];
-  const carrying = useDrag((d) => d.id);
+  const resting = home ? game.crew.filter((c) => !c.out && c.at === 'hab' && !walking(c)) : [];
   const hovered = useDrag((d) => (d.id && d.over === 'pod' ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
+  const drop = useDropClass('pod', game);
   return (
-    <div className={`pod ${home ? 'is-home' : 'retired'} ${carrying && home ? 'drop-can' : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={home ? 'pod' : undefined}>
+    <div className={`pod ${home ? 'is-home' : 'retired'} ${home ? drop : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={home ? 'pod' : undefined}>
       <motion.div className="pod-craft" initial={intro ? { y: -380, rotate: -10 } : false} animate={{ y: 0, rotate: 0 }} transition={{ type: 'spring', stiffness: 70, damping: 10 }}>
         <Lander size={92} capsule />
         {home && <i className="pod-window" aria-hidden="true" />}
       </motion.div>
       <div className="pod-floor">{resting.map((c, i) => <Sprite key={c.id} c={c} index={i} act={c.exhausted || c.energy < 97 || isNight(game) ? 'sleep' : 'sip'} />)}</div>
       <span className="pod-plate"><span className="plate-icon"><Rocket /></span>Capsule <small>+3 power</small></span>
+      {home && <DropZone id="pod" game={game} />}
+      <LandPuff id="pod" />
       {intro && (
         <motion.button className="big-build pod-go" onClick={() => setTour(1)} autoFocus
           animate={{ y: [0, -8, 0] }} transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}>Step outside</motion.button>
@@ -243,15 +264,15 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
   const emptyBin = useGame((s) => s.emptyBin);
   const total = m.buildTotal || BUILD_SOLS;
   const coached = useGame((s) => stepOf(s.coach)?.target === 'site' && m.buildLeft > 0);
-  const carrying = useDrag((d) => d.id);
   const hovered = useDrag((d) => (d.id && d.over === m.id ? (d.ok ? 'drop-ok' : 'drop-no') : ''));
+  const drop = useDropClass(m.id, game);
   const building = m.buildLeft > 0;
-  const here = game.crew.filter((c) => !c.out && c.at === m.id);
+  const here = game.crew.filter((c) => !c.out && c.at === m.id && !walking(c));
+  const coming = game.crew.some((c) => !c.out && c.at === m.id && walking(c));
   const on = building ? false : m.kind === 'solar' ? lit : m.kind === 'battery' ? true : m.on;
   const label = `${MODULE_NAME[m.kind]}. ${building ? 'Building site' : m.kind === 'comms' ? (m.on ? 'On' : 'Off') : on ? 'Making power' : 'Blocked by dust'}. ${MODULE_JOB[m.kind]}.`;
-  const dropCan = !!carrying && building && canDrop(carrying, m.id);
   return (
-    <motion.div className={`prop-wrap ${building ? 'building' : ''} ${dropCan ? 'drop-can' : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={m.id}
+    <motion.div className={`prop-wrap ${building ? 'building' : ''} ${building ? drop : ''} ${hovered} ${coached ? 'coach-target' : ''}`} data-mod={m.id}
       initial={{ y: -90, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 12, delay: fresh ? 0.5 + index * 0.1 : 0 }}>
       <motion.button className={`prop k-${m.kind} ${on ? 'on' : 'off'} ${building ? 'building' : ''}`}
         disabled={!['comms', 'miner', 'rover'].includes(m.kind) || building} onClick={() => toggle(m.id)} aria-label={label} aria-pressed={m.kind === 'comms' ? m.on : undefined} title={MODULE_NAME[m.kind]}
@@ -267,8 +288,12 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
       {!building && !cannotUpgrade(game, m) && <button className="up-btn small no-drag" onClick={() => open({ type: 'upgrade', id: m.id })} aria-label={`Upgrade the ${MODULE_NAME[m.kind]}`}><ArrowUpCircle /></button>}
       {!building && m.level > 1 && <span className="prop-level"><LevelStars level={m.level} /></span>}
       {building && <span className="build-bar prop-bar"><i style={{ width: `${(1 - m.buildLeft / total) * 100}%` }} /></span>}
-      {building && <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : m.upgrading ? 'Needs a builder' : `Build the ${MODULE_NAME[m.kind]}`}</span>}
+      {building && (here.length || coming || !bestBuilder(game)
+        ? <span className={`tag site-tag ${here.length ? 'good' : ''}`}><Hammer /> {here.length ? (m.upgrading ? 'Upgrading...' : 'Building...') : coming ? 'Builder on the way!' : 'Needs a builder'}</span>
+        : <SendBuilder siteId={m.id} game={game} />)}
       <div className="prop-floor">{here.map((c, i) => <Sprite key={c.id} c={c} index={i} act="wrench" />)}</div>
+      {building && <DropZone id={m.id} game={game} />}
+      <LandPuff id={m.id} />
     </motion.div>
   );
 }
@@ -285,6 +310,7 @@ export function Diorama({ game }: { game: GameState }) {
   const worldRef = useRef<HTMLDivElement>(null);
   const { tour, open, slowmo, moment, party, tunedAt, editing, moving, setEditing, move } = useGame();
   const coachTarget = useGame((s) => stepOf(s.coach)?.target ?? null);
+  const holding = useDrag((d) => !!(d.id ?? d.sel));
   const night = isNight(game) && tour !== 0;
   const warnedNow = game.events.some((e) => e.kind !== 'dust' && e.phase === 'warned');
   const vw = useCamera((s) => s.vw);
@@ -327,7 +353,8 @@ export function Diorama({ game }: { game: GameState }) {
     setView(el.clientWidth);
     jumpHome();
     const detach = attachDrag(el, () => useGame.getState().tour !== null);
-    return () => { ro.disconnect(); detach(); };
+    window.addEventListener('keydown', cancelOnEscape);
+    return () => { ro.disconnect(); detach(); window.removeEventListener('keydown', cancelOnEscape); };
   }, []);
   useEffect(() => { jumpHome(); }, [game.seed]);
   // When a warning comes in, the camera flies home so the commander can act.
@@ -351,7 +378,8 @@ export function Diorama({ game }: { game: GameState }) {
   const landerNo = game.offer?.number ?? game.landers;
 
   return (
-    <div ref={ref} className={`scene ${dust ? 'dusty' : ''} ${storm ? 'stormy' : ''} ${slowmo ? 'slowmo' : ''} ${tuned ? 'tuned' : ''} ${swell > 0 ? 'sun-angry' : ''} ${intro ? 'locked' : ''} ${night ? 'night' : ''}`}
+    <div ref={ref} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, [data-mod], [role="button"]')) clearSelection(); }}
+      className={`scene ${holding ? 'holding' : ''} ${dust ? 'dusty' : ''} ${storm ? 'stormy' : ''} ${slowmo ? 'slowmo' : ''} ${tuned ? 'tuned' : ''} ${swell > 0 ? 'sun-angry' : ''} ${intro ? 'locked' : ''} ${night ? 'night' : ''}`}
       style={{ '--swell': swell, '--wall': wall, '--W': `${W}px`, '--vw': `${vw}px`, '--hl': `${hl}px` } as CSSProperties}>
       <div ref={worldRef} className="world">
         <div className="sky" aria-hidden="true">
@@ -441,6 +469,7 @@ export function Diorama({ game }: { game: GameState }) {
               ))}
             </div>
           </LayoutGroup>
+          <CrewWalkers game={game} />
         </div>
       </div>
       <div className="dust-layer" aria-hidden="true" />
@@ -448,7 +477,7 @@ export function Diorama({ game }: { game: GameState }) {
       {justTuned && <div className="tuned-flash" aria-hidden="true">Perfect power!</div>}
       <i key={game.pulse.hit} className={game.pulse.hit ? 'hit-flash' : ''} aria-hidden="true" />
       <div className="letterbox" aria-hidden="true" />
-      <div className={coachTarget === 'explore' ? 'coach-explore' : ''}><EdgeArrows targets={targets} hidden={tour !== null} /></div>
+      <div><EdgeArrows targets={targets} hidden={tour !== null} /></div>
       <MiniMap targets={targets} hidden={tour !== null} />
       {tour === null && (
         <motion.button className={`edit-btn no-drag ${editing ? 'on' : ''} ${coachTarget === 'edit' ? 'coach-target' : ''}`} onClick={() => setEditing(!editing)} whileTap={{ scale: 0.9 }}

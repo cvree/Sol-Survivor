@@ -5,6 +5,8 @@ import { FINDS, type Find } from '../data/discoveries';
 import { useCamera } from '../lib/camera';
 import { useGame } from '../store/game';
 import { INK, Rover } from './art';
+import { tapPlace } from '../lib/crewDrag';
+import { DropZone, LandPuff, useDropClass } from './Walk';
 
 const O = { stroke: INK, strokeWidth: 4, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
 const thin = { ...O, strokeWidth: 3 };
@@ -125,18 +127,22 @@ function Marker() {
 /** A find on the map: plain scenery until it turns up, then a sparkling thing to tap. */
 function FindObject({ f, open, style }: { f: Find; open: boolean; style: CSSProperties }) {
   const collect = useGame((s) => s.collect);
+  const game = useGame((s) => s.game);
+  const drop = useDropClass(`find:${f.id}`, game!);
   const body = (
     <>
       <span className="find-art"><FindArt id={f.id} /></span>
       {f.sign && <span className="find-sign">{f.sign}</span>}
       {open && <Marker />}
+      {open && game && <DropZone id={`find:${f.id}`} game={game} />}
+      <LandPuff id={`find:${f.id}`} />
     </>
   );
-  const cls = `find f-${f.id} layer-${f.layer} ${open ? 'open' : ''}`;
+  const cls = `find f-${f.id} layer-${f.layer} ${open ? `open ${drop}` : ''}`;
   const s = { ...style, width: f.w, height: f.h };
   if (!open) return <div className={cls} style={s} aria-hidden="true">{body}</div>;
   return (
-    <motion.button className={cls} style={s} onClick={() => collect(f.id)} data-mod={`find:${f.id}`} aria-label={`Something to investigate: ${f.sign ?? 'a mystery'}. Press to send someone out, or drag an astronaut here.`}
+    <motion.button className={cls} style={s} onClick={() => { if (!tapPlace(`find:${f.id}`)) collect(f.id); }} data-mod={`find:${f.id}`} aria-label={`Something to investigate: ${f.sign ?? 'a mystery'}. Press to send someone out, or drag an astronaut here.`}
       initial={{ scale: f.layer === 'ground' ? 0 : 1 }} animate={{ scale: 1 }} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.92 }}
       transition={{ type: 'spring', stiffness: 360, damping: 14 }}>
       {body}

@@ -1246,3 +1246,127 @@ button.find::before { display: none; }
 .prop.k-battery { width: 40px; }
 .prop.k-comms, .prop.k-miner, .prop.k-rover { width: 54px; }
 .yard { gap: 26px 6px; }
+
+/* ==================================================================
+   Submission night: the guide that points, and astronauts you can carry
+================================================================== */
+
+/* ---------- M.A.R.V.'s guide ---------- */
+.guide { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.guide-dim { position: fixed; inset: 0; }
+.guide-dim path { fill: rgba(29, 16, 51, 0.66); }
+.guide.blocking .guide-dim path { pointer-events: auto; cursor: not-allowed; }
+.guide-ring { position: fixed; border: 5px solid var(--color-volt); border-radius: 20px; box-shadow: 0 0 0 4px var(--ink), inset 0 0 0 3px var(--ink); animation: guide-ring 1s ease-in-out infinite; }
+.guide-ring.from { border-color: var(--color-cyan); animation-delay: -0.5s; }
+@keyframes guide-ring { 50% { scale: 1.05; } }
+.guide-hand { position: fixed; transform: translate(-26px, 0); transform-origin: 0 0; filter: drop-shadow(0 5px 0 rgba(29, 16, 51, 0.45)); }
+.guide-hand svg { display: block; animation: guide-tap 0.9s cubic-bezier(0.3, 0, 0.4, 1) infinite; transform-origin: 26px 4px; }
+.guide-hand.flip { transform: translate(-26px, 0) scaleY(-1); }
+@keyframes guide-tap { 0%, 100% { translate: 0 18px; } 45% { translate: 0 0; scale: 1; } 55% { translate: 0 2px; scale: 0.92; } }
+.guide-drag { position: fixed; left: 0; top: 0; animation: guide-drag 2.6s cubic-bezier(0.45, 0, 0.3, 1) infinite; }
+.guide-drag-hand { position: absolute; left: -26px; top: -2px; filter: drop-shadow(0 5px 0 rgba(29, 16, 51, 0.45)); }
+.guide-drag-crew { position: absolute; left: -27px; top: 4px; opacity: 0.85; transform-origin: 50% 0; animation: guide-dangle 0.5s ease-in-out infinite alternate; }
+@keyframes guide-drag {
+  0% { translate: var(--fx) var(--fy); opacity: 0; scale: 1; }
+  10% { translate: var(--fx) var(--fy); opacity: 1; scale: 1.1; }
+  18% { translate: var(--fx) var(--fy); scale: 0.95; }
+  70% { translate: var(--tx) var(--ty); opacity: 1; scale: 0.95; }
+  80% { translate: var(--tx) var(--ty); scale: 1.12; }
+  100% { translate: var(--tx) var(--ty); opacity: 0; scale: 1; }
+}
+@keyframes guide-dangle { from { rotate: -12deg; } to { rotate: 12deg; } }
+.guide-bubble { position: fixed; z-index: 2; display: flex; align-items: flex-start; gap: 0.6rem; width: min(380px, calc(100vw - 24px)); padding: 0.7rem 1rem 0.8rem 0.6rem; pointer-events: auto;
+  background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 24px; box-shadow: 0 7px 0 var(--ink); }
+.guide-bubble::after { content: ''; position: absolute; left: calc(var(--tail) - 14px); width: 24px; height: 24px; background: var(--color-clean); border: var(--line); rotate: 45deg; }
+.guide-bubble.tail-down::after { bottom: -15px; border-top: 0; border-left: 0; }
+.guide-bubble.tail-up::after { top: -15px; border-bottom: 0; border-right: 0; }
+.guide-bubble:not(.tail-down):not(.tail-up)::after { display: none; }
+.guide-marv { flex: none; margin-top: -26px; }
+.guide-text { display: grid; gap: 0.35rem; min-width: 0; }
+.guide-text small { font: 700 0.75rem/1 var(--font-mono); letter-spacing: 0.04em; color: #1f4fd1; text-transform: uppercase; }
+.guide-text p { font-size: 1.32rem; font-weight: 700; line-height: 1.18; }
+.guide-or { font-size: 0.9rem; font-weight: 500; opacity: 0.75; }
+.guide-ok { justify-self: start; margin-top: 0.2rem; font-size: 1.15rem; padding: 0.5rem 1.2rem; }
+/* The old cyan coach ring is replaced by the guide's spotlight. */
+.coach-target { animation: none !important; }
+.mod.coach-target .mod-hit { outline: none; animation: none; }
+
+/* ---------- places light up while you carry someone ---------- */
+.drop-zone { position: absolute; z-index: 9; inset: -6px; display: grid; place-items: center; cursor: pointer; pointer-events: auto;
+  border: 5px dashed var(--color-go); border-radius: 22px; background: rgba(94, 230, 160, 0.22); animation: drop-breathe 0.9s ease-in-out infinite; }
+.drop-zone.hot { border-style: solid; background: rgba(94, 230, 160, 0.42); scale: 1.06; }
+.drop-label { padding: 4px 12px; white-space: nowrap; background: var(--color-go); color: var(--ink); border: 3px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font: 700 1.05rem/1.1 var(--font-display); animation: drop-bob 0.9s ease-in-out infinite; }
+.drop-zone.hot .drop-label { background: var(--color-volt); scale: 1.15; }
+@keyframes drop-breathe { 50% { border-color: #b6ffd9; } }
+@keyframes drop-bob { 50% { translate: 0 -4px; } }
+.mod.under .drop-zone { inset: 0; }
+.pod .drop-zone { inset: -4px -4px 10px; }
+.deposit .drop-zone, .find .drop-zone { inset: -10px; border-radius: 26px; }
+.mod.drop-can .mod-hit, .pod.drop-can, .prop-wrap.drop-can { outline: none; }
+.drop-dim { filter: saturate(0.25) brightness(0.72); transition: filter 0.2s; }
+.mod.drop-dim .sprite, .pod.drop-dim .sprite { filter: none; }
+.scene.holding .spot { opacity: 0.35; }
+.scene.holding .edit-btn, .scene.holding .minimap { opacity: 0.5; }
+
+/* A puff of dust and a ring where an astronaut is sent. */
+.drop-puff { position: absolute; z-index: 10; left: 50%; bottom: 14%; width: 0; height: 0; pointer-events: none; }
+.drop-puff::before { content: ''; position: absolute; left: -40px; top: -40px; width: 80px; height: 80px; border: 5px solid var(--color-volt); border-radius: 50%; animation: puff-ring 0.6s ease-out both; }
+.drop-puff i { position: absolute; width: 22px; height: 22px; margin: -11px; border: 3px solid var(--ink); border-radius: 50%; background: #e7b08a; animation: puff 0.7s ease-out both; }
+.drop-puff i:nth-child(1) { --dx: -46px; --dy: -10px; }
+.drop-puff i:nth-child(2) { --dx: -24px; --dy: -34px; width: 16px; height: 16px; }
+.drop-puff i:nth-child(3) { --dx: 0px; --dy: -44px; }
+.drop-puff i:nth-child(4) { --dx: 26px; --dy: -30px; width: 16px; height: 16px; }
+.drop-puff i:nth-child(5) { --dx: 46px; --dy: -8px; }
+@keyframes puff { 0% { translate: 0 0; scale: 0.3; opacity: 1; } 100% { translate: var(--dx) var(--dy); scale: 1.2; opacity: 0; } }
+@keyframes puff-ring { 0% { scale: 0.2; opacity: 1; } 100% { scale: 1.4; opacity: 0; } }
+
+/* ---------- the astronaut you are carrying ---------- */
+.ghost { position: fixed; z-index: 70; pointer-events: none; display: block; width: 0; height: 0; translate: none; rotate: none; filter: drop-shadow(0 8px 0 rgba(29, 16, 51, 0.35)); }
+.ghost-grip { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 4px solid var(--ink); border-radius: 50%; background: var(--color-volt); }
+.ghost-hang { position: absolute; left: -35px; top: 2px; width: 70px; transform-origin: 35px 0; }
+.ghost-body { display: block; }
+.ghost .astro { animation: none !important; }
+.ghost .leg-l { animation: kick 0.22s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+.ghost .leg-r { animation: kick 0.22s ease-in-out infinite alternate-reverse; transform-box: fill-box; transform-origin: 50% 0; }
+@keyframes kick { from { rotate: -26deg; } to { rotate: 26deg; } }
+.ghost-say { position: absolute; left: 26px; top: -64px; width: max-content; max-width: 210px; padding: 0.35rem 0.75rem; background: var(--color-clean); color: var(--ink); border: var(--line); border-radius: 16px 16px 16px 4px; font-size: 1rem; font-weight: 700; line-height: 1.15; }
+.ghost-label { position: absolute; left: 50%; top: 100px; translate: -50% 0; padding: 4px 12px; white-space: nowrap; border: 3px solid var(--ink); border-radius: 999px; background: var(--color-clean); color: var(--ink); font-size: 0.95rem; font-weight: 700; box-shadow: 0 4px 0 var(--ink); rotate: none; }
+.ghost.ok .ghost-label { background: var(--color-go); }
+.ghost.no .ghost-label { background: #ffb3bf; }
+.ghost.back { translate: -35px -20px; }
+
+/* ---------- picked with a tap ---------- */
+.sprite.selected { z-index: 7; }
+.sprite.selected::before { content: ''; position: absolute; z-index: -1; left: 50%; bottom: -6px; width: 64px; height: 18px; translate: -50% 0; border: 4px solid var(--color-volt); border-radius: 50%; animation: guide-ring 0.8s ease-in-out infinite; }
+.hop { display: block; animation: hop 0.5s ease-in-out infinite alternate; }
+@keyframes hop { to { translate: 0 -8px; } }
+.shake-no { display: block; animation: shake-no 0.5s ease-in-out; }
+@keyframes shake-no { 20% { rotate: -14deg; } 40% { rotate: 12deg; } 60% { rotate: -9deg; } 80% { rotate: 6deg; } }
+.sprite.carried { opacity: 0.2; }
+.land-dust { position: absolute; z-index: -1; left: 50%; bottom: 0; width: 56px; height: 14px; translate: -50% 0; border-radius: 50%; background: #e7b08a; opacity: 0; animation: land-dust 0.5s ease-out; pointer-events: none; }
+@keyframes land-dust { 0% { opacity: 0.9; scale: 0.3 1; } 100% { opacity: 0; scale: 1.6 1.2; } }
+
+/* ---------- walking to a new job ---------- */
+.crew-walkers { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.crew-walker { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.cw-body { position: absolute; left: -29px; bottom: 0; display: block; transform-origin: 50% 100%; animation: waddle 0.36s ease-in-out infinite; }
+.crew-walker.face-left .cw-body { scale: -1 1; }
+.crew-walker .leg-l { animation: kick 0.18s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+.crew-walker .leg-r { animation: kick 0.18s ease-in-out infinite alternate-reverse; transform-box: fill-box; transform-origin: 50% 0; }
+.crew-walker.climb .cw-body { animation: climb 0.3s steps(2) infinite; }
+.crew-walker.climb .arm-l { rotate: 160deg; transform-box: fill-box; transform-origin: 50% 10%; }
+.crew-walker.climb .arm-r { rotate: -160deg; transform-box: fill-box; transform-origin: 50% 10%; }
+@keyframes climb { 50% { translate: 0 -3px; } }
+.cw-dust { position: absolute; left: -10px; bottom: -2px; width: 20px; height: 8px; border-radius: 50%; background: #e7b08a; opacity: 0.8; animation: step-dust 0.36s ease-out infinite; }
+.crew-walker.climb .cw-dust { display: none; }
+@keyframes step-dust { 0% { scale: 0.4; opacity: 0.8; } 100% { scale: 1.6; opacity: 0; translate: 6px -4px; } }
+
+/* ---------- building is one tap ---------- */
+.send-btn { position: absolute; z-index: 8; left: 50%; top: -18px; translate: -50% 0; display: flex; align-items: center; gap: 6px; padding: 4px 14px 4px 5px; white-space: nowrap; cursor: pointer;
+  background: var(--color-go); color: var(--ink); border: var(--line); border-radius: 999px; box-shadow: 0 5px 0 var(--ink); font: 700 1rem/1 var(--font-display); animation: bob 1s ease-in-out infinite; }
+.send-btn:hover { background: #86f0b9; }
+.send-btn:active { translate: -50% 4px; box-shadow: 0 1px 0 var(--ink); animation: none; }
+.send-face { display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border: 3px solid var(--ink); border-radius: 50%; background: var(--color-clean); }
+.mod.under .send-btn { top: -14px; }
+.prop-wrap .send-btn { top: -34px; font-size: 0.9rem; }
+.built-stamp { position: absolute; z-index: 9; left: 50%; top: 30%; translate: -50% 0; padding: 4px 16px; background: var(--color-volt); color: var(--ink); border: var(--line); border-radius: 999px; box-shadow: 0 5px 0 var(--ink); font-size: 1.5rem; font-weight: 700; pointer-events: none; animation: pop-in 1.8s ease-out both; }

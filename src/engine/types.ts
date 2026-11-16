@@ -98,6 +98,10 @@ export interface CrewState {
   trip: Trip | null;
   /** Sols until they have walked over to the place they were sent. Not working until then. */
   arriving: number;
+  /** Where they last walked from (a module id, 'hab', or 'out' for the crater), so the screen can draw the walk. */
+  walkFrom: string;
+  /** How long that walk takes in total, in sols. */
+  walkTotal: number;
   say: { text: string; until: number; mood: 'bad' | 'good' } | null;
   lastSaid: string;
 }

@@ -202,6 +202,9 @@ export const FIND_WORK_SOLS = 0.25;
 /** Short walk inside the base, and the walk to the far edge of the crater. */
 export const WALK_BASE = 0.06;
 export const WALK_FAR = 0.9;
+/** Walking inside the base: extra time per column crossed, and per ladder climbed into or out of a dug-in room. */
+export const WALK_PER_COL = 0.05;
+export const WALK_LADDER = 0.07;
 export const ROVER_SPEED = 2;
 /** Regolith Miner: bricks per sol at level 1, and how many fit in its bin. */
 export const MINER_RATE = 5;

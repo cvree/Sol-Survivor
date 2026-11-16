@@ -102,7 +102,7 @@ const VOICE: Record<string, Partial<Record<keyof typeof LINES, string[]>>> = {
 function newCrew(r: Recruit, time: number, at: string, tolerance: number, commander = false): CrewState {
   const { perk: _perk, ...rest } = r as Recruit & { perk?: string };
   return {
-    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false, trip: null, arriving: 0, cheeredAt: -9, emote: null,
+    ...rest, arrived: time, at, tolerance, commander, diedAt: null, energy: 100, mood: 80, exhausted: false, trip: null, arriving: 0, walkFrom: at, walkTotal: 0, cheeredAt: -9, emote: null,
     spo2: 98, hr: r.restHr, temp: K.NORMAL_TEMP, dose: 0, sick: 0, health: 100, noAir: 0,
     hurtBy: { air: 0, cold: 0, radiation: 0 }, out: false, say: null, lastSaid: '',
   };
@@ -445,10 +445,35 @@ export function assign(prev: GameState, crewId: string, moduleId: string): GameS
   moduleId = id;
   const s = clone(prev);
   const who = s.crew.find((x) => x.id === crewId)!;
-  who.at = moduleId;
   // Nobody teleports: it takes a moment to walk (or climb down the ladder) to the new place.
-  who.arriving = K.WALK_BASE;
+  walk(s, who, moduleId);
   return s;
+}
+
+/** Where a place sits in the base: a column (the yard is left of column 0) and a row (1 = dug in below). */
+function spotOf(s: GameState, id: string): { col: number; row: number } {
+  if (id === 'out') return { col: K.HAB_CELL, row: 0 };
+  const m = s.modules.find((x) => x.id === id) ?? (id === 'hab' ? s.modules.find((x) => x.kind === 'pod') : undefined);
+  if (!m) return { col: K.HAB_CELL, row: 0 };
+  if (m.cell >= K.YARD_CELL) return { col: -1 - (m.cell - K.YARD_CELL) * 0.6, row: 0 };
+  return { col: m.cell % K.GRID_COLS, row: m.cell < K.GRID_COLS ? 0 : 1 };
+}
+
+/** How long a walk inside the base takes, in sols: further away, and down a ladder, takes longer. */
+export function walkSols(s: GameState, from: string, to: string): number {
+  const a = spotOf(s, from);
+  const b = spotOf(s, to);
+  const ladders = a.row === b.row ? (a.row === 1 && a.col !== b.col ? 2 : 0) : 1;
+  return K.WALK_BASE + Math.abs(a.col - b.col) * K.WALK_PER_COL + ladders * K.WALK_LADDER;
+}
+
+/** Start a walk from where they are to a new place. Work starts when they get there. */
+function walk(s: GameState, c: CrewState, to: string, from = c.at) {
+  const t = walkSols(s, from, to);
+  c.walkFrom = from;
+  c.walkTotal = t;
+  c.arriving = t;
+  c.at = to;
 }
 
 // ---------- jobs out in the crater ----------
@@ -863,8 +888,7 @@ export function step(prev: GameState, dt: number): GameState {
     if (c.exhausted) continue;
     if (stepTrip(s, c.trip, dt, Math.max(0.3, workRate(c)), K.CARRY)) {
       c.trip = null;
-      c.at = 'hab';
-      c.arriving = K.WALK_BASE;
+      walk(s, c, 'hab', 'out');
     }
   }
   if (s.rover?.trip && stepTrip(s, s.rover.trip, dt, 1, K.ROVER_CARRY)) s.rover.trip = null;
@@ -877,12 +901,13 @@ export function step(prev: GameState, dt: number): GameState {
   // Nothing builds itself: an astronaut has to be at the site. Rested crew build faster.
   for (const m of s.modules) {
     if (m.buildLeft > 0) {
-      const hands = workersIn(s, m.id).filter((c) => !c.exhausted);
+      const hands = workersIn(s, m.id).filter((c) => !c.exhausted && c.arriving <= 0);
       const rate = hands.length ? Math.max(...hands.map((c) => workRate(c) * (has(c, 'builder') ? 2 : 1))) * (1 + 0.25 * (hands.length - 1)) : 0;
       m.buildLeft = Math.max(0, m.buildLeft - dt * rate);
       if (m.buildLeft === 0) {
         // Builders stay on to work in a workplace; otherwise they head home.
-        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) { c.at = 'hab'; c.arriving = K.WALK_BASE; }
+        // Whoever built the Hab is already standing in it.
+        for (const c of s.crew) if (c.at === m.id && !(K.WORK_SLOTS[m.kind] && m.kind !== 'medbay')) { if (m.id === 'hab-site') c.at = 'hab'; else walk(s, c, 'hab'); }
         if (m.id === 'hab-site') { m.id = 'hab'; m.on = true; m.onSince = s.time; }
         if (m.kind === 'rover' && !s.rover) s.rover = { trip: null };
         if (m.upgrading) {
