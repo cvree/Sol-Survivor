@@ -23,9 +23,9 @@ const OUT = path.join(
 
 // NASA_API_KEY=none sends no key, for networks that attach one for you.
 const KEY =
-  process.env.NASA_API_KEY === 'none'
+  process.env.NASA_API_KEY?.trim() === 'none'
     ? ''
-    : process.env.NASA_API_KEY || 'DEMO_KEY';
+    : process.env.NASA_API_KEY?.trim() || 'DEMO_KEY'; // trimmed: a pasted secret often ends in a newline
 
 const only = process.argv[2]; // optional: "donki" or "osdr"
 
