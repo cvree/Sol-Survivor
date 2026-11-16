@@ -177,7 +177,7 @@ function PlayPage({ inMission }: { inMission: boolean }) {
       <Row icon={<Lightbulb />} name="Tips from M.A.R.V." note={s.hints ? 'M.A.R.V. shows you new things when they first happen.' : 'Only the first training. You know what you are doing!'}>
         <Toggle on={s.hints} onChange={(v) => s.set('hints', v)} label="Tips from M.A.R.V." />
       </Row>
-      <Row icon={<RotateCcw />} name="Training" note={replayed ? 'Done! Your next mission starts with the training.' : 'Play the training again in your next mission.'}>
+      <Row icon={<RotateCcw />} name="Training" note={replayed ? 'Done! Your next mission starts with the training.' : 'Play the training and the space weather lessons again in your next mission.'}>
         <motion.button className="btn btn-small" whileTap={{ scale: 0.92 }} disabled={replayed} onClick={() => { replay(); setReplayed(true); sfx.learn(); }}>
           {replayed ? 'Ready' : 'Train again'}
         </motion.button>

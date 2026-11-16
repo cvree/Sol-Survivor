@@ -14,6 +14,8 @@ import { Moments } from './Moments';
 import { BuildPanel, CargoPanel, DataPanel, EventCard, LogPanel } from './Panels';
 import { Pops } from './Pops';
 import { StormFuse } from './StormFuse';
+import { TripTracker } from './Trips';
+import { TapJuice } from './TapJuice';
 
 export function GameScreen() {
   const game = useGame((s) => s.game);
@@ -56,11 +58,13 @@ export function GameScreen() {
         <Diorama game={game} />
         {tour === null && !over && <StormFuse game={game} />}
         {tour === null && !over && <GoalCard />}
+        {tour === null && !over && <TripTracker game={game} />}
         {paused && !over && <div className="paused-tag">Paused. You can still flip switches. Press P to play.</div>}
         <Confetti burst={party} />
       </main>
       <BottomBar game={game} />
       <Pops />
+      <TapJuice />
       <Moments />
       <CrewGhost />
       <Guide />

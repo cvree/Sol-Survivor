@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { acceptCargo, activeEvents, assign, build, canGoOut, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { acceptCargo, activeEvents, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { saveRecord } from '../lib/records';
 import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
@@ -13,12 +13,14 @@ import type { GameState, ModuleKind } from '../engine/types';
 import type { LiveSun } from '../lib/liveSun';
 import { isMuted, setMenuMuffle, setMood, setMusic, setMuted, sfx } from '../lib/sound';
 import { useSettings } from '../lib/settings';
+import { forgetWeather } from '../data/spaceWeather';
+import { markCurio } from '../data/curios';
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SOLS = 0.01;
 const SLOWMO_RATE = 0.25;
 /** How long the big moments hold the screen, in milliseconds. */
-export const HOLD_SURVIVED = 2600;
+export const HOLD_SURVIVED = 4800;
 export const HOLD_LANDER = 2400;
 
 /** A moment that stops the clock and takes the whole screen for a couple of seconds. */
@@ -51,6 +53,15 @@ function lessonAllows(act: Act): boolean {
   return !!ALLOW[step.target]?.includes(act);
 }
 
+/** A discovery counts as taken only while someone is on the way to it, or once it is home. Call after a trip changes. */
+function syncFinds() {
+  const { game, findsGot } = useGame.getState();
+  if (!game) return;
+  const busy = new Set([...game.foundLog, ...[...game.crew.map((c) => c.trip), game.rover?.trip].flatMap((t) => (t && t.job.kind === 'find' ? [t.job.id] : []))]);
+  const next = findsGot.filter((id) => busy.has(id));
+  if (next.length !== findsGot.length) useGame.setState({ findsGot: next });
+}
+
 let lastTick = 0;
 let lastTuned = 0;
 let landerShown = -1;
@@ -81,6 +92,10 @@ interface Store {
   findsOrder: string[];
   findsActive: string[];
   findsGot: string[];
+  /** Curiosities tapped this mission (each pays one brick, once). */
+  curios: string[];
+  /** Tap a curiosity. Returns true the first time this mission, when it pays a brick. */
+  findCurio: (id: string) => boolean;
   /** Every discovery ever made, kept between missions. */
   album: string[];
   albumSeen: number;
@@ -152,7 +167,14 @@ interface Store {
   tick: (realSeconds: number) => void;
   toggle: (id: string) => void;
   build: (kind: ModuleKind, cell?: number) => void;
-  assign: (crewId: string, moduleId: string) => void;
+  /** `drop`: put down by hand, so they land there at once instead of walking. */
+  assign: (crewId: string, moduleId: string, drop?: boolean) => void;
+  /** Walk out to any spot in the crater (0-1 across) and look around. */
+  goTo: (crewId: string, x: number) => void;
+  /** Call someone (or 'rover') back from the crater; `then` is a place in the base to go to once home. */
+  recall: (who: string, then?: string) => void;
+  /** Pack up a building site (the plan comes back) or stop an upgrade (the bricks come back). */
+  cancelSite: (id: string) => void;
   unpack: (picks: ModuleKind[], crewId?: string | null) => void;
   pick: (crewId: string | null) => void;
   setTour: (n: number | null) => void;
@@ -174,6 +196,15 @@ export const useGame = create<Store>((set, get) => ({
   findsOrder: [],
   findsActive: [],
   findsGot: [],
+  curios: [],
+  findCurio: (id) => {
+    const { game, curios, tour } = get();
+    if (!game || game.status !== 'playing' || tour === 0) return false;
+    markCurio(id);
+    if (curios.includes(id)) return false;
+    set({ curios: [...curios, id], game: giftBricks(game, 1) });
+    return true;
+  },
   album: loadAlbum(),
   albumSeen: loadAlbum().length,
   editing: false,
@@ -235,7 +266,7 @@ export const useGame = create<Store>((set, get) => ({
     if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
     fresh = { ...fresh, autoBuild: useSettings.getState().autoBuilders };
     set({ sharpMind: sharp, editing: false, moving: null, lastRank: 0,
-      coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [],
+      coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], curios: [],
       screen: 'game', game: fresh,
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
       tour: trained ? null : 0, lessonsSeen: trained ? [...seen, ...TRAINING] : seen, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
@@ -435,6 +466,7 @@ export const useGame = create<Store>((set, get) => ({
     sfx.assign();
     const name = agent === 'rover' ? 'The rover' : game.crew.find((c) => c.id === agent)?.name;
     set({ game: r.state, findsGot: [...findsGot, id], picked: null, notice: { text: `${name} is heading out to investigate!`, at: Date.now() } });
+    syncFinds();
   },
   dig: (depId, who) => {
     const { game } = get();
@@ -447,6 +479,7 @@ export const useGame = create<Store>((set, get) => ({
     sfx.assign();
     const name = agent === 'rover' ? 'The rover' : game.crew.find((c) => c.id === agent)?.name;
     set({ game: r.state, picked: null, notice: { text: `${name} is heading out to dig regolith bricks.`, at: Date.now() } });
+    syncFinds();
   },
   cheerUp: (id, kind) => {
     const { game } = get();
@@ -492,12 +525,43 @@ export const useGame = create<Store>((set, get) => ({
     sfx.build();
     set({ game: build(game, kind, cell), panel: null });
   },
-  assign: (crewId, moduleId) => { const { game } = get(); if (game && lessonAllows('assign')) {
-    const next = assign(game, crewId, moduleId);
+  assign: (crewId, moduleId, drop) => { const { game } = get(); if (game && lessonAllows('assign')) {
+    const c = game.crew.find((x) => x.id === crewId);
+    // Out in the crater? They turn around and head for that place once they are back.
+    if (c?.trip) { get().recall(crewId, moduleId); return; }
+    const next = assign(game, crewId, moduleId, drop);
     if (next === game) { sfx.denied(); set({ notice: { text: 'There is no room to work there.', at: Date.now() } }); return; }
     sfx.assign();
     set({ game: next });
   } },
+  goTo: (crewId, x) => {
+    const { game } = get();
+    if (!game || !lessonAllows('other')) return;
+    const r = goTo(game, crewId, x);
+    if (!r.ok) { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); return; }
+    sfx.assign();
+    const name = game.crew.find((c) => c.id === crewId)?.name ?? 'They';
+    set({ game: r.state, notice: { text: `${name} is walking out to explore. Tap Follow to go with them!`, at: Date.now() } });
+    syncFinds();
+  },
+  recall: (who, then) => {
+    const { game } = get();
+    if (!game) return;
+    const next = recall(game, who, then);
+    if (next === game) return;
+    sfx.off();
+    const name = who === 'rover' ? 'The rover' : game.crew.find((c) => c.id === who)?.name ?? 'They';
+    set({ game: next, notice: { text: then ? `${name} is heading back, then straight to the new job.` : `${name} is heading back to the base.`, at: Date.now() } });
+    syncFinds();
+  },
+  cancelSite: (id) => {
+    const { game } = get();
+    if (!game) return;
+    const next = cancelSite(game, id);
+    if (next === game) return;
+    sfx.off();
+    set({ game: next });
+  },
   unpack: (picks, crewId) => {
     const { game } = get();
     if (!game) return;
@@ -524,6 +588,7 @@ export const useGame = create<Store>((set, get) => ({
   },
   replayTraining: () => {
     try { localStorage.removeItem('sol-survivor:trained'); localStorage.removeItem('sol-survivor:lessons'); } catch { /* fine */ }
+    forgetWeather();
   },
   setSpeed: (speed) => set({ speed }),
   open: (panel) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BATTERY_OUTPUT, DOME_COVERS, PATCH_SOLS, MAX_CREW, MAX_OF, POWER_COST, SOLAR_OUTPUT } from './constants';
-import { acceptCargo, assign, build, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
+import { acceptCargo, assign, build, cancelSite, goTo, recall, tripPos, buildableCells, collectBin, collectFind, coverOf, moveModule, moveTargets, sendOut, startUpgrade, createGame, grantReward, lifeFlow, patch, power, shieldCover, staffing, step, toggleModule, wear, workRate } from './engine';
 import { GOALS, markOf, nextGoal } from './goals';
 import { carefulBot, passiveBot, play } from './bots';
 import type { Catalog } from './events';
@@ -332,5 +332,77 @@ describe('every plan you pick is really yours', () => {
     s.crew[0].energy = 100;
     for (let i = 0; i < 400 && s.modules.some((m) => m.kind === 'hab' && m.buildLeft > 0); i++) s = step(s, 0.05);
     expect(s.crew[0].at).toBe('hab');
+  });
+});
+
+describe('the commander is in control', () => {
+  it('dropping someone inside the base puts them there at once', () => {
+    const s = starter(21);
+    const next = assign(s, s.crew[0].id, 'm2', true);
+    expect(next.crew[0].at).toBe('m2');
+    expect(next.crew[0].arriving).toBe(0);
+    // Without a drop (the Send button, or the engine moving people), they still walk.
+    expect(assign(s, s.crew[0].id, 'm2').crew[0].arriving).toBeGreaterThan(0);
+  });
+
+  it('anyone rested can walk out to any spot in the crater and stays there', () => {
+    let s = starter(22);
+    const r = goTo(s, s.crew[0].id, 0.9);
+    expect(r.ok).toBe(true);
+    s = r.state;
+    for (let i = 0; i < 24; i++) s = step(s, 0.05);
+    const t = s.crew[0].trip!;
+    expect(t.phase).toBe('work');
+    expect(tripPos(t)).toBeCloseTo(0.9);
+    // Once tired, they head home on their own.
+    s.crew[0].energy = 20;
+    s = step(s, 0.05);
+    expect(s.crew[0].trip!.phase).toBe('back');
+  });
+
+  it('can be called back from halfway, turning around where they stand', () => {
+    let s = goTo(starter(23), 'ada', 0.95).state;
+    for (let i = 0; i < 6; i++) s = step(s, 0.05);
+    const mid = tripPos(s.crew[0].trip!);
+    expect(mid).toBeGreaterThan(0.5);
+    s = recall(s, 'ada');
+    expect(s.crew[0].trip!.phase).toBe('back');
+    expect(tripPos(s.crew[0].trip!)).toBeCloseTo(mid);
+    for (let i = 0; i < 200 && s.crew[0].trip; i++) s = step(s, 0.05);
+    expect(s.crew[0].trip).toBeNull();
+  });
+
+  it('can change course out in the crater, from where they are', () => {
+    let s = goTo(starter(24), 'ada', 0.95).state;
+    for (let i = 0; i < 6; i++) s = step(s, 0.05);
+    const mid = tripPos(s.crew[0].trip!);
+    s = goTo(s, 'ada', 0.1).state;
+    expect(tripPos(s.crew[0].trip!)).toBeCloseTo(mid);
+    expect(s.crew[0].trip!.x).toBeCloseTo(0.1);
+  });
+
+  it('a place chosen while they are out is where they go once home', () => {
+    let s = goTo(starter(25), 'ada', 0.8).state;
+    s = recall(s, 'ada', 'm2');
+    for (let i = 0; i < 200 && s.crew[0].trip; i++) s = step(s, 0.05);
+    expect(s.crew[0].at).toBe('m2');
+  });
+
+  it('packing up a site gives the plan back, and stopping an upgrade gives the bricks back', () => {
+    let s = starter(26);
+    s.blueprints = ['solar'];
+    s = build(s, 'solar');
+    const site = s.modules.find((m) => m.buildLeft > 0)!;
+    s = cancelSite(s, site.id);
+    expect(s.modules.some((m) => m.id === site.id)).toBe(false);
+    expect(s.blueprints).toEqual(['solar']);
+
+    s.materials = 100;
+    const before = s.materials;
+    s = startUpgrade(s, 'hab').state;
+    expect(s.materials).toBeLessThan(before);
+    s = cancelSite(s, 'hab');
+    expect(s.materials).toBe(before);
+    expect(s.modules.find((m) => m.id === 'hab')!.upgrading).toBe(false);
   });
 });

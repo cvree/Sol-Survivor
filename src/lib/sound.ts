@@ -587,6 +587,8 @@ export const sfx = {
   menuOpen: () => [5, 7, 9, 12].forEach((i, k) => bell(n(i), 0.9, 0.03, k * 0.06, ((k % 2) - 0.5) * 0.4)),
   /** The Esc menu closes: the same sparkle, drifting back down. */
   menuClose: () => [12, 9, 7].forEach((i, k) => bell(n(i), 0.6, 0.025, k * 0.05)),
+  /** Tapping the world itself: a tiny, bright note from the friendly scale, never the same twice in a row. */
+  tap: () => { pluck(n(7 + Math.floor(Math.random() * 6)), 0.07, 0.028); },
   /** A slider in the Esc menu: one soft note that climbs with the value. */
   slide: (v: number) => pluck(n(2 + Math.round(v * 10)), 0.1, 0.04),
   /** A hammer on a building site. Quiet, so a busy base sounds busy, not noisy. */

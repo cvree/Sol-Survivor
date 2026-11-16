@@ -33,7 +33,7 @@ export const WORDS: { word: string; hint: string }[] = [
   { word: 'VALVE', hint: 'It opens and closes to control air or water.' },
   { word: 'SPARK', hint: 'A tiny flash of electricity.' },
   { word: 'POWER', hint: 'Solar Fields make it.' },
-  { word: 'LIGHT', hint: 'From the Sun, it takes about 12 minutes to reach Mars.' },
+  { word: 'LIGHT', hint: 'From the Sun, it takes about 13 minutes to reach Mars.' },
   { word: 'MOXIE', hint: 'The machine on Perseverance that made oxygen from Mars air.' },
   { word: 'CREWS', hint: 'Teams of astronauts.' },
   { word: 'ALIEN', hint: 'Life from another world. None found yet!' },

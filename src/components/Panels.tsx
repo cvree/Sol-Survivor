@@ -9,6 +9,8 @@ import type { EventKind, GameState, ModuleKind } from '../engine/types';
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Marv } from './art';
 import { HAPPY } from './crewLook';
+import { ScienceBrief, WeatherArt } from './ScienceBrief';
+import { BRIEFS, learnedWeather } from '../data/spaceWeather';
 import { MODULE_JOB } from './Diorama';
 
 export const EVENT_TITLE: Record<EventKind, string> = { cme: 'Solar storm', flare: 'Solar flare', dust: 'Dust storm' };
@@ -275,7 +277,7 @@ const HEADLINE: Record<EventKind, string> = {
   dust: 'A wall of dust is about to hide the Sun!',
 };
 const FIRST_TIME: Record<EventKind, string[]> = {
-  cme: ['Radiation damage never heals, so block as much as you can.', 'Earth cannot help. A radio call there and back can take about 45 minutes. You are the commander.'],
+  cme: ['Radiation dose adds up over a whole life, so block as much as you can.', 'Earth cannot help. A radio call there and back can take about 45 minutes. You are the commander.'],
   flare: ['Flares are short. You can switch modules back on soon.', 'Even a half-charged shield helps.'],
   dust: ['If power runs short, the last module you switched on trips off by itself. Better to choose yourself.', 'Batteries keep working in the dust. Solar Fields do not.'],
 };
@@ -283,7 +285,18 @@ const FIRST_TIME: Record<EventKind, string[]> = {
 export function EventCard({ game, eventId }: { game: GameState; eventId: string }) {
   const { open, seenKinds } = useGame();
   const e = game.events.find((x) => x.id === eventId);
+  // The first time each kind of event comes, M.A.R.V. teaches the real science before anything else.
+  const [school, setSchool] = useState(() => !!e && !learnedWeather().includes(e.kind));
+  const [first] = useState(school);
   if (!e) return null;
+  if (school) {
+    return (
+      <Modal title={first ? `New danger: ${BRIEFS[e.kind].name.toLowerCase()}!` : BRIEFS[e.kind].name} onClose={() => setSchool(false)} tone="alarm" locked={first} wide>
+        {first && <p className="lede wx-lede">Something new is coming, Commander. The clock is stopped. Let's learn what it is, so we can keep the crew safe.</p>}
+        <ScienceBrief kind={e.kind} onDone={() => setSchool(false)} doneLabel={first ? 'What do we do?' : 'Back to the warning'} />
+      </Modal>
+    );
+  }
   const rec = recordById(e.recordId);
   const domes = game.modules.filter((m) => m.kind === 'dome' && m.buildLeft <= 0).length;
   const crew = alive(game).length;
@@ -305,6 +318,7 @@ export function EventCard({ game, eventId }: { game: GameState; eventId: string 
       {rec && <RecordCard r={rec} />}
       <div className="modal-actions">
         <motion.button className="btn btn-go btn-big" whileTap={{ scale: 0.95 }} onClick={() => open(null)} autoFocus>I am ready</motion.button>
+        <button className="btn btn-small" onClick={() => { sfx.ping(); setSchool(true); }}>How does this work?</button>
         <span className="aside">The clock is stopped while you read.</span>
       </div>
     </Modal>
@@ -314,6 +328,15 @@ export function EventCard({ game, eventId }: { game: GameState; eventId: string 
 /** The NASA Science Log: what real data is behind whatever is happening right now. */
 export function DataPanel({ recordId }: { recordId?: string }) {
   const { open, sun, game } = useGame();
+  const [lesson, setLesson] = useState<EventKind | null>(null);
+  const learned = learnedWeather();
+  if (lesson) {
+    return (
+      <Modal title={BRIEFS[lesson].name} onClose={() => setLesson(null)} wide>
+        <ScienceBrief kind={lesson} onDone={() => setLesson(null)} doneLabel="Back to the Science Log" />
+      </Modal>
+    );
+  }
   const live = game?.events.find((e) => e.phase === 'active' || e.phase === 'warned');
   const rec = recordById(recordId ?? live?.recordId ?? '');
   const when = (iso: string) => new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -343,6 +366,20 @@ export function DataPanel({ recordId }: { recordId?: string }) {
           </ul>
         </section>
       )}
+
+      <section className="source school">
+        <h3>Space weather school</h3>
+        <p>M.A.R.V. teaches each of these the first time it happens. Play any of them again here.</p>
+        <div className="school-list">
+          {(['flare', 'cme', 'dust'] as EventKind[]).map((k) => (
+            <motion.button key={k} className={`school-btn k-${k} ${learned.includes(k) ? 'learned' : ''}`} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => { sfx.ping(); setLesson(k); }}>
+              <span className="school-art"><WeatherArt id={BRIEFS[k].cards[0].art} /></span>
+              <b>{BRIEFS[k].name}</b>
+              <small>{learned.includes(k) ? <><Check /> Learned</> : 'Not met yet'}</small>
+            </motion.button>
+          ))}
+        </div>
+      </section>
 
       <section className="source">
         <h3>Storms: NASA DONKI</h3>

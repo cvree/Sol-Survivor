@@ -434,7 +434,7 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
  * Send a crew member somewhere: to work in a module, to build at a building site,
  * or home to rest ('hab' means home: the Hab once built, the capsule before that).
  */
-export function assign(prev: GameState, crewId: string, moduleId: string): GameState {
+export function assign(prev: GameState, crewId: string, moduleId: string, drop = false): GameState {
   const id = moduleId === 'pod' ? 'hab' : moduleId;
   const m = prev.modules.find((x) => x.id === id);
   const c = prev.crew.find((x) => x.id === crewId);
@@ -448,8 +448,33 @@ export function assign(prev: GameState, crewId: string, moduleId: string): GameS
   moduleId = id;
   const s = clone(prev);
   const who = s.crew.find((x) => x.id === crewId)!;
-  // Nobody teleports: it takes a moment to walk (or climb down the ladder) to the new place.
-  walk(s, who, moduleId);
+  // Picked up and dropped by the commander inside the base: they land right there.
+  // Otherwise it takes a moment to walk (or climb down the ladder) to the new place.
+  if (drop) { who.at = moduleId; who.arriving = 0; who.walkFrom = moduleId; who.walkTotal = 0; }
+  else walk(s, who, moduleId);
+  return s;
+}
+
+/** Take back a building site: the plan goes back into your plans, and the builders go home. */
+export function cancelSite(prev: GameState, id: string): GameState {
+  const m = prev.modules.find((x) => x.id === id);
+  if (!m || m.buildLeft <= 0 || prev.status !== 'playing') return prev;
+  const s = clone(prev);
+  const mm = s.modules.find((x) => x.id === id)!;
+  for (const c of s.crew) if (c.at === id) { c.at = 'hab'; c.arriving = 0; c.walkFrom = 'hab'; c.walkTotal = 0; }
+  if (mm.upgrading) {
+    // Stop an upgrade: every brick comes back, and the module is ready to use again.
+    s.materials += upgradeCost(mm);
+    mm.upgrading = false;
+    mm.buildLeft = 0;
+    mm.buildTotal = 0;
+    log(s, 'info', `Upgrade stopped. The ${MODULE_NAME[mm.kind]} is back, and its bricks are returned.`);
+  } else {
+    s.modules = s.modules.filter((x) => x.id !== id);
+    s.blueprints.push(mm.kind);
+    s.stats.built = Math.max(0, s.stats.built - 1);
+    log(s, 'info', `The ${MODULE_NAME[mm.kind]} site was packed up. The plan is back in your Build list.`);
+  }
   return s;
 }
 
@@ -482,7 +507,17 @@ function walk(s: GameState, c: CrewState, to: string, from = c.at) {
 // ---------- jobs out in the crater ----------
 
 /** How long it takes to walk from the base to a spot in the crater (0-1 across the world). */
-export const walkTime = (x: number, rover = false) => (K.WALK_BASE + Math.abs(x - 0.5) * 2 * K.WALK_FAR) / (rover ? K.ROVER_SPEED : 1);
+export const walkTime = (x: number, rover = false, from = 0.5) => (K.WALK_BASE + Math.abs(x - from) * 2 * K.WALK_FAR) / (rover ? K.ROVER_SPEED : 1);
+/** Where a trip is right now, 0-1 across the crater. */
+export function tripPos(t: Trip): number {
+  const k = t.total > 0 ? 1 - Math.max(0, t.left) / t.total : 1;
+  const start = t.from ?? 0.5;
+  if (t.phase === 'out') return start + (t.x - start) * k;
+  if (t.phase === 'work') return t.x;
+  return t.x + (0.5 - t.x) * k;
+}
+/** The base sits in the middle of the crater. Anywhere closer than this counts as the base itself. */
+export const BASE_HALF = 0.12;
 /** Who could be sent out right now: rested, at the base, not already out. */
 export const canGoOut = (c: CrewState) => !c.out && !c.trip && !c.exhausted && c.energy > 25;
 const sameJob = (a: Trip['job'], b: Trip['job']) => (a.kind === 'find' && b.kind === 'find' && a.id === b.id) || (a.kind === 'mine' && b.kind === 'mine' && a.dep === b.dep);
@@ -494,24 +529,69 @@ const jobTaken = (s: GameState, job: Trip['job']) => [...s.crew.map((c) => c.tri
  */
 export function sendOut(prev: GameState, who: string, job: Trip['job'], x: number): ToggleResult {
   if (prev.status !== 'playing') return { state: prev, ok: false };
-  if (jobTaken(prev, job)) return { state: prev, ok: false, reason: 'Someone is already on the way there.' };
+  if (job.kind !== 'go' && jobTaken(prev, job)) return { state: prev, ok: false, reason: 'Someone is already on the way there.' };
   if (job.kind === 'mine' && !(prev.deposits.find((d) => d.id === job.dep)?.left)) return { state: prev, ok: false, reason: 'That rock pile is used up.' };
   const s = clone(prev);
   const rover = who === 'rover';
-  const t = walkTime(x, rover);
-  const trip: Trip = { phase: 'out', left: t, total: t, x, job, carry: 0 };
+  // Already out in the crater? Change course from wherever they are now.
+  const now = rover ? s.rover?.trip : s.crew.find((m) => m.id === who)?.trip;
+  const from = now ? tripPos(now) : 0.5;
+  const t = walkTime(x, rover, from);
+  const trip: Trip = { phase: 'out', left: t, total: t, x, job, carry: now?.carry ?? 0, ...(now ? { from } : {}) };
   if (rover) {
-    if (!s.rover || s.rover.trip) return { state: prev, ok: false, reason: 'The rover is busy.' };
+    if (!s.rover || (s.rover.trip && s.rover.trip.phase === 'work' && s.rover.trip.job.kind !== 'go')) return { state: prev, ok: false, reason: 'The rover is busy.' };
     s.rover.trip = trip;
   } else {
     const c = s.crew.find((m) => m.id === who);
-    if (!c || !canGoOut(c)) return { state: prev, ok: false, reason: c && !c.out && c.energy <= 25 ? `${c.name} is too tired to go out.` : 'Nobody is free to go.' };
+    const able = !!c && !c.out && !c.exhausted && (c.trip ? true : canGoOut(c));
+    if (!c || !able) return { state: prev, ok: false, reason: c && !c.out && c.energy <= 25 ? `${c.name} is too tired to go out.` : 'Nobody is free to go.' };
     c.trip = trip;
     c.at = 'out';
     c.arriving = 0;
   }
-  log(s, 'info', `${rover ? 'The rover' : s.crew.find((m) => m.id === who)!.name} heads out ${job.kind === 'find' ? `to investigate: ${job.title}` : 'to dig regolith'}.`);
+  const name = rover ? 'The rover' : s.crew.find((m) => m.id === who)!.name;
+  log(s, 'info', `${name} ${now ? 'changes course' : 'heads out'} ${job.kind === 'find' ? `to investigate: ${job.title}` : job.kind === 'mine' ? 'to dig regolith' : 'to explore the crater'}.`);
   return { state: s, ok: true };
+}
+
+/** Walk out to any spot in the crater and look around there, until called back or sent somewhere else. */
+export const goTo = (prev: GameState, who: string, x: number) => sendOut(prev, who, { kind: 'go' }, Math.max(0.02, Math.min(0.98, x)));
+
+/**
+ * Call someone (or the rover) back to the base from wherever they are. Nothing is lost but the job:
+ * a discovery stays where it was, and half-dug rock stays in the pile. `then` is where to go once home.
+ */
+export function recall(prev: GameState, who: string, then?: string): GameState {
+  const rover = who === 'rover';
+  const t0 = rover ? prev.rover?.trip : prev.crew.find((c) => c.id === who)?.trip;
+  if (!t0 || prev.status !== 'playing') return prev;
+  if (t0.phase === 'back') {
+    if (then === t0.then) return prev;
+    const s = clone(prev);
+    const t = rover ? s.rover!.trip! : s.crew.find((c) => c.id === who)!.trip!;
+    if (then) t.then = then; else delete t.then;
+    return s;
+  }
+  const s = clone(prev);
+  const t = rover ? s.rover!.trip! : s.crew.find((c) => c.id === who)!.trip!;
+  const pos = tripPos(t);
+  // Turn around: the walk home is drawn from the far spot, so set the clock to start where they stand.
+  const total = walkTime(pos, rover);
+  t.x = pos;
+  delete t.from;
+  t.phase = 'back';
+  t.total = total;
+  t.left = total;
+  t.job = { kind: 'go' };
+  if (then) t.then = then;
+  log(s, 'info', `${rover ? 'The rover' : s.crew.find((c) => c.id === who)!.name} is heading back to the base.`);
+  return s;
+}
+
+/** A small gift of bricks: for being curious about the world around the base. */
+export function giftBricks(prev: GameState, n: number): GameState {
+  if (prev.status !== 'playing' || n <= 0) return prev;
+  return { ...prev, materials: prev.materials + n };
 }
 
 /** Tap a Regolith Miner to empty its bin into your brick pile. */
@@ -849,9 +929,12 @@ function stepTrip(s: GameState, t: Trip, dt: number, rate: number, carry: number
     t.left -= dt;
     if (t.left <= 0) {
       t.phase = 'work';
-      t.left = t.total = t.job.kind === 'find' ? K.FIND_WORK_SOLS : K.MINE_SOLS;
+      delete t.from;
+      t.left = t.total = t.job.kind === 'find' ? K.FIND_WORK_SOLS : t.job.kind === 'mine' ? K.MINE_SOLS : 1;
     }
   } else if (t.phase === 'work') {
+    // Out exploring a spot: they stay and look around until the commander calls them.
+    if (t.job.kind === 'go') return false;
     t.left -= dt * rate;
     if (t.left <= 0) {
       if (t.job.kind === 'find') {
@@ -893,9 +976,18 @@ export function step(prev: GameState, dt: number): GameState {
   for (const c of s.crew) {
     if (!c.trip || c.out) continue;
     if (c.exhausted) continue;
+    // Someone looking around out in the crater walks home by themselves once they get tired.
+    if (c.trip.job.kind === 'go' && c.trip.phase === 'work' && c.energy < K.AUTO_BUILD_ENERGY) {
+      const back = recall(s, c.id);
+      c.trip = back.crew.find((x) => x.id === c.id)!.trip ?? c.trip;
+      c.say = { text: 'Getting tired. Heading home!', until: s.time + 0.6, mood: 'good' };
+    }
     if (stepTrip(s, c.trip, dt, Math.max(0.3, workRate(c)), K.CARRY)) {
+      const then = c.trip.then;
       c.trip = null;
-      walk(s, c, 'hab', 'out');
+      // Home again. If the commander picked a place while they were out, they go straight there.
+      if (then && then !== 'hab' && assign(s, c.id, then) !== s) walk(s, c, then, 'out');
+      else walk(s, c, 'hab', 'out');
     }
   }
   if (s.rover?.trip && stepTrip(s, s.rover.trip, dt, 1, K.ROVER_CARRY)) s.rover.trip = null;
