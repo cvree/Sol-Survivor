@@ -9,7 +9,8 @@ import type { CrewState, GameState, ModuleKind, ModuleState } from '../engine/ty
 import { useGame } from '../store/game';
 import { Astronaut, Lander, MODULE_ICON, Rover, type Act } from './art';
 import { lookOf } from './crewLook';
-import { ModuleArt } from './moduleArt';
+import { ModuleArt, RisingArt } from './moduleArt';
+import { sfx } from '../lib/sound';
 import { nearness } from './StormFuse';
 import { stepOf } from './coach';
 import { clearSelection, startCrewDrag, tapCrew, useDrag, wasDragged } from '../lib/crewDrag';
@@ -33,6 +34,19 @@ export const MODULE_JOB: Record<ModuleKind, string> = {
   lab: 'Speeds up landers',
   comms: 'Earlier warnings',
 };
+
+/** Hammer taps while someone is building here. Quiet, and silent whenever the clock is stopped. */
+function useHammer(active: boolean, pan = 0) {
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => {
+      const st = useGame.getState();
+      if (st.paused || st.panel || st.settingsOpen || st.moment || st.editing || document.hidden || stepOf(st.coach)?.pause) return;
+      sfx.hammer(pan);
+    }, 560 + Math.random() * 260);
+    return () => clearInterval(id);
+  }, [active, pan]);
+}
 
 const place = (cell: number) => ({ gridColumn: (cell % GRID_COLS) + 1, gridRow: cell < GRID_COLS ? 1 : 2 });
 
@@ -158,6 +172,7 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
   const below = row === 0 && game.modules.some((x) => x.cell === m.cell + GRID_COLS);
   const patched = isPatched(game, m);
   const canPatch = !building && !m.on && PATCHABLE.includes(m.kind) && game.spareParts > 0 && cost > power(game).free;
+  useHammer(building && arrived.length > 0, ((m.cell % GRID_COLS) - 2) * 0.2);
   const status = building ? `${m.upgrading ? 'Upgrading' : 'Building'}, ${Math.round((1 - m.buildLeft / total) * 100)}% done` : patched ? 'Patched and running' : m.on ? 'On' : 'Off';
   return (
     <motion.div
@@ -182,9 +197,11 @@ function Module({ m, game, fresh, partying }: { m: ModuleState; game: GameState;
         aria-pressed={m.on}
         aria-label={`${MODULE_NAME[m.kind]}. ${status}. ${MODULE_JOB[m.kind]}.${building ? '' : ` Uses ${cost} power. Press to switch ${m.on ? 'off' : 'on'}.`}`}
       >
-        <ModuleArt kind={m.kind} on={m.on} building={building && !m.upgrading} />
+        {building && !m.upgrading
+          ? <RisingArt kind={m.kind} progress={1 - m.buildLeft / total} working={arrived.length > 0} under={row === 1} />
+          : <ModuleArt kind={m.kind} on={m.on} />}
         <LevelDeco level={m.level} under={row === 1} />
-        {m.upgrading && <span className="upgrade-scaffold" aria-hidden="true" />}
+        {m.upgrading && <span className={`upgrade-scaffold ${arrived.length ? 'working' : ''}`} aria-hidden="true">{arrived.length > 0 && [0, 1, 2].map((i) => <i key={i} className="spark" style={{ left: `${20 + i * 30}%`, animationDelay: `${i * 0.2}s` }} />)}</span>}
         {patched && (
           <svg viewBox="0 0 240 150" className="tape" aria-hidden="true">
             <path d="M150 20l58 34" stroke="#d9d3c5" strokeWidth="16" strokeLinecap="round" /><path d="M150 20l58 34" stroke="#1d1033" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" />
@@ -269,6 +286,7 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
   const building = m.buildLeft > 0;
   const here = game.crew.filter((c) => !c.out && c.at === m.id && !walking(c));
   const coming = game.crew.some((c) => !c.out && c.at === m.id && walking(c));
+  useHammer(building && here.length > 0, -0.6);
   const on = building ? false : m.kind === 'solar' ? lit : m.kind === 'battery' ? true : m.on;
   const label = `${MODULE_NAME[m.kind]}. ${building ? 'Building site' : m.kind === 'comms' ? (m.on ? 'On' : 'Off') : on ? 'Making power' : 'Blocked by dust'}. ${MODULE_JOB[m.kind]}.`;
   return (
@@ -277,7 +295,7 @@ function YardProp({ m, game, lit, index, fresh }: { m: ModuleState; game: GameSt
       <motion.button className={`prop k-${m.kind} ${on ? 'on' : 'off'} ${building ? 'building' : ''}`}
         disabled={!['comms', 'miner', 'rover'].includes(m.kind) || building} onClick={() => toggle(m.id)} aria-label={label} aria-pressed={m.kind === 'comms' ? m.on : undefined} title={MODULE_NAME[m.kind]}
         whileTap={m.kind === 'comms' ? { scale: 0.9 } : undefined}>
-        <ModuleArt kind={m.kind} on={on} building={building} />
+        {building ? <RisingArt kind={m.kind} progress={1 - m.buildLeft / total} working={here.length > 0} yard /> : <ModuleArt kind={m.kind} on={on} />}
         {['comms', 'miner', 'rover'].includes(m.kind) && !building && <span className="prop-switch"><span className="switch"><i /></span></span>}
         {m.kind === 'rover' && !building && game.rover && !game.rover.trip && <span className="parked"><Rover size={64} /></span>}
       </motion.button>

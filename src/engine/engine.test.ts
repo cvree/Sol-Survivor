@@ -298,3 +298,39 @@ describe('simulation rules', () => {
     expect(coverOf(s, s.crew[0])).toBeGreaterThan(0);
   });
 });
+
+describe('every plan you pick is really yours', () => {
+  /** Play on until the first lander is waiting. */
+  const toFirstLander = (seed: number) => {
+    let s = createGame(seed, catalog, 1, 'easy', 'ada');
+    for (let i = 0; i < 4000 && !s.offer; i++) s = step(s, 0.05);
+    return s;
+  };
+
+  it('marks out a building site for each plan, yard gear included', () => {
+    const s = acceptCargo(toFirstLander(11), ['solar', 'hab']);
+    const sites = s.modules.filter((m) => m.buildLeft > 0).map((m) => m.kind).sort();
+    expect(sites).toEqual(['hab', 'solar']);
+    expect(s.blueprints).toEqual([]);
+  });
+
+  it('a builder walks on to the next site by themselves when one is finished', () => {
+    let s = acceptCargo(toFirstLander(12), ['oxygen', 'hab']);
+    const lead = s.crew[0];
+    s = arrive(assign(s, lead.id, 'hab-site'));
+    s.crew[0].energy = 100;
+    for (let i = 0; i < 400 && s.modules.some((m) => m.kind === 'hab' && m.buildLeft > 0); i++) s = step(s, 0.05);
+    const oxygen = s.modules.find((m) => m.kind === 'oxygen')!;
+    expect(oxygen.buildLeft).toBeGreaterThan(0);
+    expect(s.crew[0].at).toBe(oxygen.id);
+  });
+
+  it('stays put when the player turns that off', () => {
+    let s = acceptCargo(toFirstLander(12), ['oxygen', 'hab']);
+    s.autoBuild = false;
+    s = arrive(assign(s, s.crew[0].id, 'hab-site'));
+    s.crew[0].energy = 100;
+    for (let i = 0; i < 400 && s.modules.some((m) => m.kind === 'hab' && m.buildLeft > 0); i++) s = step(s, 0.05);
+    expect(s.crew[0].at).toBe('hab');
+  });
+});

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { ModuleKind } from '../engine/types';
 import { INK } from './art';
 
@@ -312,4 +312,37 @@ export function ModuleArt({ kind, on, building }: { kind: ModuleKind; on: boolea
         </svg>
       );
   }
+}
+
+/**
+ * A building site you can watch. The finished module rises out of the ground as the builders work:
+ * a pale blueprint shows what it will be, the real thing fills in from the bottom up, a bright
+ * build line with sparks climbs with it, and a crane swings pieces into place.
+ * With nobody working, the crane is parked and the blueprint waits.
+ */
+export function RisingArt({ kind, progress, working, under, yard }: { kind: ModuleKind; progress: number; working: boolean; under?: boolean; yard?: boolean }) {
+  const p = Math.max(0.05, Math.min(1, progress));
+  return (
+    <div className={`rise ${working ? 'working' : 'waiting'} ${under ? 'rise-under' : ''} ${yard ? 'rise-yard' : ''}`} style={{ '--p': p } as CSSProperties} aria-hidden="true">
+      <div className="rise-ghost"><ModuleArt kind={kind} on={false} /></div>
+      <div className="rise-real"><ModuleArt kind={kind} on /></div>
+      {/* Scaffolding: two poles and planks, drawn over the rising walls. */}
+      <svg className="rise-scaffold" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M6 100V8M94 100V8" stroke={INK} strokeWidth="2.6" vectorEffect="non-scaling-stroke" />
+        {[24, 48, 72].map((y) => <path key={y} d={`M6 ${y}H94`} stroke="#f2a65a" strokeWidth="5" vectorEffect="non-scaling-stroke" />)}
+        {[24, 48, 72].map((y) => <path key={`x${y}`} d={`M6 ${y}L18 ${y + 24}M94 ${y}L82 ${y + 24}`} stroke={INK} strokeWidth="2" vectorEffect="non-scaling-stroke" />)}
+      </svg>
+      <div className="rise-line">
+        {working && [0, 1, 2, 3, 4].map((i) => <i key={i} className="spark" style={{ left: `${10 + i * 19}%`, animationDelay: `${i * 0.17}s` }} />)}
+      </div>
+      {!under && (
+        <div className="crane">
+          <i className="crane-mast" />
+          <i className="crane-jib" />
+          <span className="crane-cable"><i className="crane-load" /></span>
+        </div>
+      )}
+      {working && <><i className="rise-dust" /><i className="rise-dust d2" /></>}
+    </div>
+  );
 }

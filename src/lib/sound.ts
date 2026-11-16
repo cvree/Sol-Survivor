@@ -13,6 +13,8 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let fxBus: GainNode | null = null;
 let musicBus: GainNode | null = null;
+/** A gentle lowpass on all music: soft music sounds warm and far away, never in your face. */
+let musicTone: BiquadFilterNode | null = null;
 let bedBus: GainNode | null = null;
 let verbSend: GainNode | null = null;
 let echoSend: GainNode | null = null;
@@ -29,7 +31,13 @@ let beat = 0;
 
 /** One friendly scale (C major pentatonic), low to high. Every effect picks its notes from here. */
 const SCALE = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093];
-const LEVEL = { master: 0.9, fx: 2, music: 0.42, beds: 0.8 };
+/** The loudest each bus can go. The player's settings scale these down (see `setVolumes`). */
+const LEVEL = { master: 0.9, fx: 2, music: 0.42, beds: 1.6 };
+/** What the player chose in the Esc menu, 0 to 1. Defaults keep the music quiet and soft. */
+const vol = { master: 0.8, music: 0.5, effects: 0.7, ambience: 0.5, soft: true, menu: false };
+const musicLevel = () => LEVEL.music * vol.music * vol.music * (vol.menu ? 0.6 : 1);
+const masterLevel = () => (muted ? 0 : LEVEL.master * vol.master);
+const toneCut = () => (vol.menu ? 520 : vol.soft ? 1700 : 16000);
 
 function ensure(): AudioContext | null {
   try {
@@ -44,17 +52,21 @@ function ensure(): AudioContext | null {
       limiter.attack.value = 0.004;
       limiter.release.value = 0.22;
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : LEVEL.master;
+      master.gain.value = masterLevel();
       master.connect(limiter).connect(ctx.destination);
 
       fxBus = ctx.createGain();
-      fxBus.gain.value = LEVEL.fx;
+      fxBus.gain.value = LEVEL.fx * vol.effects;
       fxBus.connect(master);
       musicBus = ctx.createGain();
-      musicBus.gain.value = LEVEL.music;
-      musicBus.connect(master);
+      musicBus.gain.value = musicLevel();
+      musicTone = ctx.createBiquadFilter();
+      musicTone.type = 'lowpass';
+      musicTone.Q.value = 0.5;
+      musicTone.frequency.value = toneCut();
+      musicBus.connect(musicTone).connect(master);
       bedBus = ctx.createGain();
-      bedBus.gain.value = LEVEL.beds;
+      bedBus.gain.value = LEVEL.beds * vol.ambience;
       bedBus.connect(master);
 
       // The room: a short, bright reverb tail and a quiet slapback echo, shared by every effect.
@@ -111,8 +123,32 @@ function impulse(c: AudioContext, seconds: number, decay: number) {
 export function setMuted(m: boolean) {
   muted = m;
   try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* fine */ }
-  if (ctx && master) master.gain.setTargetAtTime(m ? 0 : LEVEL.master, ctx.currentTime, 0.05);
+  if (ctx && master) master.gain.setTargetAtTime(masterLevel(), ctx.currentTime, 0.05);
   if (!m) { ensure(); retryMusic(); }
+}
+
+/** The player's volumes from the Esc menu. Safe to call often: it glides to the new levels. */
+export function setVolumes(v: { master: number; music: number; effects: number; ambience: number; soft: boolean }) {
+  Object.assign(vol, v);
+  if (!ctx || !master || !fxBus || !musicBus || !bedBus || !musicTone) return;
+  const t = ctx.currentTime;
+  master.gain.setTargetAtTime(masterLevel(), t, 0.05);
+  fxBus.gain.setTargetAtTime(LEVEL.fx * vol.effects, t, 0.05);
+  musicBus.gain.cancelScheduledValues(t);
+  musicBus.gain.setTargetAtTime(musicLevel(), t, 0.08);
+  bedBus.gain.setTargetAtTime(LEVEL.beds * vol.ambience, t, 0.08);
+  musicTone.frequency.setTargetAtTime(toneCut(), t, 0.2);
+}
+
+/** While the Esc menu is open the music goes soft and muffled, like holding your breath. */
+export function setMenuMuffle(on: boolean) {
+  if (vol.menu === on) return;
+  vol.menu = on;
+  if (!ctx || !musicBus || !musicTone) return;
+  const t = ctx.currentTime;
+  musicBus.gain.cancelScheduledValues(t);
+  musicBus.gain.setTargetAtTime(musicLevel(), t, 0.15);
+  musicTone.frequency.setTargetAtTime(toneCut(), t, 0.15);
 }
 
 // ---------- instruments ----------
@@ -309,8 +345,8 @@ function musicTick() {
   if (!ctx || !beds || muted || mood === 'off' || ctx.state !== 'running') return;
   beat++;
   if (mood === 'tension' && beat % 3 === 0) {
-    kick(0.16, 0, 90, 40);
-    kick(0.1, 0.2, 80, 38);
+    kick(0.07, 0, 90, 40);
+    kick(0.045, 0.2, 80, 38);
   }
 }
 
@@ -343,7 +379,8 @@ const FILES: Record<Track, string[]> = {
   win: ['victory-run'],
   lost: ['long-watch'],
 };
-const TRACK_LEVEL: Record<Track, number> = { title: 0.85, base: 0.72, storm: 0.9, dust: 0.75, win: 1, lost: 0.7 };
+/** Each track's level. Building the base is the quietest: it plays for minutes, so it stays in the background. */
+const TRACK_LEVEL: Record<Track, number> = { title: 0.8, base: 0.55, storm: 0.7, dust: 0.6, win: 0.85, lost: 0.6 };
 
 interface Deck { el: HTMLAudioElement; gain: GainNode; file: string }
 const decks = new Map<string, Deck>();
@@ -414,8 +451,8 @@ function duck(depth = 0.25, hold = 0.9) {
   if (!ctx || !musicBus) return;
   const t = ctx.currentTime;
   musicBus.gain.cancelScheduledValues(t);
-  musicBus.gain.setTargetAtTime(LEVEL.music * depth, t, 0.03);
-  musicBus.gain.setTargetAtTime(LEVEL.music, t + hold, 0.4);
+  musicBus.gain.setTargetAtTime(musicLevel() * depth, t, 0.03);
+  musicBus.gain.setTargetAtTime(musicLevel(), t + hold, 0.4);
 }
 
 // ---------- effects ----------
@@ -546,4 +583,15 @@ export const sfx = {
   /** Stars landing on the held card, one pitch each. */
   star: (i: number) => { const f = [n(7), n(9), n(12)][i] ?? n(12); chip(f, 0.14, 0.05); bell(f * 2, 0.8, 0.035, 0.02); },
   lose: () => [n(5), n(4), n(3), n(1)].forEach((f, i) => voice({ type: 'triangle', f, dur: 0.42, gain: 0.06, delay: i * 0.24, vibrato: 4, verb: 0.4 })),
+  /** The Esc menu opens: a soft sparkle that drifts up, like opening a music box. */
+  menuOpen: () => [5, 7, 9, 12].forEach((i, k) => bell(n(i), 0.9, 0.03, k * 0.06, ((k % 2) - 0.5) * 0.4)),
+  /** The Esc menu closes: the same sparkle, drifting back down. */
+  menuClose: () => [12, 9, 7].forEach((i, k) => bell(n(i), 0.6, 0.025, k * 0.05)),
+  /** A slider in the Esc menu: one soft note that climbs with the value. */
+  slide: (v: number) => pluck(n(2 + Math.round(v * 10)), 0.1, 0.04),
+  /** A hammer on a building site. Quiet, so a busy base sounds busy, not noisy. */
+  hammer: (pan = 0) => {
+    voice({ type: 'square', f: 1480 + Math.random() * 200, dur: 0.035, gain: 0.012, cut: 3200, cutTo: 1400, verb: 0.25, pan });
+    voice({ type: 'sine', f: 320, to: 150, dur: 0.08, gain: 0.035, verb: 0.05, pan });
+  },
 };

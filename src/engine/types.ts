@@ -200,6 +200,8 @@ export interface GameState {
   /** Bumped whenever something notable happens, so the UI can play a sound or shake. */
   pulse: { brownout: number; denied: number; hit: number; survived: number; landed: number; built: number; patched: number; died: number; upgraded: number; delivered: number };
   nextId: number;
+  /** Builders walk on to the next building site by themselves when they finish one (a player setting; on unless false). */
+  autoBuild?: boolean;
 }
 
 export interface PowerInfo {

@@ -32,6 +32,8 @@ export const MAX_OF: Record<ModuleKind, number> = {
 /** Modules that astronauts can work in, and how many fit. */
 export const WORK_SLOTS: Partial<Record<ModuleKind, number>> = { oxygen: 2, hydro: 2, lab: 2, medbay: 2 };
 export const BUILD_SOLS = 1;
+/** A builder walks on to the next building site by themselves only with more energy than this. */
+export const AUTO_BUILD_ENERGY = 30;
 
 // Cargo landers.
 /** A lander comes on its own every this many sols. Missions, discoveries and storms bring it sooner. */
