@@ -35,6 +35,21 @@ function pickAgent(game: GameState): string | null {
   return free[0]?.id ?? null;
 }
 
+/**
+ * During a paused lesson step, only the thing M.A.R.V. asked for works.
+ * A stray tap on something else (a rock pile next to the sparkle, say) does nothing,
+ * so the lesson can never get stuck.
+ */
+type Act = 'collect' | 'dig' | 'assign' | 'toggle' | 'build' | 'other';
+const ALLOW: Partial<Record<string, Act[]>> = { find: ['collect'], deposit: ['dig'], site: ['assign'], bed: ['assign'], module: ['toggle'], spot: ['build'] };
+function lessonAllows(act: Act): boolean {
+  const { coach, tour } = useGame.getState();
+  if (tour === 0) return false;
+  const step = stepOf(coach);
+  if (!step?.pause) return true;
+  return !!ALLOW[step.target]?.includes(act);
+}
+
 let lastTick = 0;
 let lastTuned = 0;
 let landerShown = -1;
@@ -393,7 +408,7 @@ export const useGame = create<Store>((set, get) => ({
 
   toggle: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('toggle')) return;
     const r = toggleModule(game, id);
     if (r.ok) (r.state.modules.find((m) => m.id === id)?.on ? sfx.on : sfx.off)();
     else if (r.reason) sfx.denied();
@@ -402,6 +417,7 @@ export const useGame = create<Store>((set, get) => ({
   collect: (id, who) => {
     const { game, findsActive, findsGot, moment, panel } = get();
     const f = findById(id);
+    if (!lessonAllows('collect')) return;
     if (!game || !f || game.status !== 'playing' || moment || panel || !findsActive.includes(id) || findsGot.includes(id)) return;
     const agent = who ?? pickAgent(game);
     if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out. Build a Rover Garage, or let someone rest.', at: Date.now() } }); return; }
@@ -414,7 +430,7 @@ export const useGame = create<Store>((set, get) => ({
   dig: (depId, who) => {
     const { game } = get();
     const d = game?.deposits.find((x) => x.id === depId);
-    if (!game || !d) return;
+    if (!game || !d || !lessonAllows('dig')) return;
     const agent = who ?? pickAgent(game);
     if (!agent) { sfx.denied(); set({ notice: { text: 'Everyone is busy or too tired to go out.', at: Date.now() } }); return; }
     const r = sendOut(game, agent, { kind: 'mine', dep: depId }, d.x);
@@ -435,13 +451,13 @@ export const useGame = create<Store>((set, get) => ({
   },
   emptyBin: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const next = collectBin(game, id);
     if (next !== game) { sfx.reward(); set({ game: next }); }
   },
   upgrade: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const r = startUpgrade(game, id);
     if (r.ok) { sfx.thump(); set({ game: r.state, panel: null }); }
     else { sfx.denied(); set({ notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice }); }
@@ -456,18 +472,18 @@ export const useGame = create<Store>((set, get) => ({
   },
   patch: (id) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('other')) return;
     const r = patch(game, id);
     if (r.ok) sfx.patch(); else sfx.denied();
     set({ game: r.state, notice: r.reason ? { text: r.reason, at: Date.now() } : get().notice });
   },
   build: (kind, cell) => {
     const { game } = get();
-    if (!game) return;
+    if (!game || !lessonAllows('build')) return;
     sfx.build();
     set({ game: build(game, kind, cell), panel: null });
   },
-  assign: (crewId, moduleId) => { const { game } = get(); if (game) {
+  assign: (crewId, moduleId) => { const { game } = get(); if (game && lessonAllows('assign')) {
     const next = assign(game, crewId, moduleId);
     if (next === game) { sfx.denied(); set({ notice: { text: 'There is no room to work there.', at: Date.now() } }); return; }
     sfx.assign();

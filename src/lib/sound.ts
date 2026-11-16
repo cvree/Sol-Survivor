@@ -29,7 +29,7 @@ let beat = 0;
 
 /** One friendly scale (C major pentatonic), low to high. Every effect picks its notes from here. */
 const SCALE = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093];
-const LEVEL = { master: 0.9, fx: 0.85, music: 0.42, beds: 0.8 };
+const LEVEL = { master: 0.9, fx: 2, music: 0.42, beds: 0.8 };
 
 function ensure(): AudioContext | null {
   try {
@@ -488,16 +488,16 @@ export const sfx = {
   /** The storm lands: a deep boom with a crack on top. */
   hit: () => {
     duck(0.2, 1.2);
-    kick(0.5, 0, 120, 30);
-    noise(1.2, 0.3, 1400, 50, 0, 0.7, 'lowpass', 0.4);
+    kick(0.32, 0, 120, 30);
+    noise(1.2, 0.18, 1400, 50, 0, 0.7, 'lowpass', 0.4);
     noise(0.12, 0.12, 5000, 1500, 0, 1, 'highpass', 0.2);
     voice({ type: 'sawtooth', f: 110, to: 34, dur: 0.9, gain: 0.06, cut: 600, cutTo: 80, verb: 0.3 });
   },
   brownout: () => { voice({ type: 'sawtooth', f: 300, to: 60, dur: 0.5, gain: 0.04, cut: 1200, cutTo: 200 }); noise(0.3, 0.06, 1200, 100); },
   /** A module snapping into place: a heavy thump, a clank, then a bright click. */
   thump: () => {
-    kick(0.42, 0, 140, 38);
-    noise(0.22, 0.16, 800, 60, 0, 0.7, 'lowpass', 0.1);
+    kick(0.3, 0, 140, 38);
+    noise(0.22, 0.11, 800, 60, 0, 0.7, 'lowpass', 0.1);
     voice({ type: 'square', f: 1240, dur: 0.06, gain: 0.025, delay: 0.05, cut: 3000, cutTo: 1500, verb: 0.3 });
     pluck(n(9), 0.12, 0.05, 0.12);
   },
@@ -519,10 +519,10 @@ export const sfx = {
   /** The lander's engines on the way down, then touchdown. */
   descent: () => {
     duck(0.45, 2.3);
-    noise(2.1, 0.14, 500, 1800, 0, 1.5);
+    noise(2.1, 0.08, 500, 1800, 0, 1.5);
     voice({ type: 'sawtooth', f: 70, to: 120, dur: 2.1, gain: 0.035, cut: 500, cutTo: 900 });
-    kick(0.4, 2.1, 130, 36);
-    noise(0.35, 0.22, 700, 50, 2.1, 0.7, 'lowpass', 0.2);
+    kick(0.25, 2.1, 130, 36);
+    noise(0.35, 0.13, 700, 50, 2.1, 0.7, 'lowpass', 0.2);
   },
   /** A discovery: a magic glissando up the scale with a shimmer. */
   discover: () => {
@@ -541,7 +541,7 @@ export const sfx = {
     chip(n(12), 0.5, 0.055, 0.5);
     bell(n(12), 1.4, 0.05, 0.5);
     bell(n(15), 1.2, 0.03, 0.56, 0.3);
-    kick(0.2, 0.5);
+    kick(0.1, 0.5);
   },
   /** Stars landing on the held card, one pitch each. */
   star: (i: number) => { const f = [n(7), n(9), n(12)][i] ?? n(12); chip(f, 0.14, 0.05); bell(f * 2, 0.8, 0.035, 0.02); },

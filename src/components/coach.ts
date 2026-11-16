@@ -54,7 +54,7 @@ export const LESSONS: Lesson[] = [
       { say: () => 'Something sparkles! Tap the ? to explore it.', target: 'find', pause: true,
         done: (s) => !!s.game && (s.game.stats.finds > 0 || s.game.crew.some((c) => c.trip?.job.kind === 'find')) },
       { say: (s) => `${name(s)} is walking out to take a look. Watch!`, target: 'trip', pause: false,
-        done: (s) => (s.game?.stats.finds ?? 0) > 0 },
+        done: (s) => (s.game?.stats.finds ?? 0) > 0 || !s.game?.crew.some((c) => c.trip?.job.kind === 'find') },
     ],
   },
   {

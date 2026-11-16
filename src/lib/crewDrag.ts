@@ -156,12 +156,17 @@ export function startCrewDrag(e: React.PointerEvent, crewId: string) {
   let lastT = performance.now();
   const scene = document.querySelector('.scene') as HTMLElement | null;
   // Near the edge of the scene, the camera slides along so you can carry them far.
+  // It only arms once the pointer has been away from the edges, so picking someone up
+  // who stands near the edge does not send the camera flying.
+  let armed = false;
   const edgePan = () => {
     const d = useDrag.getState();
     if (scene && d.id) {
       const r = scene.getBoundingClientRect();
-      if (d.x < r.left + 60) panBy(-12);
-      else if (d.x > r.right - 60) panBy(12);
+      const zone = Math.min(60, r.width * 0.1);
+      if (d.x > r.left + zone * 1.6 && d.x < r.right - zone * 1.6) armed = true;
+      if (armed && d.x < r.left + zone) panBy(-12);
+      else if (armed && d.x > r.right - zone) panBy(12);
       // Let the swing settle when the pointer stops.
       if (performance.now() - lastT > 50 && Math.abs(d.vx) > 0.01) useDrag.setState({ vx: d.vx * 0.82 });
     }
