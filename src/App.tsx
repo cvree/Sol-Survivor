@@ -19,7 +19,7 @@ import { setMood, setMusic, setVolumes } from './lib/sound';
 import { applyLook, useSettings, type Settings } from './lib/settings';
 import { SettingsHost } from './components/Settings';
 import { Oops } from './components/Oops';
-import { useGame } from './store/game';
+import { useGame, wantsFullBase } from './store/game';
 
 export function App() {
   const screen = useGame((s) => s.screen);
@@ -28,6 +28,8 @@ export function App() {
   useEffect(() => {
     void fetchLiveSun().then(setSun);
   }, [setSun]);
+  // `?base=full`: straight into a finished base to look around.
+  useEffect(() => { if (wantsFullBase() && useGame.getState().screen === 'title') useGame.getState().start(); }, []);
   // Outside a mission, the title theme plays (from the first tap: browsers wait for one).
   useEffect(() => {
     if (screen !== 'game') { setMusic('title'); setMood('off'); }

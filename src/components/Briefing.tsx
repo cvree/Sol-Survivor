@@ -3,19 +3,16 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, BedDouble, Rocket, ShieldHalf, Sparkles, Sun, Wind, Zap, Home } from 'lucide-react';
 import { COMMANDERS } from '../engine/engine';
 import { useGame } from '../store/game';
-import { isTrained } from './coach';
 import { Astronaut, Lander, Marv, Rover } from './art';
 import { HAPPY } from './crewLook';
 
 /**
  * The mission briefing: four short cards, one idea each, read out by M.A.R.V.
- * Then the game teaches the rest by doing. A first-time player reads every card;
- * someone who has finished the training before can start straight away.
+ * Then the game teaches the rest by doing. Every player reads every card, every mission.
  */
 export function Briefing() {
   const { start, commander } = useGame();
   const [n, setN] = useState(0);
-  const [trained] = useState(isTrained);
   const lead = COMMANDERS.find((c) => c.id === commander) ?? COMMANDERS[0];
   const cards = [
     {
@@ -56,7 +53,6 @@ export function Briefing() {
             </ol>
             <div className="brief-foot">
               <span className="brief-dots">{cards.map((_, i) => <i key={i} className={i === n ? 'on' : ''} />)}</span>
-              {trained && !last && <button className="btn btn-ghost" onClick={() => start()}>I have flown before: start</button>}
               <motion.button className="btn btn-go btn-big" onClick={() => (last ? start() : setN(n + 1))} whileTap={{ scale: 0.94 }} whileHover={{ scale: 1.04 }} autoFocus>
                 {last ? <><Rocket /> Start the mission</> : <>Next <ArrowRight /></>}
               </motion.button>

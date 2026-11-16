@@ -154,6 +154,46 @@ export function createGame(seed: number, catalog: Catalog, activity = 1, difficu
   };
 }
 
+/**
+ * A finished base, for showing the game off (`?base=full`): every module built at the top level,
+ * a full crew of six at work, the rover parked, and bricks and parts to spare. Same rules as a
+ * normal mission from then on. Layout: domes at both ends, Hydroponics either side of the Hab,
+ * and the four dug-in rooms below.
+ */
+export function fullBase(seed: number, catalog: Catalog, activity = 1, difficulty: Difficulty = 'easy', commanderId = 'ada'): GameState {
+  const s = createGame(seed, catalog, activity, difficulty, commanderId);
+  const plan: [string, ModuleKind, number, boolean][] = [
+    ['m10', 'dome', 0, false], ['m11', 'hydro', 1, true], ['hab', 'hab', K.HAB_CELL, true], ['m12', 'hydro', 3, true], ['m13', 'dome', 4, false],
+    ['m14', 'oxygen', 5, true], ['m15', 'lab', 6, true], ['m16', 'medbay', 7, true], ['m17', 'oxygen', 8, true],
+    ['m18', 'solar', 101, false], ['m19', 'solar', 102, false], ['m20', 'solar', 103, false], ['m21', 'solar', 104, false],
+    ['m22', 'battery', 105, false], ['m23', 'battery', 106, false], ['m24', 'miner', 107, true], ['m25', 'rover', 108, true], ['m26', 'comms', 109, true],
+  ];
+  for (const [id, kind, cell, on] of plan) {
+    s.modules.push({ id, kind, cell, on, buildLeft: 0, onSince: on ? s.time : 0, patchedUntil: 0, level: K.MAX_LEVEL, upgrading: false, buildTotal: 0, bin: 0 });
+  }
+  s.nextId = 30;
+  s.rover = { trip: null };
+  const lead = s.crew[0];
+  const rng = makeRng(seed ^ 0x5eed);
+  const others = RECRUITS.filter((r) => r.id !== lead.id).slice(0, K.MAX_CREW - 1);
+  for (const r of others) s.crew.push(newCrew(r, 1, 'hab', rng.range(0.9, 1.1)));
+  // Everyone to the room that suits them best; the rest rest in the Hab.
+  const jobs: Partial<Record<Role, string[]>> = { Engineer: ['m14', 'm17'], Botanist: ['m11', 'm12'], Scientist: ['m15'], Medic: ['m16'] };
+  for (const c of s.crew) {
+    const id = jobs[c.role]?.shift();
+    if (id) { c.at = id; c.walkFrom = id; }
+  }
+  // Stay within power: the shields wait for a storm, and work rooms switch off until the supply covers them.
+  for (const m of [...s.modules].reverse()) if (power(s).free < 0 && m.on && !GENERATOR(m.kind)) m.on = false;
+  s.life = 100;
+  s.materials = 60;
+  s.spareParts += 3;
+  s.landers = 5;
+  s.stats.built = plan.length;
+  s.log.push({ t: 1, tone: 'good', text: 'A finished base: every module built and upgraded. Keep the crew safe!' });
+  return s;
+}
+
 // ---------- reading the state ----------
 
 const GENERATOR = (k: ModuleKind) => k === 'solar' || k === 'battery' || k === 'pod';

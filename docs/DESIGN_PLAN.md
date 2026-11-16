@@ -293,3 +293,9 @@ Suggested opening message for the new chat:
 - ~~Is one evacuated astronaut still the end of the mission?~~ Decided: crew can really die. The base carries on short-handed (with a short spell of grief), and the mission ends only if the commander you picked dies or nobody is left.
 - Are cosmetics worth the build time before the hackathon deadline, or should Storm Cards be the only collectible?
 - What is the submission deadline? P1 and P2 should be cut to fit it.
+
+Eleventh pass (submission fixes):
+
+- Fixed the walk teleport (Connor: "told to go left, they exit the capsule, go right, then tp to the rock"). Any change in screen width (a scroll bar appearing, a resized window) re-placed everyone at the engine's rough estimate, which during a live walk is the airlock, then the rock. Now everyone moves with the world and keeps walking (`catchUp`/`remap` in `movement.ts`). Reproduced and checked in the browser with a 15 px width change mid-walk.
+- Training is mandatory on every mission: the intro and the training lessons always run, and "I have flown before" is gone from the briefing.
+- A finished base to show off: open the game with `?base=full` (every module built at level 3, six crew at work, no lessons). `fullBase()` in `engine.ts`. Screenshot: `docs/drafts/full-base.png`.

@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import { catalog } from '../data/records';
 import { EXPLORER_FINDS, FIND_EVERY_SOLS, SOL_SECONDS } from '../engine/constants';
 import { activeFinds, findById, findOrder, loadAlbum, saveAlbum } from '../data/discoveries';
-import { MODULE_NAME, acceptCargo, activeEvents, arrive, tripReached, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
+import { MODULE_NAME, acceptCargo, activeEvents, arrive, tripReached, assign, build, canGoOut, cancelSite, giftBricks, goTo, recall, cheer, collectBin, createGame, fullBase, grantReward, moveModule, patch, power, sendOut, startUpgrade, step, stormDose, toggleModule, type Difficulty } from '../engine/engine';
 import { saveRecord } from '../lib/records';
 import { CHAT, HIGH_FIVE, PEP_TALK } from '../data/characters';
 import { takeBonus } from '../lib/daily';
-import { LESSONS, TRAINING, isTrained, lessonOf, loadSeen, markTrained, saveSeen, stepOf, type CoachRun } from '../components/coach';
+import { LESSONS, TRAINING, lessonOf, loadSeen, markTrained, saveSeen, stepOf, type CoachRun } from '../components/coach';
 import { glideTo, homeX, resetPanned } from '../lib/camera';
 import { GOALS, TIP_GOAL, markOf, nextGoal, type GoalMark } from '../engine/goals';
 import type { GameState, ModuleKind } from '../engine/types';
@@ -15,6 +15,9 @@ import { isMuted, setMenuMuffle, setMood, setMusic, setMuted, sfx } from '../lib
 import { useSettings } from '../lib/settings';
 import { forgetWeather } from '../data/spaceWeather';
 import { markCurio } from '../data/curios';
+
+/** `?base=full` in the address opens a finished base to look around (for demos and screenshots). */
+export const wantsFullBase = () => { try { return new URLSearchParams(location.search).get('base') === 'full'; } catch { return false; } };
 
 /** The last stretch before a storm lands plays in slow motion: about 300 ms of real time. */
 const SLOWMO_SECONDS = 0.3;
@@ -272,15 +275,18 @@ export const useGame = create<Store>((set, get) => ({
   start: () => {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const { sun, difficulty, commander, album } = get();
-    // The first-run training happens once. After that the intro is skipped and lessons are remembered.
-    const trained = isTrained();
+    // The training is mandatory: every mission starts with the intro and M.A.R.V.'s training lessons.
+    // (Other lessons, like night or storms, are still remembered between missions.)
+    // Only the finished-base showcase (`?base=full`) skips it, because there is nothing left to build.
+    const showcase = wantsFullBase();
+    const trained = showcase;
     const seen = loadSeen().filter((id) => !TRAINING.includes(id));
     sfx.build();
     landerShown = -1;
     clearTimeout(holdTimer);
     resetPanned();
     const order = findOrder(seed, album);
-    let fresh = createGame(seed, catalog, sun.activity, difficulty, commander);
+    let fresh = (showcase ? fullBase : createGame)(seed, catalog, sun.activity, difficulty, commander);
     // Solved today's Sol Check? A sharp mind starts with a few bricks and a spare part.
     const sharp = takeBonus();
     if (sharp) fresh = { ...fresh, materials: fresh.materials + 10, spareParts: fresh.spareParts + 1 };
@@ -290,7 +296,7 @@ export const useGame = create<Store>((set, get) => ({
       coach: null, findsOrder: order, findsActive: activeFinds(order, 1), findsGot: [], curios: [],
       screen: 'game', game: fresh,
       paused: false, speed: 1, panel: null, notice: null, picked: null, seenKinds: [], party: 0,
-      tour: trained ? null : 0, lessonsSeen: trained ? [...seen, ...TRAINING] : seen, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
+      tour: trained ? null : 0, lessonsSeen: showcase ? LESSONS.map((l) => l.id) : trained ? [...seen, ...TRAINING] : seen, slowmo: false, moment: null, goal: null, goalsDone: [], goalFlash: null, tip: null, bubble: null,
     });
   },
   retry: () => {

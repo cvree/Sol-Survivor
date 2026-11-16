@@ -276,7 +276,47 @@ interface Body {
 const bodies = new Map<string, Body>();
 let seed = -1;
 let geo: Geo | null = null;
-let lastW = 0;
+/** The map the bodies' positions were last measured against. */
+let seen: Geo | null = null;
+
+const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
+const sameGeo = (a: Geo, b: Geo) => near(a.W, b.W) && near(a.yIn, b.yIn) && near(a.yUnder, b.yUnder) && near(a.yOut, b.yOut)
+  && near(a.pod?.x ?? 0, b.pod?.x ?? 0) && near(a.pod?.y ?? 0, b.pod?.y ?? 0);
+
+/**
+ * The screen changed size (a resized window, a scroll bar coming or going, a taller message bar):
+ * the whole world was redrawn, and every floor and place moved with it. Each body moves with the
+ * world and keeps its place in it, then plans its walk again from there. Nobody is ever put back
+ * where the engine's rough estimate says (that was a teleport: to the airlock, or straight to the
+ * rock they were walking to).
+ */
+function catchUp(g: Geo) {
+  if (seen && !sameGeo(seen, g)) for (const b of bodies.values()) remap(b, seen, g);
+  seen = g;
+}
+function remap(b: Body, o: Geo, g: Geo) {
+  const k = g.W / o.W;
+  const lerp = (y: number, a0: number, b0: number, a1: number, b1: number) => (Math.abs(b0 - a0) < 0.01 ? a1 : a1 + ((y - a0) / (b0 - a0)) * (b1 - a1));
+  const mapX = (x: number, loc: Loc) => ((loc === 'pod' || loc === 'podstep') && o.pod && g.pod ? x - o.pod.x + g.pod.x : x * k);
+  const mapY = (y: number, loc: Loc) => {
+    switch (loc) {
+      case 'in': return g.yIn;
+      case 'under': return g.yUnder;
+      case 'out': return g.yOut;
+      case 'ladder': return lerp(y, o.yIn, o.yUnder, g.yIn, g.yUnder);
+      case 'door': return lerp(y, o.yIn, o.yOut, g.yIn, g.yOut);
+      case 'pod': return g.pod?.y ?? y;
+      case 'podstep': return o.pod && g.pod ? lerp(y, o.pod.y, o.yOut, g.pod.y, g.yOut) : y;
+      default: return lerp(y, o.yIn, o.yOut, g.yIn, g.yOut);
+    }
+  };
+  if (b.mode !== 'carried') { b.x = mapX(b.x, b.loc); b.y = mapY(b.y, b.loc); }
+  if (b.land) b.land = { ...b.land, x: mapX(b.land.x, b.land.loc), y: mapY(b.land.y, b.land.loc) };
+  if (b.wander !== null) b.wander *= k;
+  // Plan the rest of the walk again from the new spot, without stopping.
+  b.legs = [];
+  b.goal = null;
+}
 
 /** How far a body's feet hang below the finger while carried. */
 const HANG = 46;
@@ -451,9 +491,9 @@ export function bind(id: string, el: HTMLElement | null) {
   if (el) els.set(id, el); else els.delete(id);
   const game = useGame.getState().game;
   if (!el || !game) return;
-  if (game.seed !== seed) { seed = game.seed; bodies.clear(); }
+  if (game.seed !== seed) { seed = game.seed; bodies.clear(); seen = null; }
   const g = measure(game);
-  if (g && !bodies.size) lastW = g.W;
+  if (g) catchUp(g);
   geo = g ?? geo;
   const b = geo ? ensure(id, game, geo) : null;
   if (b) draw(b);
@@ -557,26 +597,13 @@ function frame(now: number) {
   last = now;
   const st = useGame.getState();
   const game = st.game;
-  if (!game) { bodies.clear(); return; }
+  if (!game) { bodies.clear(); seen = null; return; }
   // A new mission: everyone starts again where the new mission puts them.
-  if (game.seed !== seed) { seed = game.seed; bodies.clear(); }
+  if (game.seed !== seed) { seed = game.seed; bodies.clear(); seen = null; }
   const g = measure(game);
   if (!g) return;
-  // The screen was resized (or first measured): the whole world was redrawn at a new size, so
-  // everyone is put back where the engine says they are. This is the one time a body is placed
-  // rather than walked, and it only happens when the window itself changes size.
-  if (lastW && Math.abs(g.W - lastW) > 0.5) {
-    for (const b of bodies.values()) {
-      // (Bodies made before the first real measurement are placed now too.)
-      const at = b.mode === 'free' ? spawnSpot(b.id, game, g) : null;
-      if (at) { b.x = at.x; b.y = at.y; b.loc = at.loc; }
-      else b.x *= g.W / lastW;
-      b.legs = [];
-      b.goal = null;
-      b.v = 0;
-    }
-  }
-  lastW = g.W;
+  // The screen changed size: everyone moves with the world (never back to an estimate).
+  catchUp(g);
   geo = g;
   // Walking runs on the game clock: it stops when the clock stops, and keeps step with 2x speed.
   const rate = clockRate(st) * (SOL_SECONDS.easy / SOL_SECONDS[game.difficulty]);
@@ -586,7 +613,8 @@ function frame(now: number) {
   const followId = useFollow.getState().id;
   const alive = new Set(game.crew.filter((c) => !c.out).map((c) => c.id));
   if (game.rover) alive.add('rover');
-  for (const id of bodies.keys()) if (!alive.has(id) || !els.has(id)) bodies.delete(id);
+  // Only the dead are forgotten. A body whose drawing is briefly away keeps its place and its walk.
+  for (const id of bodies.keys()) if (!alive.has(id)) bodies.delete(id);
   for (const id of els.keys()) if (alive.has(id)) ensure(id, game, g);
 
   for (const b of bodies.values()) {
@@ -705,4 +733,4 @@ export function stopMovement() {
 export const debugBodies = () => [...bodies.values()].map((b) => ({ id: b.id, x: b.x, y: b.y, loc: b.loc, v: b.v, mode: b.mode, legs: b.legs.map((l) => ({ ...l.to, kind: l.kind })), goal: b.goal }));
 export const debugGeo = () => geo;
 /** Forget everyone (a new mission). */
-export function resetBodies() { bodies.clear(); seed = -1; lastW = 0; }
+export function resetBodies() { bodies.clear(); seed = -1; seen = null; }
