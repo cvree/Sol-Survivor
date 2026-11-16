@@ -1,93 +1,68 @@
 # Sol Survivor
 
-A browser game for ages 7 to 12, built for the 2026 NASA Space Apps Challenge
-**Build a Junior Astronaut Mission Trainer**.
+**A Mars survival game for ages 7 to 12.** You land alone in Gale Crater with nothing but a
+small capsule. You explore, earn cargo landers, build every module by hand with your own crew,
+and keep everyone alive for 30 sols (Mars days) while the Sun throws storms at you.
 
-You command a Mars outpost at Gale Crater and must keep four astronauts alive for
-30 sols. There is never enough power for everything, so every choice costs something.
+Built for the 2026 NASA Space Apps Challenge, **Build a Junior Astronaut Mission Trainer**.
 
-**Play:** https://cvree.github.io/Sol-Survivor/ (live once the `main` branch is deployed)
+**Play it:** https://cvree.github.io/Sol-Survivor/ (runs in any modern browser, laptop, tablet or phone; no install)
 
-## How it plays
+## How to play (five lines)
 
-1. **Land and build.** The game opens on bare Mars with a lander and two astronauts.
-   M.A.R.V., the base robot, says one thing: "Build a Dome, Commander!" One click
-   and the Hab thumps into place, the crew walk in, and the base is online.
-2. **A living cutaway.** Glass domes sit on the surface, rooms are dug in below,
-   and solar fields, batteries and the comms dish stand in the yard. Astronauts
-   wander inside their modules. Lights go dark and a red lamp blinks when a module
-   loses power.
-3. **Cargo landers grow the base.** Every few sols a lander brings a new specialist
-   (Engineer, Botanist, Medic, Scientist) and four blueprints, of which you may
-   unpack two. A working Science Lab makes landers arrive sooner.
-4. **Staff the modules.** Click an astronaut to see vitals and send them to work.
-   An empty module works at half strength; the right specialist gives a boost.
-5. **Growth has a cost.** Every astronaut uses air and food, long-stay crew need
-   more of both, and one Shield Dome only covers four people. Power never covers
-   everything, so raising the domes means switching life support off.
-6. **Emergencies are real records.** Solar flares and solar storms come from NASA
-   DONKI, dust storms from NASA rover and lander reports. Every warning stops the
-   clock and shows the real record.
-7. **NASA Science Log** shows the real data behind whatever is happening on the
-   base right now. The **mission debrief** explains how the base's growth led to the result.
+1. M.A.R.V. the robot points at one thing at a time. Do what he points at; the first two minutes teach you everything.
+2. Tap a **?** sparkle to send your astronaut out to explore. Discoveries bring the next cargo lander closer.
+3. Pick building plans from the lander, tap a green spot to mark a building site, then **drag** an astronaut onto it (or tap them, then tap the site, or press **Send**).
+4. Astronauts walk to their jobs, get tired, and need sleep. Drag them to the Oxygen Maker to make air, and to bed when they are sleepy.
+5. When a storm fuse burns across the sky, switch on the Shield Dome before it lands. Survive 30 sols to win.
 
-Three difficulty levels: Easy, Normal and Hard.
+## The NASA data inside it
 
-## NASA data used
-
-| Source | What it gives the game | How it is loaded |
+| Source | What it does in the game | How it gets in |
 |---|---|---|
-| [DONKI](https://kauai.ccmc.gsfc.nasa.gov/DONKI/) | Real solar flares (class) and coronal mass ejections (speed, Mars arrival) that become in-game storms | Saved snapshot in `src/data/donki-events.json`, plus a live 30-day flare count on the title screen |
-| [OSDR](https://osdr.nasa.gov/) | Ten study records behind the crew-health, long-stay wear and food rules | Saved snapshot in `src/data/osdr-studies.json` |
-| Curiosity RAD | 0.67 mSv per sol background dose at Gale Crater | Constant in `src/engine/constants.ts` |
-| NASA-STD-3001 | 600 mSv career radiation limit | Constant in `src/engine/constants.ts` |
-| NASA/JPL mission reports | Three dust storm records (Opportunity 2018 and 2007, InSight 2022) | Typed in by hand in `src/data/records.ts` |
+| [NASA DONKI](https://kauai.ccmc.gsfc.nasa.gov/DONKI/) space weather | Real solar flares and coronal mass ejections are meant to become the in-game storms, with their dates. The title screen asks DONKI live for the last 30 days of flares and makes storms stronger or weaker. | Live flare count from `api.nasa.gov` in the player's browser. The saved archive (`src/data/donki-events.json`) **could not be downloaded** for this build (see below), so every storm in the game is honestly labelled **"practice storm"**. |
+| [NASA Open Science Data Repository (OSDR)](https://osdr.nasa.gov/) | Ten real space-biology studies (bed rest and low oxygen, space radiation in mice, lettuce grown on the Space Station, ryegrass in Mars soil simulant, Inspiration4 blood tests, bone loss in flown mice) sit behind the crew-health, food and long-stay rules. Each is shown to the player in the NASA Log with a kid-sized sentence and a link. | Saved snapshot in `src/data/osdr-studies.json` (fetched 15 November 2026). |
+| Curiosity's RAD instrument | The everyday background radiation at the base, **0.67 mSv per sol**, is the dose RAD measured on the surface of Gale Crater ([Hassler et al., *Science*, 2014](https://www.science.org/doi/10.1126/science.1244797)). | Constant in `src/engine/constants.ts`. |
+| NASA-STD-3001 | The 600 mSv career radiation limit that caps an astronaut's health. | Constant in `src/engine/constants.ts`. |
+| NASA/JPL mission reports | Three real dust storms: Opportunity 2018, Spirit and Opportunity 2007, InSight 2022. | Typed in by hand in `src/data/records.ts`, checked against news and NASA reports on 16 Nov 2026. |
+| Curiosity in Gale Crater | Twelve discoveries in the crater (Bagnold Dunes, iron meteorites, the 2024 sulfur crystals, ChemCam's laser, Mount Sharp...). | Typed in by hand in `src/data/discoveries.ts`, checked on 16 Nov 2026. |
 
-Refresh the snapshots with:
+## What is simplified (the game tells players this too, in the NASA Log)
 
-```bash
-NASA_API_KEY=your_key npm run fetch-nasa
-```
+- **Time is squeezed.** One sol passes in 8 seconds. Real cargo flights take about seven months, not a few sols.
+- **Storm radiation is scaled up** so one storm matters in a short game. The Shield Dome and the way it covers neighbouring rooms are game rules.
+- **Bodies are simplified.** Energy, mood, sleep and long-stay wear use game numbers, inspired by the OSDR studies but not calculated from them.
+- **Practice storms.** Because the DONKI archive could not be downloaded, storms use made-up strengths and say so on screen. Running `npm run fetch-nasa` with a NASA API key replaces them with real dated records.
+- **Where things sit** in the crater is made up; what they are is real.
+- Crew names, personalities and jokes are invented.
 
-**Status:** the OSDR snapshot is in the repo. The DONKI snapshot has not been
-downloaded yet, so until `npm run fetch-nasa` is run with a key the game labels its
-solar storms as practice storms.
-
-### What is real and what is simplified
-
-The game says this to players too, in the NASA data panel.
-
-- Time is squeezed: one sol passes in 8 seconds, and the hypoxia timeline that
-  takes minutes in real life is stretched over sols.
-- Storm radiation doses are scaled up so one storm matters in a 30-sol game.
-- The Shield Dome is simplified, long-stay wear rates are game numbers, and real
-  cargo trips take about seven months, not five sols.
-- The three dust storm records were entered by hand and should be checked against
-  the linked NASA pages before judging.
-
-## Run it
+## Run it yourself
 
 ```bash
 npm install
-npm run dev      # play locally
-npm test         # balance and rules tests
-npm run build    # production build in dist/
+npm run dev        # play locally at http://localhost:5173
+npm test           # rules and balance tests (simulated players)
+npm run build      # production build in dist/
+NASA_API_KEY=your_key npm run fetch-nasa   # refresh the DONKI and OSDR snapshots
 ```
+
+Pushing to `main` deploys to GitHub Pages automatically (`.github/workflows/deploy.yml`).
 
 ## How the code is laid out
 
 ```
-src/engine/      Pure game rules, no React. constants.ts holds every balance number.
-src/engine/bots.ts + engine.test.ts
-                 Simulated players that prove there is no "safe" strategy:
-                 doing nothing always loses, and even the largest base cannot power
-                 every module at once.
-src/data/        NASA snapshots, glossary, Mars facts.
-src/components/  The screens: HUD, outpost, crew vitals, alerts, data panel, debrief.
-src/store/       Game state and the real-time clock.
-scripts/         fetch-nasa-data.mjs downloads the DONKI and OSDR snapshots.
+src/engine/       Pure game rules, no React. constants.ts holds every balance number.
+                  bots.ts + engine.test.ts: simulated players that check the balance.
+src/data/         NASA snapshots, real records, discoveries, facts, characters.
+src/components/   Screens. Guide.tsx is M.A.R.V.'s spotlight training; coach.ts holds the lessons.
+                  Walk.tsx draws astronauts walking to their jobs and the glowing drop zones.
+src/lib/          crewDrag.ts (drag or tap-then-tap), sound.ts (synth effects + music), camera.ts.
+src/store/        Game state and the real-time clock.
+public/music/     Five music tracks.
+scripts/          fetch-nasa-data.mjs downloads the DONKI and OSDR snapshots.
 ```
 
 ## Team
 
-Connor: health science, EMT, design direction, crew vitals model.
+Connor: health science, EMT, design direction, crew vitals model. Music made with Google Gemini.
+Code written with Claude (Anthropic); see `docs/SUBMISSION.md` for how AI was used.

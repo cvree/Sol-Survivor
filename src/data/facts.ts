@@ -5,7 +5,7 @@ export const FACTS: string[] = [
   'Mars gets less than half the sunlight Earth does, so solar panels there make less power.',
   'The air on Mars is 95% carbon dioxide. You could not breathe it.',
   'NASA\'s MOXIE machine, on the Perseverance rover, made real oxygen out of Mars air: 122 grams over 16 runs.',
-  'A radio message between Mars and Earth takes from 4 to 24 minutes each way. In an emergency, the crew decides alone.',
+  'A radio message between Mars and Earth takes from about 3 to 22 minutes each way. In an emergency, the crew decides alone.',
   'Mars has no magnetic shield like Earth\'s, and its air is about 100 times thinner. That is why space radiation reaches the ground.',
   'The Curiosity rover carries a radiation detector called RAD. It measured about 0.67 millisieverts every day at Gale Crater.',
   'Gravity on Mars is 38% of Earth\'s. If you weigh 80 pounds on Earth, you would weigh about 30 on Mars.',

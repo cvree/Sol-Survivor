@@ -70,6 +70,9 @@ export const MODULE_NAME: Record<ModuleKind, string> = {
   pod: 'Capsule', miner: 'Regolith Miner', rover: 'Rover Garage', hab: 'Hab', solar: 'Solar Field', battery: 'Battery Bank', oxygen: 'Oxygen Maker', hydro: 'Hydroponics',
   dome: 'Shield Dome', medbay: 'Med Bay', lab: 'Science Lab', comms: 'Comms Array',
 };
+/** "a Hab", "an Oxygen Maker": the right little word before a module name. */
+export const aModule = (k: ModuleKind) => `${/^[AEIOU]/.test(MODULE_NAME[k]) ? 'an' : 'a'} ${MODULE_NAME[k]}`;
+
 
 const LINES = {
   air1: ['I feel a little dizzy...', 'Is the air getting thin in here?'],
@@ -423,7 +426,7 @@ export function build(prev: GameState, kind: ModuleKind, at?: number): GameState
   // The Hab is built at a site of its own, then becomes the crew's home.
   s.modules.push({ id: kind === 'hab' ? 'hab-site' : `m${s.nextId++}`, kind, cell, on: false, buildLeft: K.BUILD_SOLS, onSince: 0, patchedUntil: 0, level: 1, upgrading: false, buildTotal: K.BUILD_SOLS, bin: 0 });
   s.stats.built++;
-  log(s, 'info', `Building site ready for a ${MODULE_NAME[kind]}. Send an astronaut to build it!`);
+  log(s, 'info', `Building site ready for ${aModule(kind)}. Send an astronaut to build it!`);
   return s;
 }
 

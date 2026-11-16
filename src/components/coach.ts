@@ -1,6 +1,6 @@
 import { pannedBy } from '../lib/camera';
 import type { GameState } from '../engine/types';
-import { MODULE_NAME, POWER_COST_OF, bedName, habReady, power } from '../engine/engine';
+import { aModule, POWER_COST_OF, bedName, habReady, power } from '../engine/engine';
 
 /**
  * M.A.R.V.'s hands-on lessons. Each step asks for one thing, points right at it
@@ -60,7 +60,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'place', when: (s) => !!s.game && s.game.blueprints.length > 0 && !sites(s).length && s.game.modules.length <= 2,
     steps: [
-      { say: (s) => `You got plans for a ${MODULE_NAME[s.game!.blueprints[0]]}! Tap the green spot to build it.`, target: 'spot', pause: true,
+      { say: (s) => `You got plans for ${aModule(s.game!.blueprints[0])}! Tap the green spot to build it.`, target: 'spot', pause: true,
         done: (s) => sites(s).length > 0 },
     ],
   },

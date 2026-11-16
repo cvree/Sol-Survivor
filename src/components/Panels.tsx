@@ -201,7 +201,7 @@ const HEADLINE: Record<EventKind, string> = {
   dust: 'A wall of dust is about to hide the Sun!',
 };
 const FIRST_TIME: Record<EventKind, string[]> = {
-  cme: ['Radiation damage never heals, so block as much as you can.', 'Earth cannot help. A radio call there and back takes up to 48 minutes. You are the commander.'],
+  cme: ['Radiation damage never heals, so block as much as you can.', 'Earth cannot help. A radio call there and back can take about 45 minutes. You are the commander.'],
   flare: ['Flares are short. You can switch modules back on soon.', 'Even a half-charged shield helps.'],
   dust: ['If power runs short, the last module you switched on trips off by itself. Better to choose yourself.', 'Batteries keep working in the dust. Solar Fields do not.'],
 };

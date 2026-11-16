@@ -2,9 +2,10 @@ import { FIND_EVERY_SOLS, FIND_FIRST } from '../engine/constants';
 import { makeRng } from '../engine/rng';
 
 /**
- * Things to discover around the base. Every one is something real that the
- * Curiosity rover has seen in Gale Crater, where the base sits.
- * Facts typed in by hand from NASA mission pages, not downloaded.
+ * Things to discover around the base. All but one are real things the Curiosity rover
+ * has seen in Gale Crater, where the base sits; buried water ice is a fact about Mars in general.
+ * Facts typed in by hand from NASA mission pages, not downloaded. Checked against NASA and
+ * news sources on 16 November 2026 (see docs/SUBMISSION.md).
  * Where each one sits next to the base is made up for the game.
  */
 export type FindReward = 'science' | 'part' | 'supplies';
