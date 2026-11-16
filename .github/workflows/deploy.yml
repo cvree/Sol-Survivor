@@ -19,20 +19,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
-      - run: npm test
-      - run: npm run build
+
+      - name: Download real NASA storm records
         env:
-          # Optional. Add a repository variable named NASA_API_KEY to raise the
-          # live "today's Sun" rate limit. Without it the game uses NASA's DEMO_KEY.
-          VITE_NASA_API_KEY: ${{ vars.NASA_API_KEY }}
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+        run: |
+          test -n "$NASA_API_KEY" || { echo "Add the NASA_API_KEY repository secret"; exit 1; }
+          npm run fetch-nasa -- donki
+
+      - run: npm test
+
+      - run: npm run build
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
